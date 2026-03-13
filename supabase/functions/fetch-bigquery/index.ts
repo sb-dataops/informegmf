@@ -240,10 +240,10 @@ serve(async (req) => {
       `;
 
       const [relStats, pagoStats, traspasoStats, retiroStats] = await Promise.all([
-        safeQuery2(relatorioStatsSQL),
-        safeQuery2(pendientesPagoSQL),
-        safeQuery2(pendientesTraspasoSQL),
-        safeQuery2(pendientesRetiroSQL),
+        safeQuery2("relatorio", relatorioStatsSQL),
+        safeQuery2("pago", pendientesPagoSQL),
+        safeQuery2("traspaso", pendientesTraspasoSQL),
+        safeQuery2("retiro", pendientesRetiroSQL),
       ]);
 
       const stats = {
