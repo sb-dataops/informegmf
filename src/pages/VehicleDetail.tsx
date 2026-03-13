@@ -27,6 +27,12 @@ const VehicleDetail = () => {
     (v) => v.placa.toUpperCase() === placa?.toUpperCase()
   ) || vehiculos[0];
 
+  const { data: pagoData, refetch: refetchPago } = useQuery({
+    queryKey: ["pago-detail", placa],
+    queryFn: () => fetchPagoByPlaca(placa!),
+    enabled: !!placa,
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <header className="gradient-header border-b border-sidebar-border sticky top-0 z-50">
