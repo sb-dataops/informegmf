@@ -190,10 +190,10 @@ serve(async (req) => {
         SELECT 
           COUNT(*) as total,
           COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%APROBADO%') as aprobados,
-          COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PROCESO%') as en_proceso,
+          COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%') as en_proceso,
           COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PENDIENTE%') as pendientes,
           COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%RECHAZADO%') as rechazados
-        FROM \`${TABLES.retiros}\`
+        FROM \`${TABLES.relatorio}\`
       `;
       const stats = await queryBQ(token, projectId, statsSQL);
       return new Response(JSON.stringify({ stats: stats[0] || {} }), {
