@@ -1,12 +1,8 @@
-import { supabase } from "@/integrations/supabase/client";
 import {
   SearchResult,
   DashboardStatsData,
   Comprador,
   VehiculoConsolidado,
-  RelatorioRecord,
-  RetiroRecord,
-  TramitadorRecord,
 } from "@/types";
 
 const FUNCTION_NAME = "fetch-bigquery";
