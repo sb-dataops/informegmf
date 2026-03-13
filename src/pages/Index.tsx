@@ -16,7 +16,12 @@ const Index = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
 
-  const { data: searchResult, isLoading, isError, error } = useQuery({
+  const {
+    data: searchResult,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["bigquery-search", searchTerm],
     queryFn: () => searchBigQuery(searchTerm),
     enabled: !!searchTerm,
@@ -24,9 +29,8 @@ const Index = () => {
   });
 
   const compradores = searchResult ? extractCompradores(searchResult) : [];
-  const vehiculos = selectedComprador && searchResult
-    ? consolidateVehiculos(searchResult, selectedComprador.documento)
-    : [];
+  const vehiculos =
+    selectedComprador && searchResult ? consolidateVehiculos(searchResult, selectedComprador.documento) : [];
 
   const handleSearch = () => {
     if (!query.trim()) return;
@@ -35,12 +39,10 @@ const Index = () => {
   };
 
   // Auto-select if only 1 buyer found
-  const effectiveComprador = selectedComprador ||
-    (compradores.length === 1 && searchResult ? compradores[0] : null);
+  const effectiveComprador = selectedComprador || (compradores.length === 1 && searchResult ? compradores[0] : null);
 
-  const effectiveVehiculos = effectiveComprador && searchResult
-    ? consolidateVehiculos(searchResult, effectiveComprador.documento)
-    : [];
+  const effectiveVehiculos =
+    effectiveComprador && searchResult ? consolidateVehiculos(searchResult, effectiveComprador.documento) : [];
 
   const selectComprador = (c: Comprador) => {
     setSelectedComprador(c);
@@ -96,7 +98,7 @@ const Index = () => {
             {isLoading && (
               <div className="flex items-center justify-center py-12 gap-3">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <span className="text-muted-foreground">Consultando BigQuery...</span>
+                <span className="text-muted-foreground">Consultando...</span>
               </div>
             )}
 
