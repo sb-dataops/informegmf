@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { fetchFilteredLots } from "@/services/bigqueryService";
 import type { FilteredLotRow } from "@/types";
@@ -141,8 +141,15 @@ const FilteredLots = () => {
                             key={`${item.placa}-${idx}`}
                             className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
                           >
-                            <td className="px-4 py-2.5 font-mono font-semibold text-foreground">
-                              {item.placa || "—"}
+                            <td className="px-4 py-2.5 font-mono font-semibold">
+                              {item.placa ? (
+                                <Link
+                                  to={`/vehiculo/${encodeURIComponent(item.placa)}`}
+                                  className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+                                >
+                                  {item.placa}
+                                </Link>
+                              ) : "—"}
                             </td>
                             <td className="px-4 py-2.5 text-foreground">
                               {item.comprador || "—"}
