@@ -1,8 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { searchBigQuery, consolidateVehiculos } from "@/services/bigqueryService";
+import { searchBigQuery, consolidateVehiculos, formatCurrency } from "@/services/bigqueryService";
+import { fetchPagoByPlaca } from "@/services/pagosService";
 import VehicleCard from "@/components/VehicleCard";
-import { ArrowLeft, Loader2, Search } from "lucide-react";
+import PaymentForm from "@/components/PaymentForm";
+import DocumentUpload from "@/components/DocumentUpload";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Loader2, Search, DollarSign, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
