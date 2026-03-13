@@ -128,21 +128,19 @@ serve(async (req) => {
 
       const schemas: Record<string, unknown> = {};
       for (const table of tables) {
-        const rows = await queryBigQuery(
-          accessToken,
-          projectId,
-          `SELECT column_name, data_type FROM \`${table.replace(/\./g, ".")}\`.INFORMATION_SCHEMA.COLUMNS WHERE table_name = '${table.split(".").pop()}'`
-        );
-        // Fallback: just get first row to see columns
-        if (rows.length === 0) {
+        try {
           const sample = await queryBigQuery(
             accessToken,
             projectId,
-            `SELECT * FROM \`${table}\` LIMIT 1`
+            `SELECT * FROM \`${table}\` LIMIT 2`
           );
-          schemas[table] = { sample_row: sample[0] || "empty", columns: sample[0] ? Object.keys(sample[0]) : [] };
-        } else {
-          schemas[table] = rows;
+          schemas[table] = {
+            columns: sample[0] ? Object.keys(sample[0]) : [],
+            sample_rows: sample,
+            row_count: sample.length,
+          };
+        } catch (e) {
+          schemas[table] = { error: e instanceof Error ? e.message : String(e) };
         }
       }
 
