@@ -229,9 +229,10 @@ serve(async (req) => {
         SELECT 
           COUNT(*) as total,
           COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%APROBADO%') as aprobados,
-          COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%') as en_proceso,
+          COUNTIF((UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%') AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%') as en_proceso,
           COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PENDIENTE%') as pendientes
         FROM \`${TABLES.relatorio}\`
+        WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
       `;
 
       // Retiros stats - all in one query to avoid type casting issues
@@ -316,6 +317,7 @@ serve(async (req) => {
           SELECT subasta, placa, comprador, documento, descripcion, estado, lote
           FROM \`${TABLES.relatorio}\`
           WHERE UPPER(IFNULL(estado,'')) LIKE '%APROBADO%'
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
           ORDER BY subasta, placa
           LIMIT 2000
         `;
@@ -323,7 +325,8 @@ serve(async (req) => {
         sql = `
           SELECT subasta, placa, comprador, documento, descripcion, estado, lote
           FROM \`${TABLES.relatorio}\`
-          WHERE UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%'
+          WHERE (UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%')
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
           ORDER BY subasta, placa
           LIMIT 2000
         `;
@@ -331,6 +334,7 @@ serve(async (req) => {
         sql = `
           SELECT subasta, placa, comprador, documento, descripcion, estado, lote
           FROM \`${TABLES.relatorio}\`
+          WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
           ORDER BY subasta, placa
           LIMIT 2000
         `;
