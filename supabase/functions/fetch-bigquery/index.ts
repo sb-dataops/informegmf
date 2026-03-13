@@ -320,6 +320,7 @@ serve(async (req) => {
           FROM \`${TABLES.relatorio}\`
           WHERE UPPER(IFNULL(estado,'')) LIKE '%APROBADO%'
             AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')
           ORDER BY subasta, placa
           LIMIT 2000
         `;
@@ -329,6 +330,7 @@ serve(async (req) => {
           FROM \`${TABLES.relatorio}\`
           WHERE (UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%')
             AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')
           ORDER BY subasta, placa
           LIMIT 2000
         `;
@@ -337,6 +339,7 @@ serve(async (req) => {
           SELECT subasta, placa, comprador, documento, descripcion, estado, lote
           FROM \`${TABLES.relatorio}\`
           WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')
           ORDER BY subasta, placa
           LIMIT 2000
         `;
