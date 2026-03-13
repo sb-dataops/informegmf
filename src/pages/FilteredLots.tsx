@@ -141,8 +141,15 @@ const FilteredLots = () => {
                             key={`${item.placa}-${idx}`}
                             className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
                           >
-                            <td className="px-4 py-2.5 font-mono font-semibold text-foreground">
-                              {item.placa || "—"}
+                            <td className="px-4 py-2.5 font-mono font-semibold">
+                              {item.placa ? (
+                                <Link
+                                  to={`/vehiculo/${encodeURIComponent(item.placa)}`}
+                                  className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+                                >
+                                  {item.placa}
+                                </Link>
+                              ) : "—"}
                             </td>
                             <td className="px-4 py-2.5 text-foreground">
                               {item.comprador || "—"}
