@@ -197,7 +197,10 @@ serve(async (req) => {
           console.log(`[${label}] result:`, JSON.stringify(result));
           return result;
         }
-        catch (e) { console.warn(`[${label}] failed:`, e); return []; }
+        catch (e) { 
+          console.error(`[${label}] FAILED:`, e instanceof Error ? e.message : e); 
+          return []; 
+        }
       };
 
       // Total from relatorio
