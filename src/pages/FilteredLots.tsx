@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { fetchFilteredLots } from "@/services/bigqueryService";
-import { FilteredLotRow } from "@/types";
+import type { FilteredLotRow } from "@/types";
 import { ArrowLeft, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoSuperbid from "@/assets/logo-superbid.png";
