@@ -17,7 +17,7 @@ async function createGCPToken(sa: { client_email: string; private_key: string })
   const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/bigquery.readonly",
+    scope: "https://www.googleapis.com/auth/bigquery.readonly https://www.googleapis.com/auth/drive.readonly",
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600,
@@ -206,7 +206,22 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Use action=search&q=... o action=stats" }), {
+    // ── SAMPLE: get first rows from any table ──
+    if (action === "sample") {
+      const table = url.searchParams.get("table") || "retiros";
+      const tableName = TABLES[table as keyof typeof TABLES];
+      if (!tableName) {
+        return new Response(JSON.stringify({ error: "Table not found" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const rows = await queryBQ(token, projectId, `SELECT * FROM \`${tableName}\` LIMIT 3`);
+      return new Response(JSON.stringify({ table: tableName, rows, count: rows.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Use action=search&q=..., action=stats, or action=sample&table=..." }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
