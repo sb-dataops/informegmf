@@ -1,0 +1,158 @@
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { fetchFilteredLots } from "@/services/bigqueryService";
+import { ArrowLeft, Loader2, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import logoSuperbid from "@/assets/logo-superbid.png";
+import logoGmf from "@/assets/logo-gmf.png";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  total: "Total Lotes",
+  aprobados: "Aprobados",
+  en_proceso: "En Proceso",
+  pendientes_pago: "Pendientes de Pago",
+  pendientes_traspaso: "Pendientes de Traspaso",
+  pendientes_retiro: "Pendientes de Retiro",
+};
+
+const FilteredLots = () => {
+  const { category } = useParams<{ category: string }>();
+  const navigate = useNavigate();
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["bigquery-filter", category],
+    queryFn: () => fetchFilteredLots(category!),
+    enabled: !!category,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const title = CATEGORY_LABELS[category || ""] || category || "";
+  const rows = data?.rows || [];
+
+  // Group by subasta
+  const grouped = rows.reduce<Record<string, typeof rows>>((acc, row) => {
+    const key = row.subasta || "Sin subasta";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(row);
+    return acc;
+  }, {});
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="gradient-header border-b border-sidebar-border sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src={logoSuperbid} alt="Superbid Exchange" className="h-7 sm:h-8 brightness-0 invert" />
+            <div className="h-6 w-px bg-sidebar-border" />
+            <div>
+              <p className="text-xs font-semibold text-primary-foreground/90 leading-tight">Portal de Vehículos</p>
+              <p className="text-[10px] text-primary-foreground/50 leading-tight">Consulta & Gestión</p>
+            </div>
+          </div>
+          <img src={logoGmf} alt="GM Financial" className="h-10 sm:h-12 brightness-0 invert" />
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+        <div className="space-y-5">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/")}
+            className="text-muted-foreground hover:text-foreground -ml-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            Volver al inicio
+          </Button>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">{title}</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {isLoading ? "Cargando..." : `${rows.length} lote(s) encontrado(s)`}
+              </p>
+            </div>
+          </div>
+
+          {isLoading && (
+            <div className="flex items-center justify-center py-12 gap-3">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <span className="text-muted-foreground">Consultando datos...</span>
+            </div>
+          )}
+
+          {isError && (
+            <div className="text-center py-12">
+              <p className="text-destructive">Error: {(error as Error).message}</p>
+            </div>
+          )}
+
+          {!isLoading && rows.length === 0 && !isError && (
+            <div className="text-center py-12">
+              <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground">No se encontraron lotes en esta categoría</p>
+            </div>
+          )}
+
+          {!isLoading && Object.keys(grouped).length > 0 && (
+            <div className="space-y-6">
+              {Object.entries(grouped).map(([subasta, items]) => (
+                <div key={subasta} className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide border-b border-border pb-2">
+                    {subasta} <span className="text-xs font-normal">({items.length})</span>
+                  </h3>
+                  <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/50">
+                          <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Placa</th>
+                          <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Comprador</th>
+                          <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Descripción</th>
+                          <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((item, idx) => (
+                          <tr
+                            key={`${item.placa}-${idx}`}
+                            className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                          >
+                            <td className="px-4 py-2.5 font-mono font-semibold text-foreground">
+                              {item.placa || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-foreground">
+                              {item.comprador || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[200px] truncate">
+                              {item.descripcion || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 hidden md:table-cell">
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                {item.estadoTraspaso || item.estadoRetiro || item.estado || "—"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+
+      <footer className="border-t border-border py-4 mt-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">© 2025 Superbid Exchange · GM Financial Colombia S.A.</p>
+          <div className="flex items-center gap-3">
+            <img src={logoSuperbid} alt="Superbid" className="h-4 opacity-30" />
+            <img src={logoGmf} alt="GMF" className="h-4 opacity-30" />
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default FilteredLots;

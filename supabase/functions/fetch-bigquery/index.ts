@@ -276,6 +276,76 @@ serve(async (req) => {
       });
     }
 
+    // ── FILTER: get rows by category for dashboard drill-down ──
+    if (action === "filter") {
+      const category = url.searchParams.get("category") || "";
+
+      let sql = "";
+      if (category === "pendientes_traspaso") {
+        sql = `
+          SELECT subasta, placa, comprador, documento, descripcion, estadoTraspaso, tramitador, transito
+          FROM (
+            SELECT subasta, placa, comprador, documento, descripcion, estadoTraspaso, tramitador, transito FROM \`${TABLES.servitram}\`
+            UNION ALL
+            SELECT subasta, placa, comprador, documento, descripcion, estadoTraspaso, tramitador, transito FROM \`${TABLES.gestramites}\`
+          )
+          WHERE placa IS NOT NULL AND placa != ''
+            AND (UPPER(IFNULL(estadoTraspaso,'')) NOT LIKE '%APROBADO%' 
+                 AND UPPER(IFNULL(estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
+          ORDER BY subasta, placa
+          LIMIT 2000
+        `;
+      } else if (category === "pendientes_pago") {
+        sql = `
+          SELECT subasta, placa, comprador, documento, descripcion, estado, lote
+          FROM \`${TABLES.retiros}\`
+          WHERE IFNULL(CAST(cierrecontableTraspasoComision AS STRING), '') = ''
+          ORDER BY subasta, placa
+          LIMIT 2000
+        `;
+      } else if (category === "pendientes_retiro") {
+        sql = `
+          SELECT subasta, placa, comprador, documento, descripcion, estado, estadoRetiro, lote
+          FROM \`${TABLES.retiros}\`
+          WHERE UPPER(IFNULL(CAST(estadoRetiro AS STRING), '')) = 'ABIERTO'
+          ORDER BY subasta, placa
+          LIMIT 2000
+        `;
+      } else if (category === "aprobados") {
+        sql = `
+          SELECT subasta, placa, comprador, documento, descripcion, estado, lote
+          FROM \`${TABLES.relatorio}\`
+          WHERE UPPER(IFNULL(estado,'')) LIKE '%APROBADO%'
+          ORDER BY subasta, placa
+          LIMIT 2000
+        `;
+      } else if (category === "en_proceso") {
+        sql = `
+          SELECT subasta, placa, comprador, documento, descripcion, estado, lote
+          FROM \`${TABLES.relatorio}\`
+          WHERE UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%'
+          ORDER BY subasta, placa
+          LIMIT 2000
+        `;
+      } else if (category === "total") {
+        sql = `
+          SELECT subasta, placa, comprador, documento, descripcion, estado, lote
+          FROM \`${TABLES.relatorio}\`
+          ORDER BY subasta, placa
+          LIMIT 2000
+        `;
+      } else {
+        return new Response(JSON.stringify({ error: "Categoría no válida" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const rows = await queryBQ(token, projectId, sql);
+      return new Response(JSON.stringify({ category, rows, count: rows.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── SAMPLE: get first rows from any table ──
     if (action === "sample") {
       const table = url.searchParams.get("table") || "retiros";
