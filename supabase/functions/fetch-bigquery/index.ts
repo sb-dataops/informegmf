@@ -210,11 +210,12 @@ serve(async (req) => {
         FROM \`${TABLES.relatorio}\`
       `;
 
-      // Pendientes de pago: retiros sin cierre contable
-      const pendientesPagoSQL = `
-        SELECT COUNT(*) as pendientes_pago
+      // Retiros stats - all in one query to avoid type casting issues
+      const retirosStatsSQL = `
+        SELECT 
+          COUNTIF(IFNULL(CAST(cierrecontableTraspasoComision AS STRING), '') = '') as pendientes_pago,
+          COUNTIF(UPPER(IFNULL(CAST(estadoRetiro AS STRING), '')) = 'ABIERTO') as pendientes_retiro
         FROM \`${TABLES.retiros}\`
-        WHERE IFNULL(CAST(cierrecontableTraspasoComision AS STRING), '') = ''
       `;
 
       // Pendientes de traspaso: tramitadores sin estadoTraspaso aprobado
@@ -230,18 +231,10 @@ serve(async (req) => {
                AND UPPER(IFNULL(estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
       `;
 
-      // Pendientes de retiro: retiros con estadoRetiro ABIERTO
-      const pendientesRetiroSQL = `
-        SELECT COUNT(*) as pendientes_retiro
-        FROM \`${TABLES.retiros}\`
-        WHERE UPPER(IFNULL(CAST(estadoRetiro AS STRING), '')) = 'ABIERTO'
-      `;
-
-      const [relStats, pagoStats, traspasoStats, retiroStats] = await Promise.all([
+      const [relStats, retirosStats, traspasoStats] = await Promise.all([
         safeQuery2("relatorio", relatorioStatsSQL),
-        safeQuery2("pago", pendientesPagoSQL),
+        safeQuery2("retiros", retirosStatsSQL),
         safeQuery2("traspaso", pendientesTraspasoSQL),
-        safeQuery2("retiro", pendientesRetiroSQL),
       ]);
 
       const stats = {
@@ -249,9 +242,9 @@ serve(async (req) => {
         aprobados: relStats[0]?.aprobados || '0',
         en_proceso: relStats[0]?.en_proceso || '0',
         pendientes: relStats[0]?.pendientes || '0',
-        pendientes_pago: pagoStats[0]?.pendientes_pago || '0',
+        pendientes_pago: retirosStats[0]?.pendientes_pago || '0',
         pendientes_traspaso: traspasoStats[0]?.pendientes_traspaso || '0',
-        pendientes_retiro: retiroStats[0]?.pendientes_retiro || '0',
+        pendientes_retiro: retirosStats[0]?.pendientes_retiro || '0',
       };
 
       return new Response(JSON.stringify({ stats }), {
