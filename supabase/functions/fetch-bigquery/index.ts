@@ -206,7 +206,22 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Use action=search&q=... o action=stats" }), {
+    // ── SAMPLE: get first rows from any table ──
+    if (action === "sample") {
+      const table = url.searchParams.get("table") || "retiros";
+      const tableName = TABLES[table as keyof typeof TABLES];
+      if (!tableName) {
+        return new Response(JSON.stringify({ error: "Table not found" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const rows = await queryBQ(token, projectId, `SELECT * FROM \`${tableName}\` LIMIT 3`);
+      return new Response(JSON.stringify({ table: tableName, rows, count: rows.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Use action=search&q=..., action=stats, or action=sample&table=..." }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
