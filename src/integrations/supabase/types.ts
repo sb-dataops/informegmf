@@ -14,7 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      documentos: {
+        Row: {
+          created_at: string
+          documento_comprador: string
+          gcs_path: string
+          gcs_url: string | null
+          id: string
+          nombre_archivo: string
+          placa: string | null
+          tamano: number | null
+          tipo_archivo: string | null
+        }
+        Insert: {
+          created_at?: string
+          documento_comprador: string
+          gcs_path: string
+          gcs_url?: string | null
+          id?: string
+          nombre_archivo: string
+          placa?: string | null
+          tamano?: number | null
+          tipo_archivo?: string | null
+        }
+        Update: {
+          created_at?: string
+          documento_comprador?: string
+          gcs_path?: string
+          gcs_url?: string | null
+          id?: string
+          nombre_archivo?: string
+          placa?: string | null
+          tamano?: number | null
+          tipo_archivo?: string | null
+        }
+        Relationships: []
+      }
+      pagos: {
+        Row: {
+          created_at: string
+          fecha_limite_pago: string | null
+          id: string
+          placa: string
+          subasta: string | null
+          total_pagos: number | null
+          total_prorrateo_gastos: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fecha_limite_pago?: string | null
+          id?: string
+          placa: string
+          subasta?: string | null
+          total_pagos?: number | null
+          total_prorrateo_gastos?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fecha_limite_pago?: string | null
+          id?: string
+          placa?: string
+          subasta?: string | null
+          total_pagos?: number | null
+          total_prorrateo_gastos?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
