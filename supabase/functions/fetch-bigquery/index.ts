@@ -191,9 +191,13 @@ serve(async (req) => {
 
     // ── STATS for dashboard ──
     if (action === "stats") {
-      const safeQuery2 = async (sql: string) => {
-        try { return await queryBQ(token, projectId, sql); }
-        catch (e) { console.warn("Stats query failed:", e); return []; }
+      const safeQuery2 = async (label: string, sql: string) => {
+        try { 
+          const result = await queryBQ(token, projectId, sql); 
+          console.log(`[${label}] result:`, JSON.stringify(result));
+          return result;
+        }
+        catch (e) { console.warn(`[${label}] failed:`, e); return []; }
       };
 
       // Total from relatorio
@@ -206,12 +210,12 @@ serve(async (req) => {
         FROM \`${TABLES.relatorio}\`
       `;
 
-      // Pendientes de pago: retiros sin cierre contable
-      const pendientesPagoSQL = `
-        SELECT COUNT(*) as pendientes_pago
+      // Retiros stats - all in one query to avoid type casting issues
+      const retirosStatsSQL = `
+        SELECT 
+          COUNTIF(IFNULL(CAST(cierrecontableTraspasoComision AS STRING), '') = '') as pendientes_pago,
+          COUNTIF(UPPER(IFNULL(CAST(estadoRetiro AS STRING), '')) = 'ABIERTO') as pendientes_retiro
         FROM \`${TABLES.retiros}\`
-        WHERE (IFNULL(cierrecontableTraspasoComision,'') = '' OR cierrecontableTraspasoComision IS NULL)
-          AND placa IS NOT NULL AND placa != ''
       `;
 
       // Pendientes de traspaso: tramitadores sin estadoTraspaso aprobado
@@ -227,19 +231,10 @@ serve(async (req) => {
                AND UPPER(IFNULL(estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
       `;
 
-      // Pendientes de retiro: retiros sin fecha de entrega
-      const pendientesRetiroSQL = `
-        SELECT COUNT(*) as pendientes_retiro
-        FROM \`${TABLES.retiros}\`
-        WHERE (IFNULL(fechaEntregaVehiculo,'') = '' OR fechaEntregaVehiculo IS NULL)
-          AND placa IS NOT NULL AND placa != ''
-      `;
-
-      const [relStats, pagoStats, traspasoStats, retiroStats] = await Promise.all([
-        safeQuery2(relatorioStatsSQL),
-        safeQuery2(pendientesPagoSQL),
-        safeQuery2(pendientesTraspasoSQL),
-        safeQuery2(pendientesRetiroSQL),
+      const [relStats, retirosStats, traspasoStats] = await Promise.all([
+        safeQuery2("relatorio", relatorioStatsSQL),
+        safeQuery2("retiros", retirosStatsSQL),
+        safeQuery2("traspaso", pendientesTraspasoSQL),
       ]);
 
       const stats = {
@@ -247,9 +242,9 @@ serve(async (req) => {
         aprobados: relStats[0]?.aprobados || '0',
         en_proceso: relStats[0]?.en_proceso || '0',
         pendientes: relStats[0]?.pendientes || '0',
-        pendientes_pago: pagoStats[0]?.pendientes_pago || '0',
+        pendientes_pago: retirosStats[0]?.pendientes_pago || '0',
         pendientes_traspaso: traspasoStats[0]?.pendientes_traspaso || '0',
-        pendientes_retiro: retiroStats[0]?.pendientes_retiro || '0',
+        pendientes_retiro: retirosStats[0]?.pendientes_retiro || '0',
       };
 
       return new Response(JSON.stringify({ stats }), {
@@ -266,7 +261,25 @@ serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const rows = await queryBQ(token, projectId, `SELECT * FROM \`${tableName}\` LIMIT 3`);
+      const customSQL = url.searchParams.get("sql");
+      let rows;
+      if (customSQL === "distinct_estados") {
+        rows = await queryBQ(token, projectId, `SELECT IFNULL(estadoRetiro,'(null)') as val, COUNT(*) as cnt FROM \`${tableName}\` GROUP BY val ORDER BY cnt DESC LIMIT 20`);
+      } else if (customSQL === "count") {
+        rows = await queryBQ(token, projectId, `SELECT COUNT(*) as total FROM \`${tableName}\``);
+      } else if (customSQL === "retiro_stats") {
+        rows = await queryBQ(token, projectId, `
+          SELECT 
+            COUNT(*) as total,
+            COUNTIF(UPPER(IFNULL(CAST(estadoRetiro AS STRING), '')) = 'ABIERTO') as abierto,
+            COUNTIF(UPPER(IFNULL(CAST(estadoRetiro AS STRING), '')) = 'CERRADO') as cerrado,
+            COUNTIF(IFNULL(CAST(cierrecontableTraspasoComision AS STRING), '') = '') as sin_cierre,
+            COUNTIF(IFNULL(CAST(fechaEntregaVehiculo AS STRING), '') = '') as sin_entrega
+          FROM \`${tableName}\`
+        `);
+      } else {
+        rows = await queryBQ(token, projectId, `SELECT * FROM \`${tableName}\` LIMIT 3`);
+      }
       return new Response(JSON.stringify({ table: tableName, rows, count: rows.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
