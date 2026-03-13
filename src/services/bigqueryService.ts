@@ -51,6 +51,26 @@ export async function fetchDashboardStats(): Promise<DashboardStatsData> {
   return result.stats;
 }
 
+export async function fetchFilteredLots(category: string): Promise<FilteredLotsResult> {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = `https://${projectId}.supabase.co/functions/v1/${FUNCTION_NAME}?action=filter&category=${encodeURIComponent(category)}`;
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${anonKey}`,
+      apikey: anonKey,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Error obteniendo datos filtrados");
+  }
+
+  return res.json();
+}
+
 // Extract unique buyers from search results
 export function extractCompradores(result: SearchResult): Comprador[] {
   const map = new Map<string, Comprador>();
