@@ -1,26 +1,20 @@
-import { Vehiculo } from "@/types";
-import { getPagosByPlaca, getArchivosByPlaca, formatDate } from "@/data/mockData";
+import { VehiculoConsolidado } from "@/types";
+import { formatDate } from "@/services/bigqueryService";
 import StatusBadges from "@/components/StatusBadges";
 import TramiteTimeline from "@/components/TramiteTimeline";
-import PaymentsTable from "@/components/PaymentsTable";
-import FileDropzone from "@/components/FileDropzone";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Car, FileStack, CreditCard } from "lucide-react";
+import { Car, FileStack } from "lucide-react";
 
 interface VehicleCardProps {
-  vehiculo: Vehiculo;
+  vehiculo: VehiculoConsolidado;
 }
 
 const VehicleCard = ({ vehiculo }: VehicleCardProps) => {
-  const pagos = getPagosByPlaca(vehiculo.placa);
-  const archivos = getArchivosByPlaca(vehiculo.placa);
-  const totalPagado = pagos.reduce((sum, p) => sum + p.monto_pagado, 0);
-
   return (
     <div className="bg-card rounded-xl border border-border shadow-card hover:shadow-card-hover transition-shadow">
       {/* Header */}
@@ -33,17 +27,26 @@ const VehicleCard = ({ vehiculo }: VehicleCardProps) => {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-foreground text-lg">{vehiculo.placa}</h3>
-                <span className="text-sm text-muted-foreground">•</span>
-                <span className="text-sm text-muted-foreground">{vehiculo.vehiculo_descripcion}</span>
+                {vehiculo.descripcion && (
+                  <>
+                    <span className="text-sm text-muted-foreground">•</span>
+                    <span className="text-sm text-muted-foreground line-clamp-1">{vehiculo.descripcion}</span>
+                  </>
+                )}
               </div>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                <span>{vehiculo.subasta}</span>
-                <span>Lote: {vehiculo.lote}</span>
-                <span>{formatDate(vehiculo.fecha)}</span>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                {vehiculo.subasta && <span>{vehiculo.subasta}</span>}
+                {vehiculo.lote && <span>Lote: {vehiculo.lote}</span>}
+                {vehiculo.fecha && <span>{formatDate(vehiculo.fecha)}</span>}
+                {vehiculo.mayor_oferta && (
+                  <span className="font-semibold text-foreground">
+                    Oferta: ${Number(vehiculo.mayor_oferta).toLocaleString("es-CO")}
+                  </span>
+                )}
               </div>
             </div>
           </div>
-          <StatusBadges vehiculo={vehiculo} totalPagado={totalPagado} />
+          <StatusBadges vehiculo={vehiculo} />
         </div>
       </div>
 
@@ -58,22 +61,6 @@ const VehicleCard = ({ vehiculo }: VehicleCardProps) => {
           </AccordionTrigger>
           <AccordionContent className="pb-5">
             <TramiteTimeline vehiculo={vehiculo} />
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem value="pagos" className="border-b-border">
-          <AccordionTrigger className="hover:no-underline py-4">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <CreditCard className="h-4 w-4 text-primary" />
-              Pagos ({pagos.length})
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="pb-5 space-y-4">
-            <PaymentsTable pagos={pagos} />
-            <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2">Soportes de Pago</h4>
-              <FileDropzone archivos={archivos} placa={vehiculo.placa} />
-            </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

@@ -1,36 +1,41 @@
 import { Badge } from "@/components/ui/badge";
-import { Vehiculo } from "@/types";
+import { VehiculoConsolidado } from "@/types";
 
 interface StatusBadgesProps {
-  vehiculo: Vehiculo;
-  totalPagado: number;
+  vehiculo: VehiculoConsolidado;
 }
 
-const StatusBadges = ({ vehiculo, totalPagado }: StatusBadgesProps) => {
-  const estadoTraspasoColor: Record<string, string> = {
-    Aprobado: "bg-success text-success-foreground",
-    "En Proceso": "bg-warning text-warning-foreground",
-    Rechazado: "bg-destructive text-destructive-foreground",
-    Pendiente: "bg-muted text-muted-foreground",
+const StatusBadges = ({ vehiculo }: StatusBadgesProps) => {
+  const estadoColor = (estado: string | null): string => {
+    if (!estado) return "bg-muted text-muted-foreground";
+    const upper = estado.toUpperCase();
+    if (upper.includes("APROBADO")) return "bg-success text-success-foreground";
+    if (upper.includes("PROCESO") || upper.includes("CONDICIONAL")) return "bg-warning text-warning-foreground";
+    if (upper.includes("RECHAZADO")) return "bg-destructive text-destructive-foreground";
+    if (upper.includes("VENTA")) return "bg-info text-info-foreground";
+    return "bg-muted text-muted-foreground";
   };
 
   return (
     <div className="flex flex-wrap gap-2">
-      {totalPagado > 0 && (
-        <Badge className="bg-success text-success-foreground hover:bg-success/90 border-0 px-3 py-1 text-xs font-semibold">
-          💰 Pagado
+      {vehiculo.estado && (
+        <Badge className={`${estadoColor(vehiculo.estado)} hover:opacity-90 border-0 px-3 py-1 text-xs font-semibold`}>
+          📋 {vehiculo.estado}
         </Badge>
       )}
-      <Badge className={`${estadoTraspasoColor[vehiculo.estado_traspaso] || "bg-muted text-muted-foreground"} hover:opacity-90 border-0 px-3 py-1 text-xs font-semibold`}>
-        📋 {vehiculo.estado_traspaso}
-      </Badge>
-      {vehiculo.fecha_entrega_vehiculo ? (
-        <Badge className="bg-info text-info-foreground hover:bg-info/90 border-0 px-3 py-1 text-xs font-semibold">
-          🚗 Entregado
+      {vehiculo.estadoTraspaso && (
+        <Badge className={`${estadoColor(vehiculo.estadoTraspaso)} hover:opacity-90 border-0 px-3 py-1 text-xs font-semibold`}>
+          🔄 Traspaso: {vehiculo.estadoTraspaso}
         </Badge>
-      ) : (
-        <Badge variant="outline" className="border-border text-muted-foreground px-3 py-1 text-xs font-semibold">
-          🚗 Sin Entregar
+      )}
+      {vehiculo.estadoRetiro && (
+        <Badge className={`${vehiculo.estadoRetiro.toUpperCase() === "CERRADO" ? "bg-success text-success-foreground" : "bg-warning text-warning-foreground"} hover:opacity-90 border-0 px-3 py-1 text-xs font-semibold`}>
+          🚗 Retiro: {vehiculo.estadoRetiro}
+        </Badge>
+      )}
+      {vehiculo.fechaEntregaVehiculo && (
+        <Badge className="bg-info text-info-foreground hover:bg-info/90 border-0 px-3 py-1 text-xs font-semibold">
+          ✅ Entregado
         </Badge>
       )}
     </div>

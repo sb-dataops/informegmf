@@ -1,40 +1,166 @@
+// Types matching BigQuery schema
+
 export interface Comprador {
-  id_comprador: string;
-  nombre_completo: string;
+  documento: string;
+  nombre: string;
+  email?: string;
+  movil?: string;
+  direccion?: string;
+  ciudad?: string;
+  departamento?: string;
 }
 
-export interface Vehiculo {
+// From relatorio_actual
+export interface RelatorioRecord {
+  codigo_k: string | null;
+  codigo_: string | null;
+  fecha: string | null;
+  subasta: string | null;
+  lote: string | null;
+  comitente: string | null;
+  categoria: string | null;
+  estado: string | null;
+  fecha_aprobacion_vendedor: string | null;
+  placa: string | null;
+  mayor_oferta: string | null;
+  valor_inicial: string | null;
+  comprador: string | null;
+  email: string | null;
+  documento: string | null;
+  ciudad_comprador: string | null;
+  departamento_comprador: string | null;
+  gestor: string | null;
+  movil: string | null;
+  direccion: string | null;
+  marca: string | null;
+  linea: string | null;
+  modelo: string | null;
+  descripcion: string | null;
+  codigoSubasta: string | null;
+}
+
+// From r_retiros_gmf_2025
+export interface RetiroRecord {
+  codigo: string | null;
+  fecha: string | null;
+  subasta: string | null;
+  estado: string | null;
+  lote: string | null;
+  descripcion: string | null;
+  placa: string | null;
+  transito: string | null;
+  tramitador: string | null;
+  incioServitramFecha: string | null;
+  cierrecontableTraspasoComision: string | null;
+  procesoPazySalvoaTramitador: string | null;
+  estadoDocuemntosComprador: string | null;
+  enviodoFirmarGmFinancial: string | null;
+  estadoGmFinancialFirmas: string | null;
+  documentosConTramitador: string | null;
+  fechaAprobacionTramite: string | null;
+  fechaEntregaVehiculo: string | null;
+  comentarios: string | null;
+  mayoroferta: string | null;
+  comprador: string | null;
+  email: string | null;
+  documento: string | null;
+  movil: string | null;
+  direccion: string | null;
+  ciudadComprador: string | null;
+  departamentoComprador: string | null;
+  ubicacionVehiculo: string | null;
+  ciudadUbicacionVehiculo: string | null;
+  direccionUbicacionVehiculo: string | null;
+  quienRetira: string | null;
+  estadoRetiro: string | null;
+  fechaEstadoRetiro: string | null;
+}
+
+// From r_tramitadores_servitram_gmf / r_tramitadores_gestramites
+export interface TramitadorRecord {
+  tramitador: string | null;
+  codigo: string | null;
+  fechaDeAsignacion: string | null;
+  fechaDeSubasta: string | null;
+  subasta: string | null;
+  descripcion: string | null;
+  placa: string | null;
+  lote: string | null;
+  comprador: string | null;
+  documento: string | null;
+  email: string | null;
+  movil: string | null;
+  direccion: string | null;
+  ciudadYDepartamento: string | null;
+  pazYSalvoContabilidad: string | null;
+  fechaRecibidoImprontas: string | null;
+  fechasFirmasComprador: string | null;
+  fechaEnvioFirmasVendedor: string | null;
+  fechaOkDocsTraspaso: string | null;
+  transito: string | null;
+  estadoTraspaso: string | null;
+  fechaAprobadoRunt: string | null;
+  fechaTp: string | null;
+  fechaEnvioTpComprador: string | null;
+  ans: string | null;
+  observacion: string | null;
+  fechaVencimientoRtm?: string | null; // only in gestramites
+}
+
+// Consolidated vehicle view for UI
+export interface VehiculoConsolidado {
   placa: string;
-  id_comprador: string;
-  vehiculo_descripcion: string;
-  fecha: string;
-  subasta: string;
-  estado_venta: string;
-  lote: string;
-  transito: string;
-  tramitador_a_cargo: string;
-  inicio_tramite_fecha: string | null;
-  cierre_contable_fecha: string | null;
-  envio_doc_firma_fecha: string | null;
-  docs_con_tramitador_fecha: string | null;
-  fecha_aprobacion_tramite: string | null;
-  fecha_entrega_vehiculo: string | null;
-  // Gestores
-  fecha_recibido_improntas: string | null;
-  estado_traspaso: "Aprobado" | "En Proceso" | "Rechazado" | "Pendiente";
-  observacion: string;
+  descripcion: string;
+  fecha: string | null;
+  subasta: string | null;
+  lote: string | null;
+  estado: string | null;
+  marca: string | null;
+  linea: string | null;
+  modelo: string | null;
+  mayor_oferta: string | null;
+  // Retiros data
+  transito: string | null;
+  tramitador: string | null;
+  inicioTramiteFecha: string | null;
+  cierreContableFecha: string | null;
+  envioDocFirmaFecha: string | null;
+  docsConTramitadorFecha: string | null;
+  fechaAprobacionTramite: string | null;
+  fechaEntregaVehiculo: string | null;
+  estadoRetiro: string | null;
+  comentarios: string | null;
+  // Tramitador data
+  fechaRecibidoImprontas: string | null;
+  estadoTraspaso: string | null;
+  observacion: string | null;
+  fechaAprobadoRunt: string | null;
+  fechaTp: string | null;
+  // Buyer info
+  comprador: string | null;
+  documento: string | null;
+  email: string | null;
+  movil: string | null;
+  ciudadComprador: string | null;
+  departamentoComprador: string | null;
 }
 
-export interface Pago {
-  id_pago: string;
-  placa: string;
-  id_comprador: string;
-  monto_pagado: number;
-  fecha_pago: string;
-  detalle_pago: "Transferencia" | "Efectivo" | "Cheque";
-  url_soporte: string | null;
+export interface SearchResult {
+  relatorio: RelatorioRecord[];
+  retiros: RetiroRecord[];
+  servitram: TramitadorRecord[];
+  gestramites: TramitadorRecord[];
 }
 
+export interface DashboardStatsData {
+  total: string;
+  aprobados: string;
+  en_proceso: string;
+  pendientes: string;
+  rechazados: string;
+}
+
+// Legacy types kept for backward compatibility
 export interface ArchivoSoporte {
   id: string;
   nombre: string;

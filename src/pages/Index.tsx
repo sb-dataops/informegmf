@@ -1,57 +1,64 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import SearchBar from "@/components/SearchBar";
 import BuyerHeader from "@/components/BuyerHeader";
 import VehicleCard from "@/components/VehicleCard";
 import DashboardStats from "@/components/DashboardStats";
-import { buscarCompradores, buscarPorPlaca, getVehiculosByComprador } from "@/data/mockData";
-import { Comprador } from "@/types";
-import { Users, Search, ArrowLeft } from "lucide-react";
+import { searchBigQuery, extractCompradores, consolidateVehiculos } from "@/services/bigqueryService";
+import { Comprador, SearchResult } from "@/types";
+import { Users, Search, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
 const Index = () => {
   const [query, setQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
-  const [searchResults, setSearchResults] = useState<Comprador[]>([]);
-  const [hasSearched, setHasSearched] = useState(false);
+
+  const { data: searchResult, isLoading, isError, error } = useQuery({
+    queryKey: ["bigquery-search", searchTerm],
+    queryFn: () => searchBigQuery(searchTerm),
+    enabled: !!searchTerm,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const compradores = searchResult ? extractCompradores(searchResult) : [];
+  const vehiculos = selectedComprador && searchResult
+    ? consolidateVehiculos(searchResult, selectedComprador.documento)
+    : [];
 
   const handleSearch = () => {
     if (!query.trim()) return;
-    setHasSearched(true);
     setSelectedComprador(null);
-
-    const plateResult = buscarPorPlaca(query);
-    if (plateResult) {
-      setSelectedComprador(plateResult.comprador);
-      setSearchResults([]);
-      return;
-    }
-
-    const results = buscarCompradores(query);
-    if (results.length === 1) {
-      setSelectedComprador(results[0]);
-      setSearchResults([]);
-    } else {
-      setSearchResults(results);
-    }
+    setSearchTerm(query.trim());
   };
+
+  // Auto-select if only 1 buyer found
+  const effectiveComprador = selectedComprador ||
+    (compradores.length === 1 && searchResult ? compradores[0] : null);
+
+  const effectiveVehiculos = effectiveComprador && searchResult
+    ? consolidateVehiculos(searchResult, effectiveComprador.documento)
+    : [];
 
   const selectComprador = (c: Comprador) => {
     setSelectedComprador(c);
-    setSearchResults([]);
   };
 
   const goBack = () => {
     setSelectedComprador(null);
-    setSearchResults([]);
-    setHasSearched(false);
+    setSearchTerm("");
     setQuery("");
   };
 
-  const vehiculos = selectedComprador
-    ? getVehiculosByComprador(selectedComprador.id_comprador)
-    : [];
+  const goBackToResults = () => {
+    setSelectedComprador(null);
+  };
+
+  const hasSearched = !!searchTerm;
+  const showingDetail = !!effectiveComprador && !!searchResult;
+  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador;
 
   return (
     <div className="min-h-screen bg-background">
@@ -72,29 +79,44 @@ const Index = () => {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
         {/* Dashboard / Search */}
-        {!selectedComprador && (
+        {!showingDetail && (
           <div className="space-y-6">
             <div className="text-center space-y-2 pt-4">
               <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
                 Portal Consolidado de Vehículos
               </h2>
               <p className="text-muted-foreground text-sm">
-                Busca por nombre, cédula/NIT o placa para consultar pagos y trámites
+                Busca por nombre, cédula/NIT o placa para consultar trámites y retiros
               </p>
             </div>
 
             <SearchBar value={query} onChange={setQuery} onSearch={handleSearch} />
 
+            {/* Loading */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-12 gap-3">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <span className="text-muted-foreground">Consultando BigQuery...</span>
+              </div>
+            )}
+
+            {/* Error */}
+            {isError && (
+              <div className="text-center py-12">
+                <p className="text-destructive">Error: {(error as Error).message}</p>
+              </div>
+            )}
+
             {/* Stats dashboard */}
             {!hasSearched && <DashboardStats />}
 
-            {/* Search results */}
-            {searchResults.length > 0 && (
+            {/* Multiple results */}
+            {showingResults && (
               <div className="max-w-2xl mx-auto space-y-2">
-                <p className="text-sm text-muted-foreground">{searchResults.length} resultado(s)</p>
-                {searchResults.map((c) => (
+                <p className="text-sm text-muted-foreground">{compradores.length} comprador(es) encontrado(s)</p>
+                {compradores.map((c) => (
                   <button
-                    key={c.id_comprador}
+                    key={c.documento}
                     onClick={() => selectComprador(c)}
                     className="w-full text-left bg-card rounded-xl border border-border shadow-card hover:shadow-card-hover transition-all p-4 flex items-center gap-3"
                   >
@@ -102,37 +124,47 @@ const Index = () => {
                       <Users className="h-5 w-5 text-accent-foreground" />
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground">{c.nombre_completo}</p>
-                      <p className="text-sm text-muted-foreground">{c.id_comprador}</p>
+                      <p className="font-semibold text-foreground">{c.nombre}</p>
+                      <p className="text-sm text-muted-foreground">{c.documento}</p>
                     </div>
                   </button>
                 ))}
               </div>
             )}
 
-            {hasSearched && searchResults.length === 0 && !selectedComprador && (
+            {/* No results */}
+            {hasSearched && !isLoading && compradores.length === 0 && !isError && (
               <div className="text-center py-12">
                 <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground">No se encontraron resultados para "{query}"</p>
+                <p className="text-muted-foreground">No se encontraron resultados para "{searchTerm}"</p>
               </div>
             )}
           </div>
         )}
 
         {/* Detail view */}
-        {selectedComprador && (
+        {showingDetail && (
           <div className="space-y-5">
-            <Button variant="ghost" onClick={goBack} className="text-muted-foreground hover:text-foreground -ml-2">
+            <Button
+              variant="ghost"
+              onClick={compradores.length > 1 ? goBackToResults : goBack}
+              className="text-muted-foreground hover:text-foreground -ml-2"
+            >
               <ArrowLeft className="h-4 w-4 mr-1.5" />
-              Volver al inicio
+              {compradores.length > 1 ? "Volver a resultados" : "Volver al inicio"}
             </Button>
 
-            <BuyerHeader comprador={selectedComprador} vehicleCount={vehiculos.length} />
+            <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
 
             <div className="space-y-4">
-              {vehiculos.map((v) => (
+              {effectiveVehiculos.map((v) => (
                 <VehicleCard key={v.placa} vehiculo={v} />
               ))}
+              {effectiveVehiculos.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No se encontraron vehículos con placa para este comprador</p>
+                </div>
+              )}
             </div>
           </div>
         )}
