@@ -42,7 +42,7 @@ const FilteredLots = () => {
     : rows;
 
   // Group by subasta
-  const grouped = rows.reduce<Record<string, typeof rows>>((acc, row) => {
+  const grouped = filteredRows.reduce<Record<string, typeof filteredRows>>((acc, row) => {
     const key = row.subasta || "Sin subasta";
     if (!acc[key]) acc[key] = [];
     acc[key].push(row);
