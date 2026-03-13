@@ -210,8 +210,9 @@ serve(async (req) => {
       const pendientesPagoSQL = `
         SELECT COUNT(*) as pendientes_pago
         FROM \`${TABLES.retiros}\`
-        WHERE cierrecontableTraspasoComision IS NULL
-          AND placa IS NOT NULL AND CAST(placa AS STRING) != ''
+        WHERE (CAST(cierrecontableTraspasoComision AS STRING) IS NULL 
+               OR TRIM(CAST(cierrecontableTraspasoComision AS STRING)) = '')
+          AND placa IS NOT NULL AND TRIM(CAST(placa AS STRING)) != ''
       `;
 
       // Pendientes de traspaso: tramitadores sin estadoTraspaso aprobado
@@ -227,12 +228,13 @@ serve(async (req) => {
                AND UPPER(IFNULL(estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
       `;
 
-      // Pendientes de retiro: retiros sin fecha de entrega
+      // Pendientes de retiro: retiros sin fecha de entrega o sin estado CERRADO
       const pendientesRetiroSQL = `
         SELECT COUNT(*) as pendientes_retiro
         FROM \`${TABLES.retiros}\`
-        WHERE fechaEntregaVehiculo IS NULL
-          AND placa IS NOT NULL AND CAST(placa AS STRING) != ''
+        WHERE (CAST(fechaEntregaVehiculo AS STRING) IS NULL 
+               OR TRIM(CAST(fechaEntregaVehiculo AS STRING)) = '')
+          AND placa IS NOT NULL AND TRIM(CAST(placa AS STRING)) != ''
       `;
 
       const [relStats, pagoStats, traspasoStats, retiroStats] = await Promise.all([
