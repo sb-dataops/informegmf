@@ -35,6 +35,7 @@ const DashboardStats = () => {
       icon: Car,
       color: "text-primary",
       bgColor: "bg-accent",
+      category: "total",
     },
     {
       label: "Aprobados",
@@ -42,6 +43,7 @@ const DashboardStats = () => {
       icon: CheckCircle2,
       color: "text-success",
       bgColor: "bg-success/10",
+      category: "aprobados",
     },
     {
       label: "En Proceso",
@@ -49,6 +51,7 @@ const DashboardStats = () => {
       icon: Clock,
       color: "text-warning",
       bgColor: "bg-warning/10",
+      category: "en_proceso",
     },
     {
       label: "Pendientes de Pago",
@@ -56,6 +59,7 @@ const DashboardStats = () => {
       icon: DollarSign,
       color: "text-destructive",
       bgColor: "bg-destructive/10",
+      category: "pendientes_pago",
     },
     {
       label: "Pendientes de Traspaso",
@@ -63,6 +67,7 @@ const DashboardStats = () => {
       icon: FileText,
       color: "text-info",
       bgColor: "bg-info/10",
+      category: "pendientes_traspaso",
     },
     {
       label: "Pendientes de Retiro",
@@ -70,6 +75,7 @@ const DashboardStats = () => {
       icon: Truck,
       color: "text-warning",
       bgColor: "bg-warning/10",
+      category: "pendientes_retiro",
     },
   ];
 
