@@ -268,7 +268,13 @@ serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const rows = await queryBQ(token, projectId, `SELECT * FROM \`${tableName}\` LIMIT 3`);
+      const customSQL = url.searchParams.get("sql");
+      let rows;
+      if (customSQL === "distinct_estados") {
+        rows = await queryBQ(token, projectId, `SELECT IFNULL(estadoRetiro,'(null)') as val, COUNT(*) as cnt FROM \`${tableName}\` GROUP BY val ORDER BY cnt DESC LIMIT 20`);
+      } else {
+        rows = await queryBQ(token, projectId, `SELECT * FROM \`${tableName}\` LIMIT 3`);
+      }
       return new Response(JSON.stringify({ table: tableName, rows, count: rows.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
