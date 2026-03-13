@@ -210,8 +210,8 @@ serve(async (req) => {
       const pendientesPagoSQL = `
         SELECT COUNT(*) as pendientes_pago
         FROM \`${TABLES.retiros}\`
-        WHERE (IFNULL(cierrecontableTraspasoComision,'') = '' OR cierrecontableTraspasoComision IS NULL)
-          AND placa IS NOT NULL AND placa != ''
+        WHERE cierrecontableTraspasoComision IS NULL
+          AND placa IS NOT NULL AND CAST(placa AS STRING) != ''
       `;
 
       // Pendientes de traspaso: tramitadores sin estadoTraspaso aprobado
@@ -231,8 +231,8 @@ serve(async (req) => {
       const pendientesRetiroSQL = `
         SELECT COUNT(*) as pendientes_retiro
         FROM \`${TABLES.retiros}\`
-        WHERE (IFNULL(fechaEntregaVehiculo,'') = '' OR fechaEntregaVehiculo IS NULL)
-          AND placa IS NOT NULL AND placa != ''
+        WHERE fechaEntregaVehiculo IS NULL
+          AND placa IS NOT NULL AND CAST(placa AS STRING) != ''
       `;
 
       const [relStats, pagoStats, traspasoStats, retiroStats] = await Promise.all([
