@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { fetchDashboardStats } from "@/services/bigqueryService";
 import {
   Car,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 
 const DashboardStats = () => {
+  const navigate = useNavigate();
   const { data: stats, isLoading } = useQuery({
     queryKey: ["bigquery-stats"],
     queryFn: fetchDashboardStats,
@@ -33,6 +35,7 @@ const DashboardStats = () => {
       icon: Car,
       color: "text-primary",
       bgColor: "bg-accent",
+      category: "total",
     },
     {
       label: "Aprobados",
@@ -40,6 +43,7 @@ const DashboardStats = () => {
       icon: CheckCircle2,
       color: "text-success",
       bgColor: "bg-success/10",
+      category: "aprobados",
     },
     {
       label: "En Proceso",
@@ -47,6 +51,7 @@ const DashboardStats = () => {
       icon: Clock,
       color: "text-warning",
       bgColor: "bg-warning/10",
+      category: "en_proceso",
     },
     {
       label: "Pendientes de Pago",
@@ -54,6 +59,7 @@ const DashboardStats = () => {
       icon: DollarSign,
       color: "text-destructive",
       bgColor: "bg-destructive/10",
+      category: "pendientes_pago",
     },
     {
       label: "Pendientes de Traspaso",
@@ -61,6 +67,7 @@ const DashboardStats = () => {
       icon: FileText,
       color: "text-info",
       bgColor: "bg-info/10",
+      category: "pendientes_traspaso",
     },
     {
       label: "Pendientes de Retiro",
@@ -68,6 +75,7 @@ const DashboardStats = () => {
       icon: Truck,
       color: "text-warning",
       bgColor: "bg-warning/10",
+      category: "pendientes_retiro",
     },
   ];
 
@@ -75,9 +83,10 @@ const DashboardStats = () => {
     <div className="space-y-5 pt-2">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {statCards.map((stat) => (
-          <div
+          <button
             key={stat.label}
-            className="bg-card rounded-xl border border-border p-4 shadow-card hover:shadow-card-hover transition-shadow"
+            onClick={() => navigate(`/filter/${stat.category}`)}
+            className="bg-card rounded-xl border border-border p-4 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all text-left cursor-pointer"
           >
             <div className="flex items-center justify-between mb-3">
               <div className={`h-9 w-9 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
@@ -86,7 +95,7 @@ const DashboardStats = () => {
             </div>
             <p className="text-2xl font-bold text-foreground">{stat.value}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
-          </div>
+          </button>
         ))}
       </div>
     </div>

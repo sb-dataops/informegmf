@@ -162,6 +162,26 @@ export interface DashboardStatsData {
   pendientes_retiro: string;
 }
 
+export interface FilteredLotRow {
+  subasta: string | null;
+  placa: string | null;
+  comprador: string | null;
+  documento: string | null;
+  descripcion: string | null;
+  estado?: string | null;
+  estadoTraspaso?: string | null;
+  estadoRetiro?: string | null;
+  tramitador?: string | null;
+  transito?: string | null;
+  lote?: string | null;
+}
+
+export interface FilteredLotsResult {
+  category: string;
+  rows: FilteredLotRow[];
+  count: number;
+}
+
 // Legacy types kept for backward compatibility
 export interface ArchivoSoporte {
   id: string;
