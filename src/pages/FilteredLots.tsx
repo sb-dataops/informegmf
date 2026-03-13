@@ -19,6 +19,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 const FilteredLots = () => {
   const { category } = useParams<{ category: string }>();
   const navigate = useNavigate();
+  const [search, setSearch] = useState("");
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["bigquery-filter", category],
