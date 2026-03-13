@@ -11,7 +11,7 @@ async function createGCPToken(serviceAccount: { client_email: string; private_ke
   const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: serviceAccount.client_email,
-    scope: "https://www.googleapis.com/auth/bigquery.readonly",
+    scope: "https://www.googleapis.com/auth/bigquery.readonly https://www.googleapis.com/auth/drive.readonly",
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600,
