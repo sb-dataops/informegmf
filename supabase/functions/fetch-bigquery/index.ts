@@ -171,12 +171,17 @@ serve(async (req) => {
         LIMIT 200
       `;
 
-      // Run all 4 queries in parallel
+      // Run all 4 queries in parallel with fault tolerance
+      const safeQuery = async (sql: string) => {
+        try { return await queryBQ(token, projectId, sql); }
+        catch (e) { console.warn("Query failed:", e); return []; }
+      };
+
       const [relatorio, retiros, servitram, gestramites] = await Promise.all([
-        queryBQ(token, projectId, relatorioSQL),
-        queryBQ(token, projectId, retirosSQL),
-        queryBQ(token, projectId, servitramSQL),
-        queryBQ(token, projectId, gestramitesSQL),
+        safeQuery(relatorioSQL),
+        safeQuery(retirosSQL),
+        safeQuery(servitramSQL),
+        safeQuery(gestramitesSQL),
       ]);
 
       return new Response(JSON.stringify({ relatorio, retiros, servitram, gestramites }), {
