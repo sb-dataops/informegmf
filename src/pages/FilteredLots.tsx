@@ -80,10 +80,23 @@ const FilteredLots = () => {
             <div>
               <h2 className="text-2xl font-bold text-foreground">{title}</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                {isLoading ? "Cargando..." : `${rows.length} lote(s) encontrado(s)`}
+                {isLoading ? "Cargando..." : `${filteredRows.length} lote(s) encontrado(s)`}
               </p>
             </div>
           </div>
+
+          {!isLoading && rows.length > 0 && (
+            <div className="relative w-full max-w-2xl">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Buscar por placa, comprador o subasta..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-12 pr-4 h-12 text-sm rounded-xl border-2 border-border bg-card shadow-card focus-visible:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/20 transition-all"
+              />
+            </div>
+          )}
 
           {isLoading && (
             <div className="flex items-center justify-center py-12 gap-3">
