@@ -272,6 +272,18 @@ serve(async (req) => {
       let rows;
       if (customSQL === "distinct_estados") {
         rows = await queryBQ(token, projectId, `SELECT IFNULL(estadoRetiro,'(null)') as val, COUNT(*) as cnt FROM \`${tableName}\` GROUP BY val ORDER BY cnt DESC LIMIT 20`);
+      } else if (customSQL === "count") {
+        rows = await queryBQ(token, projectId, `SELECT COUNT(*) as total FROM \`${tableName}\``);
+      } else if (customSQL === "retiro_stats") {
+        rows = await queryBQ(token, projectId, `
+          SELECT 
+            COUNT(*) as total,
+            COUNTIF(UPPER(IFNULL(CAST(estadoRetiro AS STRING), '')) = 'ABIERTO') as abierto,
+            COUNTIF(UPPER(IFNULL(CAST(estadoRetiro AS STRING), '')) = 'CERRADO') as cerrado,
+            COUNTIF(IFNULL(CAST(cierrecontableTraspasoComision AS STRING), '') = '') as sin_cierre,
+            COUNTIF(IFNULL(CAST(fechaEntregaVehiculo AS STRING), '') = '') as sin_entrega
+          FROM \`${tableName}\`
+        `);
       } else {
         rows = await queryBQ(token, projectId, `SELECT * FROM \`${tableName}\` LIMIT 3`);
       }
