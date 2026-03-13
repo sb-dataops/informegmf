@@ -32,6 +32,15 @@ const FilteredLots = () => {
   const title = CATEGORY_LABELS[category || ""] || category || "";
   const rows = data?.rows || [];
 
+  const normalizedSearch = search.toLowerCase().trim();
+  const filteredRows = normalizedSearch
+    ? rows.filter((r) =>
+        [r.placa, r.comprador, r.subasta, r.descripcion]
+          .filter(Boolean)
+          .some((val) => val!.toLowerCase().includes(normalizedSearch))
+      )
+    : rows;
+
   // Group by subasta
   const grouped = rows.reduce<Record<string, typeof rows>>((acc, row) => {
     const key = row.subasta || "Sin subasta";
