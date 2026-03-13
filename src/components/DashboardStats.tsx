@@ -4,7 +4,9 @@ import {
   Car,
   CheckCircle2,
   Clock,
-  AlertTriangle,
+  DollarSign,
+  FileText,
+  Truck,
   Loader2,
 } from "lucide-react";
 
@@ -26,7 +28,7 @@ const DashboardStats = () => {
 
   const statCards = [
     {
-      label: "Total Registros",
+      label: "Total Lotes",
       value: stats ? Number(stats.total).toLocaleString("es-CO") : "—",
       icon: Car,
       color: "text-primary",
@@ -40,24 +42,38 @@ const DashboardStats = () => {
       bgColor: "bg-success/10",
     },
     {
-      label: "En Proceso / Condicional",
+      label: "En Proceso",
       value: stats ? Number(stats.en_proceso).toLocaleString("es-CO") : "—",
       icon: Clock,
       color: "text-warning",
       bgColor: "bg-warning/10",
     },
     {
-      label: "Rechazados",
-      value: stats ? Number(stats.rechazados).toLocaleString("es-CO") : "—",
-      icon: AlertTriangle,
+      label: "Pendientes de Pago",
+      value: stats ? Number(stats.pendientes_pago).toLocaleString("es-CO") : "—",
+      icon: DollarSign,
       color: "text-destructive",
       bgColor: "bg-destructive/10",
+    },
+    {
+      label: "Pendientes de Traspaso",
+      value: stats ? Number(stats.pendientes_traspaso).toLocaleString("es-CO") : "—",
+      icon: FileText,
+      color: "text-info",
+      bgColor: "bg-info/10",
+    },
+    {
+      label: "Pendientes de Retiro",
+      value: stats ? Number(stats.pendientes_retiro).toLocaleString("es-CO") : "—",
+      icon: Truck,
+      color: "text-warning",
+      bgColor: "bg-warning/10",
     },
   ];
 
   return (
     <div className="space-y-5 pt-2">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {statCards.map((stat) => (
           <div
             key={stat.label}

@@ -157,7 +157,9 @@ export interface DashboardStatsData {
   aprobados: string;
   en_proceso: string;
   pendientes: string;
-  rechazados: string;
+  pendientes_pago: string;
+  pendientes_traspaso: string;
+  pendientes_retiro: string;
 }
 
 // Legacy types kept for backward compatibility

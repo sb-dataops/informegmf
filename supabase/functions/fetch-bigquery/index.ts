@@ -191,17 +191,68 @@ serve(async (req) => {
 
     // ── STATS for dashboard ──
     if (action === "stats") {
-      const statsSQL = `
+      const safeQuery2 = async (sql: string) => {
+        try { return await queryBQ(token, projectId, sql); }
+        catch (e) { console.warn("Stats query failed:", e); return []; }
+      };
+
+      // Total from relatorio
+      const relatorioStatsSQL = `
         SELECT 
           COUNT(*) as total,
           COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%APROBADO%') as aprobados,
           COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%') as en_proceso,
-          COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PENDIENTE%') as pendientes,
-          COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%RECHAZADO%') as rechazados
+          COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PENDIENTE%') as pendientes
         FROM \`${TABLES.relatorio}\`
       `;
-      const stats = await queryBQ(token, projectId, statsSQL);
-      return new Response(JSON.stringify({ stats: stats[0] || {} }), {
+
+      // Pendientes de pago: retiros sin cierre contable
+      const pendientesPagoSQL = `
+        SELECT COUNT(*) as pendientes_pago
+        FROM \`${TABLES.retiros}\`
+        WHERE (IFNULL(cierrecontableTraspasoComision,'') = '' OR cierrecontableTraspasoComision IS NULL)
+          AND placa IS NOT NULL AND placa != ''
+      `;
+
+      // Pendientes de traspaso: tramitadores sin estadoTraspaso aprobado
+      const pendientesTraspasoSQL = `
+        SELECT COUNT(*) as pendientes_traspaso
+        FROM (
+          SELECT placa, estadoTraspaso FROM \`${TABLES.servitram}\`
+          UNION ALL
+          SELECT placa, estadoTraspaso FROM \`${TABLES.gestramites}\`
+        )
+        WHERE placa IS NOT NULL AND placa != ''
+          AND (UPPER(IFNULL(estadoTraspaso,'')) NOT LIKE '%APROBADO%' 
+               AND UPPER(IFNULL(estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
+      `;
+
+      // Pendientes de retiro: retiros sin fecha de entrega
+      const pendientesRetiroSQL = `
+        SELECT COUNT(*) as pendientes_retiro
+        FROM \`${TABLES.retiros}\`
+        WHERE (IFNULL(fechaEntregaVehiculo,'') = '' OR fechaEntregaVehiculo IS NULL)
+          AND placa IS NOT NULL AND placa != ''
+      `;
+
+      const [relStats, pagoStats, traspasoStats, retiroStats] = await Promise.all([
+        safeQuery2(relatorioStatsSQL),
+        safeQuery2(pendientesPagoSQL),
+        safeQuery2(pendientesTraspasoSQL),
+        safeQuery2(pendientesRetiroSQL),
+      ]);
+
+      const stats = {
+        total: relStats[0]?.total || '0',
+        aprobados: relStats[0]?.aprobados || '0',
+        en_proceso: relStats[0]?.en_proceso || '0',
+        pendientes: relStats[0]?.pendientes || '0',
+        pendientes_pago: pagoStats[0]?.pendientes_pago || '0',
+        pendientes_traspaso: traspasoStats[0]?.pendientes_traspaso || '0',
+        pendientes_retiro: retiroStats[0]?.pendientes_retiro || '0',
+      };
+
+      return new Response(JSON.stringify({ stats }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
