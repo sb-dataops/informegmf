@@ -114,6 +114,7 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
   // 1. Relatorio data (sales info)
   result.relatorio
     .filter((r) => r.placa && (!documento || r.documento === documento))
+    .filter((r) => !r.estado || !r.estado.toUpperCase().includes("CONDICIONAL RECHAZADO"))
     .forEach((r) => {
       const v = getVehicle(r.placa!);
       v.descripcion = r.descripcion || v.descripcion;
