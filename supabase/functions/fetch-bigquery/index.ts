@@ -210,12 +210,11 @@ serve(async (req) => {
         FROM \`${TABLES.relatorio}\`
       `;
 
-      // Pendientes de pago: retiros sin cierre contable (NULL o vacío en STRING)
+      // Pendientes de pago: retiros sin cierre contable
       const pendientesPagoSQL = `
         SELECT COUNT(*) as pendientes_pago
         FROM \`${TABLES.retiros}\`
-        WHERE (cierrecontableTraspasoComision IS NULL)
-          AND placa IS NOT NULL
+        WHERE IFNULL(CAST(cierrecontableTraspasoComision AS STRING), '') = ''
       `;
 
       // Pendientes de traspaso: tramitadores sin estadoTraspaso aprobado
@@ -235,8 +234,7 @@ serve(async (req) => {
       const pendientesRetiroSQL = `
         SELECT COUNT(*) as pendientes_retiro
         FROM \`${TABLES.retiros}\`
-        WHERE UPPER(IFNULL(estadoRetiro,'')) = 'ABIERTO'
-          AND placa IS NOT NULL
+        WHERE UPPER(IFNULL(CAST(estadoRetiro AS STRING), '')) = 'ABIERTO'
       `;
 
       const [relStats, pagoStats, traspasoStats, retiroStats] = await Promise.all([
