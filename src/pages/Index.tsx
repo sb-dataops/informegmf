@@ -6,12 +6,14 @@ import VehicleCard from "@/components/VehicleCard";
 import DashboardStats from "@/components/DashboardStats";
 import { searchBigQuery, extractCompradores, consolidateVehiculos } from "@/services/bigqueryService";
 import { Comprador, SearchResult } from "@/types";
-import { Users, Search, ArrowLeft, Loader2 } from "lucide-react";
+import { Users, Search, ArrowLeft, Loader2, DollarSign, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
@@ -106,6 +108,20 @@ const Index = () => {
             {isError && (
               <div className="text-center py-12">
                 <p className="text-destructive">Error: {(error as Error).message}</p>
+              </div>
+            )}
+
+            {/* Quick actions */}
+            {!hasSearched && (
+              <div className="flex justify-center gap-3">
+                <Button onClick={() => navigate("/gestion-pagos")} variant="outline" className="gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Gestión de Pagos
+                </Button>
+                <Button onClick={() => navigate("/gestion-pagos")} variant="outline" className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  Cargar Documentos
+                </Button>
               </div>
             )}
 
