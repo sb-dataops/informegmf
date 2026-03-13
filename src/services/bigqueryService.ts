@@ -8,12 +8,6 @@ import {
 const FUNCTION_NAME = "fetch-bigquery";
 
 export async function searchBigQuery(query: string): Promise<SearchResult> {
-  const { data, error } = await supabase.functions.invoke(FUNCTION_NAME, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-    body: null,
-  });
-
   // supabase.functions.invoke doesn't support query params well for GET,
   // so let's use fetch directly
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
