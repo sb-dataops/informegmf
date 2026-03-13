@@ -83,9 +83,10 @@ const DashboardStats = () => {
     <div className="space-y-5 pt-2">
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {statCards.map((stat) => (
-          <div
+          <button
             key={stat.label}
-            className="bg-card rounded-xl border border-border p-4 shadow-card hover:shadow-card-hover transition-shadow"
+            onClick={() => navigate(`/filter/${stat.category}`)}
+            className="bg-card rounded-xl border border-border p-4 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all text-left cursor-pointer"
           >
             <div className="flex items-center justify-between mb-3">
               <div className={`h-9 w-9 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
@@ -94,7 +95,7 @@ const DashboardStats = () => {
             </div>
             <p className="text-2xl font-bold text-foreground">{stat.value}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
-          </div>
+          </button>
         ))}
       </div>
     </div>
