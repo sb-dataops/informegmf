@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 const DashboardStats = () => {
+  const navigate = useNavigate();
   const { data: stats, isLoading } = useQuery({
     queryKey: ["bigquery-stats"],
     queryFn: fetchDashboardStats,
