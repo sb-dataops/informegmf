@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { fetchFilteredLots } from "@/services/bigqueryService";
@@ -19,6 +20,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 const FilteredLots = () => {
   const { category } = useParams<{ category: string }>();
   const navigate = useNavigate();
+  const [search, setSearch] = useState("");
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["bigquery-filter", category],
@@ -30,8 +32,17 @@ const FilteredLots = () => {
   const title = CATEGORY_LABELS[category || ""] || category || "";
   const rows = data?.rows || [];
 
+  const normalizedSearch = search.toLowerCase().trim();
+  const filteredRows = normalizedSearch
+    ? rows.filter((r) =>
+        [r.placa, r.comprador, r.subasta, r.descripcion]
+          .filter(Boolean)
+          .some((val) => val!.toLowerCase().includes(normalizedSearch))
+      )
+    : rows;
+
   // Group by subasta
-  const grouped = rows.reduce<Record<string, typeof rows>>((acc, row) => {
+  const grouped = filteredRows.reduce<Record<string, typeof filteredRows>>((acc, row) => {
     const key = row.subasta || "Sin subasta";
     if (!acc[key]) acc[key] = [];
     acc[key].push(row);
@@ -69,10 +80,23 @@ const FilteredLots = () => {
             <div>
               <h2 className="text-2xl font-bold text-foreground">{title}</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                {isLoading ? "Cargando..." : `${rows.length} lote(s) encontrado(s)`}
+                {isLoading ? "Cargando..." : `${filteredRows.length} lote(s) encontrado(s)`}
               </p>
             </div>
           </div>
+
+          {!isLoading && rows.length > 0 && (
+            <div className="relative w-full max-w-2xl">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Buscar por placa, comprador o subasta..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-12 pr-4 h-12 text-sm rounded-xl border-2 border-border bg-card shadow-card focus-visible:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/20 transition-all"
+              />
+            </div>
+          )}
 
           {isLoading && (
             <div className="flex items-center justify-center py-12 gap-3">
