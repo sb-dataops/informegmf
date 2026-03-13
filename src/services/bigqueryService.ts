@@ -1,6 +1,7 @@
 import {
   SearchResult,
   DashboardStatsData,
+  FilteredLotsResult,
   Comprador,
   VehiculoConsolidado,
 } from "@/types";
