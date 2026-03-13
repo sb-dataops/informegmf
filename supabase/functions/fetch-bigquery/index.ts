@@ -224,7 +224,8 @@ serve(async (req) => {
         }
       };
 
-      // Total from relatorio
+      // Total from relatorio — only "Gm Financial Colombia Sa Compañia De Financiamiento"
+      const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
       const relatorioStatsSQL = `
         SELECT 
           COUNT(*) as total,
@@ -233,6 +234,7 @@ serve(async (req) => {
           COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PENDIENTE%') as pendientes
         FROM \`${TABLES.relatorio}\`
         WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+          AND ${COMITENTE_FILTER}
       `;
 
       // Retiros stats - all in one query to avoid type casting issues
