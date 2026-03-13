@@ -334,6 +334,7 @@ serve(async (req) => {
         sql = `
           SELECT subasta, placa, comprador, documento, descripcion, estado, lote
           FROM \`${TABLES.relatorio}\`
+          WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
           ORDER BY subasta, placa
           LIMIT 2000
         `;
