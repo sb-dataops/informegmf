@@ -66,11 +66,32 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
   const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 5000 }),
+    body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 5000, timeoutMs: 30000 }),
   });
 
-  const data = await res.json();
+  let data = await res.json();
   if (!res.ok) throw new Error(`BigQuery error: ${JSON.stringify(data)}`);
+
+  // Poll if job is not complete (common with external/Sheets tables)
+  const jobId = data.jobReference?.jobId;
+  let attempts = 0;
+  while (!data.jobComplete && jobId && attempts < 10) {
+    attempts++;
+    console.log(`[BQ] Job ${jobId} not complete, polling attempt ${attempts}...`);
+    await new Promise((r) => setTimeout(r, 2000));
+    const pollUrl = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries/${jobId}?timeoutMs=10000`;
+    const pollRes = await fetch(pollUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    data = await pollRes.json();
+    if (!pollRes.ok) throw new Error(`BigQuery poll error: ${JSON.stringify(data)}`);
+  }
+
+  if (!data.jobComplete) {
+    console.warn(`[BQ] Job ${jobId} did not complete after ${attempts} attempts`);
+    return [];
+  }
+
   if (!data.rows) return [];
 
   const fields = data.schema.fields.map((f: { name: string }) => f.name);
