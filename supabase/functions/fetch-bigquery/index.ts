@@ -191,9 +191,13 @@ serve(async (req) => {
 
     // ── STATS for dashboard ──
     if (action === "stats") {
-      const safeQuery2 = async (sql: string) => {
-        try { return await queryBQ(token, projectId, sql); }
-        catch (e) { console.warn("Stats query failed:", e); return []; }
+      const safeQuery2 = async (label: string, sql: string) => {
+        try { 
+          const result = await queryBQ(token, projectId, sql); 
+          console.log(`[${label}] result:`, JSON.stringify(result));
+          return result;
+        }
+        catch (e) { console.warn(`[${label}] failed:`, e); return []; }
       };
 
       // Total from relatorio
