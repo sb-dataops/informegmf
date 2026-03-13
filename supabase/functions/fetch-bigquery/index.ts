@@ -229,9 +229,10 @@ serve(async (req) => {
         SELECT 
           COUNT(*) as total,
           COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%APROBADO%') as aprobados,
-          COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%') as en_proceso,
+          COUNTIF((UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%') AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%') as en_proceso,
           COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PENDIENTE%') as pendientes
         FROM \`${TABLES.relatorio}\`
+        WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
       `;
 
       // Retiros stats - all in one query to avoid type casting issues
