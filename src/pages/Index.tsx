@@ -75,7 +75,7 @@ const Index = () => {
               <p className="text-[10px] text-primary-foreground/50 leading-tight">Consulta & Gestión</p>
             </div>
           </div>
-          <img src={logoGmf} alt="GM Financial" className="h-7 sm:h-8 brightness-0 invert opacity-80" />
+          <img src={logoGmf} alt="GM Financial" className="h-7 sm:h-8 brightness-0 invert" />
         </div>
       </header>
 
