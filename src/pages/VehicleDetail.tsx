@@ -90,6 +90,60 @@ const VehicleDetail = () => {
           )}
 
           {vehiculo && <VehicleCard vehiculo={vehiculo} />}
+
+          {/* Payment info */}
+          {vehiculo && pagoData && (
+            <Card className="border-border">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                  Información de Pagos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="rounded-lg bg-muted/50 p-4 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Prorrateo + Gastos</p>
+                    <p className="text-lg font-bold text-foreground">{formatCurrency(pagoData.total_prorrateo_gastos)}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-4 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Total Pagos</p>
+                    <p className="text-lg font-bold text-foreground">{formatCurrency(pagoData.total_pagos)}</p>
+                  </div>
+                  <div className={`rounded-lg p-4 text-center ${(pagoData.total_prorrateo_gastos - pagoData.total_pagos) > 0 ? "bg-destructive/10" : "bg-accent/50"}`}>
+                    <p className="text-xs text-muted-foreground mb-1">Saldo</p>
+                    <p className={`text-lg font-bold ${(pagoData.total_prorrateo_gastos - pagoData.total_pagos) > 0 ? "text-destructive" : "text-accent-foreground"}`}>
+                      {formatCurrency(pagoData.total_prorrateo_gastos - pagoData.total_pagos)}
+                    </p>
+                  </div>
+                </div>
+                {pagoData.fecha_limite_pago && (
+                  <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                    <CalendarDays className="h-4 w-4" />
+                    Fecha límite: {new Date(pagoData.fecha_limite_pago).toLocaleDateString("es-CO")}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Payment form */}
+          {vehiculo && (
+            <PaymentForm
+              initialPlaca={vehiculo.placa}
+              initialSubasta={vehiculo.subasta || undefined}
+              onSaved={() => refetchPago()}
+            />
+          )}
+
+          {/* Documents */}
+          {vehiculo && vehiculo.documento && (
+            <DocumentUpload
+              documentoComprador={vehiculo.documento}
+              placa={vehiculo.placa}
+              compradorNombre={vehiculo.comprador || undefined}
+            />
+          )}
         </div>
       </main>
 
