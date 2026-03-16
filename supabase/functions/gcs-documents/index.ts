@@ -114,6 +114,75 @@ serve(async (req) => {
       }
     }
 
+    if (action === "diagnose-permissions") {
+      const authHeaders = { Authorization: `Bearer ${token}` };
+      const bucketApiBase = `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucketName)}`;
+      const tempObjectPath = `diagnostico-permisos/${Date.now()}.txt`;
+      const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(bucketName)}/o?uploadType=media&name=${encodeURIComponent(tempObjectPath)}`;
+
+      const bucketRes = await fetch(bucketApiBase, { headers: authHeaders });
+      const listRes = await fetch(`${bucketApiBase}/o?maxResults=1`, { headers: authHeaders });
+      const writeRes = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          ...authHeaders,
+          "Content-Type": "text/plain",
+        },
+        body: `diagnostic check ${new Date().toISOString()}`,
+      });
+
+      let deleteStatus: number | null = null;
+      let deleteBody: string | null = null;
+
+      if (writeRes.ok) {
+        const deleteRes = await fetch(`${bucketApiBase}/o/${encodeURIComponent(tempObjectPath)}`, {
+          method: "DELETE",
+          headers: authHeaders,
+        });
+        deleteStatus = deleteRes.status;
+        deleteBody = deleteRes.ok ? null : await readErrorBody(deleteRes);
+      }
+
+      return new Response(JSON.stringify({
+        bucket: bucketName,
+        service_account: sa.client_email,
+        checks: {
+          bucket_metadata: {
+            ok: bucketRes.ok,
+            status: bucketRes.status,
+            detail: bucketRes.ok ? null : await readErrorBody(bucketRes),
+          },
+          list_objects: {
+            ok: listRes.ok,
+            status: listRes.status,
+            detail: listRes.ok ? null : await readErrorBody(listRes),
+          },
+          write_object: {
+            ok: writeRes.ok,
+            status: writeRes.status,
+            detail: writeRes.ok ? null : await readErrorBody(writeRes),
+          },
+          delete_object: {
+            ok: deleteStatus === null ? null : deleteStatus >= 200 && deleteStatus < 300,
+            status: deleteStatus,
+            detail: deleteBody,
+          },
+        },
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const url = new URL(req.url);
+    let action = url.searchParams.get("action");
+
+    if (!action && req.method !== "GET" && (req.headers.get("content-type") || "").includes("application/json")) {
+      const requestJson = await req.clone().json().catch(() => null);
+      if (requestJson && typeof requestJson.action === "string") {
+        action = requestJson.action;
+      }
+    }
+
     // ── UPLOAD ──
     if (action === "upload" && req.method === "POST") {
       const formData = await req.formData();
