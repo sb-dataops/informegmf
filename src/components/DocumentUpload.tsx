@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { uploadDocumento, listDocumentos, deleteDocumento, formatFileSize, DocumentoRecord } from "@/services/documentosService";
 import { searchBigQuery } from "@/services/bigqueryService";
 import { toast } from "@/hooks/use-toast";
+import { formatNumericInput, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { buildAllowedPlacasFromRelatorio, normalizePlaca } from "@/lib/vehicle-filters";
 import { Upload, File, Trash2, Loader2, FileText, Download } from "lucide-react";
 
@@ -81,7 +82,7 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
       toast({ title: "Error", description: "Selecciona al menos una placa", variant: "destructive" });
       return;
     }
-    const valor = Number(valorSoporte);
+    const valor = parseCurrencyLikeValue(valorSoporte);
     if (Number.isNaN(valor) || valor <= 0) {
       toast({ title: "Error", description: "Ingresa un valor de soporte válido", variant: "destructive" });
       return;
@@ -165,12 +166,11 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
           <Label htmlFor="valor-soporte" className="text-sm font-medium">Valor del soporte</Label>
           <Input
             id="valor-soporte"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="Ej: 1500000"
+            type="text"
+            inputMode="decimal"
+            placeholder="Ej: 1.500.000,50"
             value={valorSoporte}
-            onChange={(e) => setValorSoporte(e.target.value)}
+            onChange={(e) => setValorSoporte(formatNumericInput(e.target.value))}
           />
         </div>
 
