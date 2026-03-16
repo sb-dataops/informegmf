@@ -17,6 +17,31 @@ function normalizeBucketName(value: string): string {
     .replace(/\/.*$/, "");
 }
 
+function isLikelyJson(value: string): boolean {
+  const trimmed = value.trim();
+  return (trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"));
+}
+
+function validateBucketSecret(rawBucketName: string): string {
+  if (isLikelyJson(rawBucketName)) {
+    throw new Error(
+      "GCS_BUCKET_NAME está mal configurado: actualmente contiene un JSON de credenciales y debe contener únicamente el nombre del bucket (por ejemplo: mi-bucket-documentos).",
+    );
+  }
+
+  const bucketName = normalizeBucketName(rawBucketName);
+
+  if (!bucketName) {
+    throw new Error("GCS_BUCKET_NAME está vacío después de normalizarse");
+  }
+
+  if (!/^[a-z0-9._-]+$/.test(bucketName)) {
+    throw new Error(`GCS_BUCKET_NAME no es válido: ${bucketName}`);
+  }
+
+  return bucketName;
+}
+
 async function readErrorBody(response: Response): Promise<string> {
   const contentType = response.headers.get("content-type") || "";
 
