@@ -2,8 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function normalizeBucketName(value: string): string {
@@ -56,6 +56,17 @@ async function readErrorBody(response: Response): Promise<string> {
   }
 }
 
+function parseJsonRecord(value: FormDataEntryValue | null): Record<string, unknown> {
+  if (typeof value !== "string") return {};
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
 async function createGCPToken(sa: { client_email: string; private_key: string }, scopes: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
@@ -68,29 +79,34 @@ async function createGCPToken(sa: { client_email: string; private_key: string },
   };
 
   const encode = (obj: unknown) =>
-    btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
   const signingInput = `${encode(header)}.${encode(payload)}`;
 
   const pemContent = sa.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\n/g, '');
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\n/g, "");
 
   const binaryDer = Uint8Array.from(atob(pemContent), (c) => c.charCodeAt(0));
   const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8", binaryDer,
+    "pkcs8",
+    binaryDer,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false, ["sign"]
+    false,
+    ["sign"],
   );
 
   const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5", cryptoKey,
-    new TextEncoder().encode(signingInput)
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    new TextEncoder().encode(signingInput),
   );
 
   const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
   const jwt = `${signingInput}.${sigB64}`;
 
@@ -197,7 +213,6 @@ serve(async (req) => {
       });
     }
 
-    // ── UPLOAD ──
     if (action === "upload" && req.method === "POST") {
       const formData = await req.formData();
       const file = formData.get("file") as File;
@@ -205,6 +220,7 @@ serve(async (req) => {
       const placa = formData.get("placa") as string | null;
       const placasRaw = formData.get("placas") as string | null;
       const valorSoporteRaw = formData.get("valor_soporte") as string | null;
+      const valoresPorPlacaRaw = parseJsonRecord(formData.get("valores_por_placa"));
 
       const placas = placasRaw
         ? JSON.parse(placasRaw).filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0)
@@ -212,16 +228,33 @@ serve(async (req) => {
         : placa
           ? [placa.trim().toUpperCase()]
           : [];
-      const valorSoporte = Number(valorSoporteRaw || 0);
 
-      if (!file || !documentoComprador || placas.length === 0 || Number.isNaN(valorSoporte) || valorSoporte < 0) {
-        return new Response(JSON.stringify({ error: "Archivo, documento_comprador, al menos una placa y un valor válido son requeridos" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const uniquePlacas = Array.from(new Set(placas));
+      const fallbackValor = Number(valorSoporteRaw || 0);
+      const valoresPorPlaca = Object.fromEntries(
+        uniquePlacas.map((placaItem) => {
+          const rawValue = valoresPorPlacaRaw[placaItem];
+          const parsedValue = typeof rawValue === "number" || typeof rawValue === "string"
+            ? Number(rawValue)
+            : fallbackValor;
+          return [placaItem, parsedValue];
+        }),
+      );
+
+      const valoresInvalidos = uniquePlacas.some((placaItem) => {
+        const value = Number(valoresPorPlaca[placaItem]);
+        return Number.isNaN(value) || value <= 0;
+      });
+
+      if (!file || !documentoComprador || uniquePlacas.length === 0 || valoresInvalidos) {
+        return new Response(JSON.stringify({ error: "Archivo, documento_comprador, al menos una placa y un valor válido por placa son requeridos" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       const timestamp = Date.now();
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const gcsPath = `documentos/${documentoComprador}/${timestamp}_${safeName}`;
 
       const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(bucketName)}/o?uploadType=media&name=${encodeURIComponent(gcsPath)}`;
@@ -250,26 +283,27 @@ serve(async (req) => {
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      const { data, error } = await supabase.from("documentos").insert({
+      const registros = uniquePlacas.map((placaItem) => ({
         documento_comprador: documentoComprador,
-        placa: placas[0] || null,
-        placas,
-        valor_soporte: valorSoporte,
+        placa: placaItem,
+        placas: [placaItem],
+        valor_soporte: Number(valoresPorPlaca[placaItem]),
         nombre_archivo: file.name,
         tipo_archivo: file.type,
         tamano: file.size,
         gcs_path: gcsPath,
         gcs_url: gcsUrl,
-      }).select().single();
+      }));
+
+      const { data, error } = await supabase.from("documentos").insert(registros).select();
 
       if (error) throw new Error(`DB insert error: ${error.message}`);
 
-      return new Response(JSON.stringify({ success: true, documento: data }), {
+      return new Response(JSON.stringify({ success: true, documentos: data, documento: data?.[0] ?? null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ── LIST documents ──
     if (action === "list") {
       const documentoComprador = url.searchParams.get("documento_comprador");
       const placa = url.searchParams.get("placa")?.trim().toUpperCase();
@@ -290,39 +324,49 @@ serve(async (req) => {
       });
     }
 
-    // ── DELETE ──
     if (action === "delete" && req.method === "POST") {
       const { id, gcs_path } = await req.json();
 
-      // Delete from GCS
-      const deleteUrl = `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucketName)}/o/${encodeURIComponent(gcs_path)}`;
-      await fetch(deleteUrl, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      if (!id && !gcs_path) {
+        return new Response(JSON.stringify({ error: "id o gcs_path requerido" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-      // Delete metadata from Supabase
+      if (gcs_path) {
+        const deleteUrl = `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucketName)}/o/${encodeURIComponent(gcs_path)}`;
+        await fetch(deleteUrl, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      await supabase.from("documentos").delete().eq("id", id);
+      const deleteQuery = gcs_path
+        ? supabase.from("documentos").delete().eq("gcs_path", gcs_path)
+        : supabase.from("documentos").delete().eq("id", id);
+
+      const { error } = await deleteQuery;
+      if (error) throw new Error(`DB delete error: ${error.message}`);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ── SIGNED URL (for private buckets) ──
     if (action === "signed-url") {
       const gcsPath = url.searchParams.get("path");
       if (!gcsPath) {
         return new Response(JSON.stringify({ error: "path requerido" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // For simplicity, return the public URL. If bucket is private, we'd generate a signed URL.
       const publicUrl = `https://storage.googleapis.com/${bucketName}/${gcsPath}`;
       return new Response(JSON.stringify({ url: publicUrl }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -330,14 +374,15 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ error: "action requerido: upload, list, delete, signed-url" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error: unknown) {
     console.error("GCS error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

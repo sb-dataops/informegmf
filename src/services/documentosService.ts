@@ -12,6 +12,21 @@ export interface DocumentoRecord {
   created_at: string;
 }
 
+export interface GroupedDocumentoRecord {
+  id: string;
+  documento_comprador: string;
+  nombre_archivo: string;
+  tipo_archivo: string | null;
+  tamano: number | null;
+  gcs_path: string;
+  gcs_url: string | null;
+  created_at: string;
+  soportes: Array<{
+    placa: string;
+    valor_soporte: number;
+  }>;
+}
+
 const FUNCTION_NAME = "gcs-documents";
 
 function buildUrl(action: string, params?: Record<string, string>): string {
@@ -33,15 +48,22 @@ function headers(): Record<string, string> {
 export async function uploadDocumento(
   file: File,
   documentoComprador: string,
-  placas: string[],
-  valorSoporte: number,
-): Promise<DocumentoRecord> {
+  valoresPorPlaca: Record<string, number>,
+): Promise<DocumentoRecord[]> {
+  const normalizedEntries = Object.entries(valoresPorPlaca)
+    .map(([placa, valor]) => [placa.trim().toUpperCase(), Number(valor)] as const)
+    .filter(([placa, valor]) => placa.length > 0 && Number.isFinite(valor) && valor > 0);
+
+  const placas = normalizedEntries.map(([placa]) => placa);
+  const valoresNormalizados = Object.fromEntries(normalizedEntries);
+
   const formData = new FormData();
   formData.append("file", file);
   formData.append("documento_comprador", documentoComprador);
-  formData.append("placas", JSON.stringify(placas.map((placa) => placa.toUpperCase())));
-  formData.append("valor_soporte", String(valorSoporte));
-  if (placas[0]) formData.append("placa", placas[0].toUpperCase());
+  formData.append("placas", JSON.stringify(placas));
+  formData.append("valores_por_placa", JSON.stringify(valoresNormalizados));
+  formData.append("valor_soporte", String(valoresNormalizados[placas[0]] ?? 0));
+  if (placas[0]) formData.append("placa", placas[0]);
 
   const res = await fetch(buildUrl("upload"), {
     method: "POST",
@@ -55,7 +77,8 @@ export async function uploadDocumento(
   }
 
   const result = await res.json();
-  return result.documento;
+  if (Array.isArray(result.documentos)) return result.documentos;
+  return result.documento ? [result.documento] : [];
 }
 
 export async function listDocumentos(params: {
@@ -88,6 +111,48 @@ export async function deleteDocumento(id: string, gcsPath: string): Promise<void
     const err = await res.json();
     throw new Error(err.error || "Error eliminando documento");
   }
+}
+
+export function groupDocumentosByArchivo(documentos: DocumentoRecord[]): GroupedDocumentoRecord[] {
+  const grouped = new Map<string, GroupedDocumentoRecord>();
+
+  documentos.forEach((documento) => {
+    const key = documento.gcs_path || documento.id;
+    const existing = grouped.get(key);
+    const placas = documento.placas?.length ? documento.placas : documento.placa ? [documento.placa] : [];
+    const soportes = placas.map((placa) => ({
+      placa: placa.toUpperCase(),
+      valor_soporte: Number(documento.valor_soporte || 0),
+    }));
+
+    if (!existing) {
+      grouped.set(key, {
+        id: documento.id,
+        documento_comprador: documento.documento_comprador,
+        nombre_archivo: documento.nombre_archivo,
+        tipo_archivo: documento.tipo_archivo,
+        tamano: documento.tamano,
+        gcs_path: documento.gcs_path,
+        gcs_url: documento.gcs_url,
+        created_at: documento.created_at,
+        soportes,
+      });
+      return;
+    }
+
+    const seen = new Set(existing.soportes.map((item) => `${item.placa}-${item.valor_soporte}`));
+    soportes.forEach((soporte) => {
+      const signature = `${soporte.placa}-${soporte.valor_soporte}`;
+      if (!seen.has(signature)) {
+        existing.soportes.push(soporte);
+        seen.add(signature);
+      }
+    });
+  });
+
+  return Array.from(grouped.values()).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 }
 
 export function sumValorSoportesByPlaca(documentos: DocumentoRecord[], placa: string): number {
