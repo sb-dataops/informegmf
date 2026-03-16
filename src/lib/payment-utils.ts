@@ -70,10 +70,16 @@ export function parseCurrencyLikeValue(value: string | number | null | undefined
     normalized = decimalSeparator === "," ? normalized.replace(",", ".") : normalized;
   } else if (lastComma !== -1) {
     const commaCount = (normalized.match(/,/g) || []).length;
-    normalized = commaCount > 1 ? normalized.replace(/,/g, "") : normalized.replace(",", ".");
+    const decimalPart = normalized.split(",").pop() || "";
+    normalized = commaCount === 1 && decimalPart.length > 0 && decimalPart.length <= 2
+      ? normalized.replace(",", ".")
+      : normalized.replace(/,/g, "");
   } else if (lastDot !== -1) {
     const dotCount = (normalized.match(/\./g) || []).length;
-    normalized = dotCount > 1 ? normalized.replace(/\./g, "") : normalized;
+    const decimalPart = normalized.split(".").pop() || "";
+    normalized = dotCount === 1 && decimalPart.length > 0 && decimalPart.length <= 2
+      ? normalized
+      : normalized.replace(/\./g, "");
   }
 
   const parsed = Number(normalized);
