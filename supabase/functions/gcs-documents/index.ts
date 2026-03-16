@@ -173,16 +173,6 @@ serve(async (req) => {
       });
     }
 
-    const url = new URL(req.url);
-    let action = url.searchParams.get("action");
-
-    if (!action && req.method !== "GET" && (req.headers.get("content-type") || "").includes("application/json")) {
-      const requestJson = await req.clone().json().catch(() => null);
-      if (requestJson && typeof requestJson.action === "string") {
-        action = requestJson.action;
-      }
-    }
-
     // ── UPLOAD ──
     if (action === "upload" && req.method === "POST") {
       const formData = await req.formData();
