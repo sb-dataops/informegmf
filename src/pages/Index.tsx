@@ -35,8 +35,6 @@ const Index = () => {
   });
 
   const compradores = searchResult ? extractCompradores(searchResult) : [];
-  const vehiculos =
-    selectedComprador && searchResult ? consolidateVehiculos(searchResult, selectedComprador.documento) : [];
 
   const handleSearch = () => {
     if (!query.trim()) return;
