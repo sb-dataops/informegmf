@@ -117,8 +117,7 @@ serve(async (req) => {
     const rawBucketName = Deno.env.get("GCS_BUCKET_NAME");
     if (!rawBucketName) throw new Error("GCS_BUCKET_NAME not configured");
 
-    const bucketName = normalizeBucketName(rawBucketName);
-    if (!bucketName) throw new Error("GCS_BUCKET_NAME is empty after normalization");
+    const bucketName = validateBucketSecret(rawBucketName);
 
     const sa = JSON.parse(saJson);
     const token = await createGCPToken(sa, "https://www.googleapis.com/auth/devstorage.read_write");
