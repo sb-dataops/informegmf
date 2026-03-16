@@ -9,7 +9,7 @@ import { searchBigQuery, extractCompradores, consolidateVehiculos } from "@/serv
 import { fetchAllPagos } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
-import { Comprador, SearchResult } from "@/types";
+import { Comprador } from "@/types";
 import { Users, Search, ArrowLeft, Loader2, DollarSign, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
