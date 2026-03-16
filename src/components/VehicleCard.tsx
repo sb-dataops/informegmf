@@ -1,5 +1,6 @@
 import { VehiculoConsolidado } from "@/types";
-import { formatDate } from "@/services/bigqueryService";
+import { formatCurrency, formatDate } from "@/services/bigqueryService";
+import { parseCurrencyLikeValue } from "@/lib/payment-utils";
 import StatusBadges from "@/components/StatusBadges";
 import TramiteTimeline from "@/components/TramiteTimeline";
 import {
@@ -40,7 +41,7 @@ const VehicleCard = ({ vehiculo }: VehicleCardProps) => {
                 {vehiculo.fecha && <span>{formatDate(vehiculo.fecha)}</span>}
                 {vehiculo.mayor_oferta && (
                   <span className="font-semibold text-foreground">
-                    Oferta: ${Number(vehiculo.mayor_oferta).toLocaleString("es-CO")}
+                    Oferta: {formatCurrency(parseCurrencyLikeValue(vehiculo.mayor_oferta))}
                   </span>
                 )}
               </div>
@@ -69,3 +70,4 @@ const VehicleCard = ({ vehiculo }: VehicleCardProps) => {
 };
 
 export default VehicleCard;
+
