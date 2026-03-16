@@ -1,7 +1,10 @@
+import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { searchBigQuery, consolidateVehiculos, formatCurrency } from "@/services/bigqueryService";
 import { fetchPagoByPlaca } from "@/services/pagosService";
+import { listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
+import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import VehicleCard from "@/components/VehicleCard";
 import PaymentForm from "@/components/PaymentForm";
 import DocumentUpload from "@/components/DocumentUpload";
@@ -24,7 +27,7 @@ const VehicleDetail = () => {
 
   const vehiculos = data ? consolidateVehiculos(data) : [];
   const vehiculo = vehiculos.find(
-    (v) => v.placa.toUpperCase() === placa?.toUpperCase()
+    (v) => v.placa.toUpperCase() === placa?.toUpperCase(),
   ) || vehiculos[0];
 
   const { data: pagoData, refetch: refetchPago } = useQuery({
@@ -32,6 +35,20 @@ const VehicleDetail = () => {
     queryFn: () => fetchPagoByPlaca(placa!),
     enabled: !!placa,
   });
+
+  const { data: documentos = [], refetch: refetchDocumentos } = useQuery({
+    queryKey: ["documentos-vehiculo", vehiculo?.documento, vehiculo?.placa],
+    queryFn: () => listDocumentos({ documento_comprador: vehiculo?.documento || undefined, placa: vehiculo?.placa || undefined }),
+    enabled: !!vehiculo?.documento && !!vehiculo?.placa,
+  });
+
+  const mayorOferta = parseCurrencyLikeValue(vehiculo?.mayor_oferta);
+  const totalPagosCalculado = calculateTotalPagos(mayorOferta, Number(pagoData?.total_prorrateo_gastos || 0));
+  const totalSoportes = useMemo(() => {
+    if (!vehiculo?.placa) return 0;
+    return sumValorSoportesByPlaca(documentos, vehiculo.placa);
+  }, [documentos, vehiculo?.placa]);
+  const saldoPendiente = calculateSaldoPendiente(totalPagosCalculado, totalSoportes);
 
   return (
     <div className="min-h-screen bg-background">
@@ -91,7 +108,6 @@ const VehicleDetail = () => {
 
           {vehiculo && <VehicleCard vehiculo={vehiculo} />}
 
-          {/* Payment info */}
           {vehiculo && pagoData && (
             <Card className="border-border">
               <CardHeader className="pb-4">
@@ -101,21 +117,29 @@ const VehicleDetail = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="rounded-lg bg-muted/50 p-4 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Mayor oferta</p>
+                    <p className="text-lg font-bold text-foreground">{formatCurrency(mayorOferta)}</p>
+                  </div>
                   <div className="rounded-lg bg-muted/50 p-4 text-center">
                     <p className="text-xs text-muted-foreground mb-1">Prorrateo + Gastos</p>
                     <p className="text-lg font-bold text-foreground">{formatCurrency(pagoData.total_prorrateo_gastos)}</p>
                   </div>
                   <div className="rounded-lg bg-muted/50 p-4 text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Total Pagos</p>
-                    <p className="text-lg font-bold text-foreground">{formatCurrency(pagoData.total_pagos)}</p>
+                    <p className="text-xs text-muted-foreground mb-1">Soportes cargados</p>
+                    <p className="text-lg font-bold text-foreground">{formatCurrency(totalSoportes)}</p>
                   </div>
-                  <div className={`rounded-lg p-4 text-center ${(pagoData.total_prorrateo_gastos - pagoData.total_pagos) > 0 ? "bg-destructive/10" : "bg-accent/50"}`}>
-                    <p className="text-xs text-muted-foreground mb-1">Saldo</p>
-                    <p className={`text-lg font-bold ${(pagoData.total_prorrateo_gastos - pagoData.total_pagos) > 0 ? "text-destructive" : "text-accent-foreground"}`}>
-                      {formatCurrency(pagoData.total_prorrateo_gastos - pagoData.total_pagos)}
+                  <div className={`rounded-lg p-4 text-center ${saldoPendiente > 0 ? "bg-destructive/10" : "bg-accent/50"}`}>
+                    <p className="text-xs text-muted-foreground mb-1">Saldo pendiente</p>
+                    <p className={`text-lg font-bold ${saldoPendiente > 0 ? "text-destructive" : "text-accent-foreground"}`}>
+                      {formatCurrency(saldoPendiente)}
                     </p>
                   </div>
+                </div>
+                <div className="mt-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+                  <p className="text-xs text-muted-foreground mb-1">Total pagos calculado</p>
+                  <p className="text-lg font-bold text-foreground">{formatCurrency(totalPagosCalculado)}</p>
                 </div>
                 {pagoData.fecha_limite_pago && (
                   <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
@@ -127,16 +151,15 @@ const VehicleDetail = () => {
             </Card>
           )}
 
-          {/* Payment form */}
           {vehiculo && (
             <PaymentForm
               initialPlaca={vehiculo.placa}
               initialSubasta={vehiculo.subasta || undefined}
+              initialMayorOferta={mayorOferta}
               onSaved={() => refetchPago()}
             />
           )}
 
-          {/* Documents */}
           {vehiculo && vehiculo.documento && (
             <DocumentUpload
               documentoComprador={vehiculo.documento}

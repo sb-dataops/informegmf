@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import PaymentForm from "@/components/PaymentForm";
 import DocumentUpload from "@/components/DocumentUpload";
-import { fetchAllPagos, PagoRecord } from "@/services/pagosService";
+import { fetchAllPagos } from "@/services/pagosService";
+import { listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { searchBigQuery } from "@/services/bigqueryService";
 import { formatCurrency } from "@/services/bigqueryService";
+import { calculateSaldoPendiente, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { ArrowLeft, DollarSign, Search, Loader2, FileText } from "lucide-react";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
@@ -26,7 +28,11 @@ const GestionPagos = () => {
     queryFn: fetchAllPagos,
   });
 
-  // Search for comprador to attach documents
+  const { data: documentos = [] } = useQuery({
+    queryKey: ["all-documentos"],
+    queryFn: () => listDocumentos({}),
+  });
+
   const { data: searchResult, isLoading: searchingDoc } = useQuery({
     queryKey: ["doc-search", docSearchTerm],
     queryFn: () => searchBigQuery(docSearchTerm),
@@ -36,10 +42,19 @@ const GestionPagos = () => {
   const compradores = searchResult
     ? [...new Map(
         searchResult.relatorio
-          .filter(r => r.documento)
-          .map(r => [r.documento, { documento: r.documento!, nombre: r.comprador || "Sin nombre" }])
+          .filter((r) => r.documento)
+          .map((r) => [r.documento, { documento: r.documento!, nombre: r.comprador || "Sin nombre" }]),
       ).values()]
     : [];
+
+  const mayorOfertaPorPlaca = useMemo(() => {
+    const map = new Map<string, number>();
+    searchResult?.relatorio.forEach((item) => {
+      if (!item.placa) return;
+      map.set(item.placa.toUpperCase(), parseCurrencyLikeValue(item.mayor_oferta));
+    });
+    return map;
+  }, [searchResult]);
 
   const handleDocSearch = () => {
     if (docSearch.trim()) {
@@ -79,7 +94,6 @@ const GestionPagos = () => {
           <p className="text-sm text-muted-foreground mt-1">Actualiza información de pagos y carga documentos soporte</p>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 border-b border-border pb-0">
           <button
             onClick={() => setActiveTab("pagos")}
@@ -105,7 +119,6 @@ const GestionPagos = () => {
           </button>
         </div>
 
-        {/* PAGOS TAB */}
         {activeTab === "pagos" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <PaymentForm onSaved={() => refetchPagos()} />
@@ -125,20 +138,23 @@ const GestionPagos = () => {
                           <TableHead>Placa</TableHead>
                           <TableHead>Subasta</TableHead>
                           <TableHead className="text-right">Prorrateo + Gastos</TableHead>
-                          <TableHead className="text-right">Pagos</TableHead>
+                          <TableHead className="text-right">Total Pagos</TableHead>
+                          <TableHead className="text-right">Soportes</TableHead>
                           <TableHead className="text-right">Saldo</TableHead>
                           <TableHead>Fecha Límite</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {pagos.map((p) => {
-                          const saldo = (p.total_prorrateo_gastos || 0) - (p.total_pagos || 0);
+                          const soportes = sumValorSoportesByPlaca(documentos, p.placa);
+                          const saldo = calculateSaldoPendiente(p.total_pagos || 0, soportes);
                           return (
                             <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/vehiculo/${p.placa}`)}>
                               <TableCell className="font-medium text-primary">{p.placa}</TableCell>
                               <TableCell className="text-muted-foreground">{p.subasta || "—"}</TableCell>
                               <TableCell className="text-right">{formatCurrency(p.total_prorrateo_gastos)}</TableCell>
                               <TableCell className="text-right">{formatCurrency(p.total_pagos)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(soportes)}</TableCell>
                               <TableCell className={`text-right font-medium ${saldo > 0 ? "text-destructive" : "text-accent-foreground"}`}>
                                 {formatCurrency(saldo)}
                               </TableCell>
@@ -157,10 +173,8 @@ const GestionPagos = () => {
           </div>
         )}
 
-        {/* DOCUMENTOS TAB */}
         {activeTab === "documentos" && (
           <div className="space-y-6">
-            {/* Search comprador */}
             <Card className="border-border">
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg">Buscar Comprador</CardTitle>

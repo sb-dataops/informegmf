@@ -2,6 +2,8 @@ export interface DocumentoRecord {
   id: string;
   documento_comprador: string;
   placa: string | null;
+  placas: string[];
+  valor_soporte: number;
   nombre_archivo: string;
   tipo_archivo: string | null;
   tamano: number | null;
@@ -31,12 +33,15 @@ function headers(): Record<string, string> {
 export async function uploadDocumento(
   file: File,
   documentoComprador: string,
-  placa?: string
+  placas: string[],
+  valorSoporte: number,
 ): Promise<DocumentoRecord> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("documento_comprador", documentoComprador);
-  if (placa) formData.append("placa", placa);
+  formData.append("placas", JSON.stringify(placas.map((placa) => placa.toUpperCase())));
+  formData.append("valor_soporte", String(valorSoporte));
+  if (placas[0]) formData.append("placa", placas[0].toUpperCase());
 
   const res = await fetch(buildUrl("upload"), {
     method: "POST",
@@ -83,6 +88,16 @@ export async function deleteDocumento(id: string, gcsPath: string): Promise<void
     const err = await res.json();
     throw new Error(err.error || "Error eliminando documento");
   }
+}
+
+export function sumValorSoportesByPlaca(documentos: DocumentoRecord[], placa: string): number {
+  const placaNormalizada = placa.toUpperCase();
+  return documentos.reduce((acc, documento) => {
+    const placas = documento.placas?.length ? documento.placas : documento.placa ? [documento.placa] : [];
+    return placas.map((item) => item.toUpperCase()).includes(placaNormalizada)
+      ? acc + Number(documento.valor_soporte || 0)
+      : acc;
+  }, 0);
 }
 
 export function formatFileSize(bytes: number): string {

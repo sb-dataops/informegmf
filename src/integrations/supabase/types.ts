@@ -23,8 +23,10 @@ export type Database = {
           id: string
           nombre_archivo: string
           placa: string | null
+          placas: string[]
           tamano: number | null
           tipo_archivo: string | null
+          valor_soporte: number
         }
         Insert: {
           created_at?: string
@@ -34,8 +36,10 @@ export type Database = {
           id?: string
           nombre_archivo: string
           placa?: string | null
+          placas?: string[]
           tamano?: number | null
           tipo_archivo?: string | null
+          valor_soporte?: number
         }
         Update: {
           created_at?: string
@@ -45,8 +49,10 @@ export type Database = {
           id?: string
           nombre_archivo?: string
           placa?: string | null
+          placas?: string[]
           tamano?: number | null
           tipo_archivo?: string | null
+          valor_soporte?: number
         }
         Relationships: []
       }
