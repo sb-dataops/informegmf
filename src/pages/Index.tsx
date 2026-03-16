@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import SearchBar from "@/components/SearchBar";
 import BuyerHeader from "@/components/BuyerHeader";
 import VehicleCard from "@/components/VehicleCard";
+import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import DashboardStats from "@/components/DashboardStats";
 import { searchBigQuery, extractCompradores, consolidateVehiculos } from "@/services/bigqueryService";
-import { Comprador, SearchResult } from "@/types";
+import { fetchAllPagos } from "@/services/pagosService";
+import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
+import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
+import { Comprador } from "@/types";
 import { Users, Search, ArrowLeft, Loader2, DollarSign, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -31,8 +35,6 @@ const Index = () => {
   });
 
   const compradores = searchResult ? extractCompradores(searchResult) : [];
-  const vehiculos =
-    selectedComprador && searchResult ? consolidateVehiculos(searchResult, selectedComprador.documento) : [];
 
   const handleSearch = () => {
     if (!query.trim()) return;
@@ -40,11 +42,39 @@ const Index = () => {
     setSearchTerm(query.trim());
   };
 
-  // Auto-select if only 1 buyer found
   const effectiveComprador = selectedComprador || (compradores.length === 1 && searchResult ? compradores[0] : null);
-
   const effectiveVehiculos =
     effectiveComprador && searchResult ? consolidateVehiculos(searchResult, effectiveComprador.documento) : [];
+
+  const hasSearched = !!searchTerm;
+  const showingDetail = !!effectiveComprador && !!searchResult;
+  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador;
+
+  const { data: pagos = [], isLoading: isPagosLoading } = useQuery({
+    queryKey: ["pagos-comprador"],
+    queryFn: fetchAllPagos,
+    enabled: showingDetail,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: documentosComprador = [], isLoading: isDocumentosLoading } = useQuery({
+    queryKey: ["documentos-comprador", effectiveComprador?.documento],
+    queryFn: () => listDocumentos({ documento_comprador: effectiveComprador?.documento || undefined }),
+    enabled: !!effectiveComprador?.documento && showingDetail,
+    staleTime: 60 * 1000,
+  });
+
+  const pagosPorPlaca = useMemo(
+    () => new Map(pagos.map((pago) => [pago.placa.toUpperCase(), pago])),
+    [pagos],
+  );
+
+  const documentosAgrupados = useMemo(
+    () => groupDocumentosByArchivo(documentosComprador),
+    [documentosComprador],
+  );
+
+  const isFinancialDataLoading = isPagosLoading || isDocumentosLoading;
 
   const selectComprador = (c: Comprador) => {
     setSelectedComprador(c);
@@ -60,13 +90,8 @@ const Index = () => {
     setSelectedComprador(null);
   };
 
-  const hasSearched = !!searchTerm;
-  const showingDetail = !!effectiveComprador && !!searchResult;
-  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador;
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="gradient-header border-b border-sidebar-border sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -82,7 +107,6 @@ const Index = () => {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-        {/* Dashboard / Search */}
         {!showingDetail && (
           <div className="space-y-6">
             <div className="text-center space-y-2 pt-4">
@@ -96,7 +120,6 @@ const Index = () => {
 
             <SearchBar value={query} onChange={setQuery} onSearch={handleSearch} />
 
-            {/* Loading */}
             {isLoading && (
               <div className="flex items-center justify-center py-12 gap-3">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -104,14 +127,12 @@ const Index = () => {
               </div>
             )}
 
-            {/* Error */}
             {isError && (
               <div className="text-center py-12">
                 <p className="text-destructive">Error: {(error as Error).message}</p>
               </div>
             )}
 
-            {/* Quick actions */}
             {!hasSearched && (
               <div className="flex justify-center gap-3">
                 <Button onClick={() => navigate("/gestion-pagos")} variant="outline" className="gap-2">
@@ -125,10 +146,8 @@ const Index = () => {
               </div>
             )}
 
-            {/* Stats dashboard */}
             {!hasSearched && <DashboardStats />}
 
-            {/* Multiple results */}
             {showingResults && (
               <div className="max-w-2xl mx-auto space-y-2">
                 <p className="text-sm text-muted-foreground">{compradores.length} comprador(es) encontrado(s)</p>
@@ -150,7 +169,6 @@ const Index = () => {
               </div>
             )}
 
-            {/* No results */}
             {hasSearched && !isLoading && compradores.length === 0 && !isError && (
               <div className="text-center py-12">
                 <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -160,8 +178,7 @@ const Index = () => {
           </div>
         )}
 
-        {/* Detail view */}
-        {showingDetail && (
+        {showingDetail && effectiveComprador && (
           <div className="space-y-5">
             <Button
               variant="ghost"
@@ -175,9 +192,38 @@ const Index = () => {
             <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
 
             <div className="space-y-4">
-              {effectiveVehiculos.map((v) => (
-                <VehicleCard key={v.placa} vehiculo={v} />
-              ))}
+              {effectiveVehiculos.map((v) => {
+                const pagoVehiculo = pagosPorPlaca.get(v.placa.toUpperCase());
+                const totalPagos = calculateTotalPagos(
+                  parseCurrencyLikeValue(v.mayor_oferta),
+                  Number(pagoVehiculo?.total_prorrateo_gastos || 0),
+                );
+                const totalSoportes = sumValorSoportesByPlaca(documentosComprador, v.placa);
+                const saldoPendiente = calculateSaldoPendiente(totalPagos, totalSoportes);
+
+                return (
+                  <VehicleCard
+                    key={v.placa}
+                    vehiculo={v}
+                    extraContent={
+                      isFinancialDataLoading ? (
+                        <div className="flex items-center justify-center gap-3 rounded-lg border border-border bg-muted/20 px-4 py-8 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                          Cargando pagos y soportes...
+                        </div>
+                      ) : (
+                        <VehicleSupportViewer
+                          documents={documentosAgrupados}
+                          totalPagos={totalPagos}
+                          totalSoportes={totalSoportes}
+                          saldoPendiente={saldoPendiente}
+                          placa={v.placa}
+                        />
+                      )
+                    }
+                  />
+                );
+              })}
               {effectiveVehiculos.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">No se encontraron vehículos con placa para este comprador</p>
@@ -188,7 +234,6 @@ const Index = () => {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border py-4 mt-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">© 2025 Superbid Exchange · GM Financial Colombia S.A.</p>
