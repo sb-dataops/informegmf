@@ -179,9 +179,19 @@ serve(async (req) => {
       const file = formData.get("file") as File;
       const documentoComprador = formData.get("documento_comprador") as string;
       const placa = formData.get("placa") as string | null;
+      const placasRaw = formData.get("placas") as string | null;
+      const valorSoporteRaw = formData.get("valor_soporte") as string | null;
 
-      if (!file || !documentoComprador) {
-        return new Response(JSON.stringify({ error: "Archivo y documento_comprador requeridos" }), {
+      const placas = placasRaw
+        ? JSON.parse(placasRaw).filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0)
+          .map((item: string) => item.trim().toUpperCase())
+        : placa
+          ? [placa.trim().toUpperCase()]
+          : [];
+      const valorSoporte = Number(valorSoporteRaw || 0);
+
+      if (!file || !documentoComprador || placas.length === 0 || Number.isNaN(valorSoporte) || valorSoporte < 0) {
+        return new Response(JSON.stringify({ error: "Archivo, documento_comprador, al menos una placa y un valor válido son requeridos" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -190,7 +200,6 @@ serve(async (req) => {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const gcsPath = `documentos/${documentoComprador}/${timestamp}_${safeName}`;
 
-      // Upload to GCS
       const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(bucketName)}/o?uploadType=media&name=${encodeURIComponent(gcsPath)}`;
       const fileBuffer = await file.arrayBuffer();
 
@@ -213,14 +222,15 @@ serve(async (req) => {
 
       const gcsUrl = `https://storage.googleapis.com/${bucketName}/${gcsPath}`;
 
-      // Save metadata to Supabase
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
       const { data, error } = await supabase.from("documentos").insert({
         documento_comprador: documentoComprador,
-        placa: placa || null,
+        placa: placas[0] || null,
+        placas,
+        valor_soporte: valorSoporte,
         nombre_archivo: file.name,
         tipo_archivo: file.type,
         tamano: file.size,
