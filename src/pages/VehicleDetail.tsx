@@ -44,6 +44,7 @@ const VehicleDetail = () => {
 
   const mayorOferta = parseCurrencyLikeValue(vehiculo?.mayor_oferta);
   const totalPagosCalculado = calculateTotalPagos(mayorOferta, Number(pagoData?.total_prorrateo_gastos || 0));
+  const documentosAgrupados = useMemo(() => groupDocumentosByArchivo(documentos), [documentos]);
   const totalSoportes = useMemo(() => {
     if (!vehiculo?.placa) return 0;
     return sumValorSoportesByPlaca(documentos, vehiculo.placa);
