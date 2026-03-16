@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { uploadDocumento, listDocumentos, deleteDocumento, formatFileSize, DocumentoRecord } from "@/services/documentosService";
 import { searchBigQuery } from "@/services/bigqueryService";
 import { toast } from "@/hooks/use-toast";
+import { buildAllowedPlacasFromRelatorio, normalizePlaca } from "@/lib/vehicle-filters";
 import { Upload, File, Trash2, Loader2, FileText, Download } from "lucide-react";
 
 interface DocumentUploadProps {

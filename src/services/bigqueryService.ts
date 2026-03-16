@@ -5,6 +5,7 @@ import {
   Comprador,
   VehiculoConsolidado,
 } from "@/types";
+import { buildAllowedPlacasFromRelatorio, isAllowedPlaca, isCondicionalRechazado } from "@/lib/vehicle-filters";
 
 const FUNCTION_NAME = "fetch-bigquery";
 

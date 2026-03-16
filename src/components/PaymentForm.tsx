@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { upsertPago, fetchPagoByPlaca } from "@/services/pagosService";
 import { searchBigQuery, formatCurrency } from "@/services/bigqueryService";
 import { calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
+import { isCondicionalRechazado } from "@/lib/vehicle-filters";
 import { toast } from "@/hooks/use-toast";
 import { DollarSign, Search, Loader2, Save, CalendarDays } from "lucide-react";
 

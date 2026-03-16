@@ -12,6 +12,7 @@ import { listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosSe
 import { searchBigQuery } from "@/services/bigqueryService";
 import { formatCurrency } from "@/services/bigqueryService";
 import { calculateSaldoPendiente, parseCurrencyLikeValue } from "@/lib/payment-utils";
+import { buildAllowedPlacasFromRelatorio, isCondicionalRechazado, normalizePlaca } from "@/lib/vehicle-filters";
 import { ArrowLeft, DollarSign, Search, Loader2, FileText } from "lucide-react";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
