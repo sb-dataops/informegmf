@@ -75,6 +75,7 @@ export async function fetchFilteredLots(category: string): Promise<FilteredLotsR
 // Extract unique buyers from search results
 export function extractCompradores(result: SearchResult): Comprador[] {
   const map = new Map<string, Comprador>();
+  const allowedPlacas = buildAllowedPlacasFromRelatorio(result.relatorio);
 
   const addBuyer = (doc: string | null, name: string | null, email?: string | null, movil?: string | null, dir?: string | null, ciudad?: string | null, depto?: string | null) => {
     if (!doc) return;
@@ -91,18 +92,25 @@ export function extractCompradores(result: SearchResult): Comprador[] {
     }
   };
 
-  result.relatorio.forEach((r) =>
-    addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudad_comprador, r.departamento_comprador)
-  );
-  result.retiros.forEach((r) =>
-    addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudadComprador, r.departamentoComprador)
-  );
-  result.servitram.forEach((r) =>
-    addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion)
-  );
-  result.gestramites.forEach((r) =>
-    addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion)
-  );
+  result.relatorio
+    .filter((r) => !isCondicionalRechazado(r.estado))
+    .forEach((r) =>
+      addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudad_comprador, r.departamento_comprador)
+    );
+
+  result.retiros
+    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .forEach((r) =>
+      addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudadComprador, r.departamentoComprador)
+    );
+
+  result.servitram
+    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .forEach((r) => addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion));
+
+  result.gestramites
+    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .forEach((r) => addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion));
 
   return Array.from(map.values());
 }
