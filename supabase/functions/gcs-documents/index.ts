@@ -6,6 +6,31 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function normalizeBucketName(value: string): string {
+  return value
+    .trim()
+    .replace(/^gs:\/\//, "")
+    .replace(/^https?:\/\/storage.googleapis.com\//, "")
+    .replace(/^https?:\/\/console\.cloud\.google\.com\/storage\/browser\//, "")
+    .replace(/^buckets\//, "")
+    .replace(/\?.*$/, "")
+    .replace(/\/.*$/, "");
+}
+
+async function readErrorBody(response: Response): Promise<string> {
+  const contentType = response.headers.get("content-type") || "";
+
+  try {
+    if (contentType.includes("application/json")) {
+      return JSON.stringify(await response.json());
+    }
+
+    return await response.text();
+  } catch {
+    return "No se pudo leer la respuesta del proveedor";
+  }
+}
+
 async function createGCPToken(sa: { client_email: string; private_key: string }, scopes: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
@@ -64,11 +89,20 @@ serve(async (req) => {
     const saJson = Deno.env.get("GCP_SERVICE_ACCOUNT_KEY");
     if (!saJson) throw new Error("GCP_SERVICE_ACCOUNT_KEY not configured");
 
-    const bucketName = Deno.env.get("GCS_BUCKET_NAME");
-    if (!bucketName) throw new Error("GCS_BUCKET_NAME not configured");
+    const rawBucketName = Deno.env.get("GCS_BUCKET_NAME");
+    if (!rawBucketName) throw new Error("GCS_BUCKET_NAME not configured");
+
+    const bucketName = normalizeBucketName(rawBucketName);
+    if (!bucketName) throw new Error("GCS_BUCKET_NAME is empty after normalization");
 
     const sa = JSON.parse(saJson);
     const token = await createGCPToken(sa, "https://www.googleapis.com/auth/devstorage.read_write");
+
+    console.log("GCS config loaded", {
+      bucketConfigured: true,
+      bucketName,
+      serviceAccountEmail: sa.client_email,
+    });
 
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
