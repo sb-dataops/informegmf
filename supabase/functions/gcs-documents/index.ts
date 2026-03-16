@@ -195,7 +195,7 @@ serve(async (req) => {
       const { id, gcs_path } = await req.json();
 
       // Delete from GCS
-      const deleteUrl = `https://storage.googleapis.com/storage/v1/b/${bucketName}/o/${encodeURIComponent(gcs_path)}`;
+      const deleteUrl = `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucketName)}/o/${encodeURIComponent(gcs_path)}`;
       await fetch(deleteUrl, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
