@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import SearchBar from "@/components/SearchBar";
 import BuyerHeader from "@/components/BuyerHeader";
 import VehicleCard from "@/components/VehicleCard";
+import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import DashboardStats from "@/components/DashboardStats";
 import { searchBigQuery, extractCompradores, consolidateVehiculos } from "@/services/bigqueryService";
+import { fetchAllPagos } from "@/services/pagosService";
+import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
+import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { Comprador, SearchResult } from "@/types";
 import { Users, Search, ArrowLeft, Loader2, DollarSign, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
