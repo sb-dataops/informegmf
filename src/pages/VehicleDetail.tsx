@@ -109,47 +109,14 @@ const VehicleDetail = () => {
 
           {vehiculo && <VehicleCard vehiculo={vehiculo} />}
 
-          {vehiculo && pagoData && (
-            <Card className="border-border">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <DollarSign className="h-5 w-5 text-primary" />
-                  Información de Pagos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                  <div className="rounded-lg bg-muted/50 p-4 text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Mayor oferta</p>
-                    <p className="text-lg font-bold text-foreground">{formatCurrency(mayorOferta)}</p>
-                  </div>
-                  <div className="rounded-lg bg-muted/50 p-4 text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Prorrateo + Gastos</p>
-                    <p className="text-lg font-bold text-foreground">{formatCurrency(pagoData.total_prorrateo_gastos)}</p>
-                  </div>
-                  <div className="rounded-lg bg-muted/50 p-4 text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Soportes cargados</p>
-                    <p className="text-lg font-bold text-foreground">{formatCurrency(totalSoportes)}</p>
-                  </div>
-                  <div className={`rounded-lg p-4 text-center ${saldoPendiente > 0 ? "bg-destructive/10" : "bg-accent/50"}`}>
-                    <p className="text-xs text-muted-foreground mb-1">Saldo pendiente</p>
-                    <p className={`text-lg font-bold ${saldoPendiente > 0 ? "text-destructive" : "text-accent-foreground"}`}>
-                      {formatCurrency(saldoPendiente)}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                  <p className="text-xs text-muted-foreground mb-1">Total pagos calculado</p>
-                  <p className="text-lg font-bold text-foreground">{formatCurrency(totalPagosCalculado)}</p>
-                </div>
-                {pagoData.fecha_limite_pago && (
-                  <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                    <CalendarDays className="h-4 w-4" />
-                    Fecha límite: {new Date(pagoData.fecha_limite_pago).toLocaleDateString("es-CO")}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          {vehiculo && (
+            <VehicleSupportViewer
+              documents={documentosAgrupados}
+              totalPagos={totalPagosCalculado}
+              totalSoportes={totalSoportes}
+              saldoPendiente={saldoPendiente}
+              placa={vehiculo.placa}
+            />
           )}
 
           {vehiculo && (
