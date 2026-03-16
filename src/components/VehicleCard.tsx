@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { VehiculoConsolidado } from "@/types";
 import { formatCurrency, formatDate } from "@/services/bigqueryService";
 import { parseCurrencyLikeValue } from "@/lib/payment-utils";
@@ -13,12 +14,12 @@ import { Car, FileStack } from "lucide-react";
 
 interface VehicleCardProps {
   vehiculo: VehiculoConsolidado;
+  extraContent?: ReactNode;
 }
 
-const VehicleCard = ({ vehiculo }: VehicleCardProps) => {
+const VehicleCard = ({ vehiculo, extraContent }: VehicleCardProps) => {
   return (
     <div className="bg-card rounded-xl border border-border shadow-card hover:shadow-card-hover transition-shadow">
-      {/* Header */}
       <div className="p-5 border-b border-border">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -51,7 +52,6 @@ const VehicleCard = ({ vehiculo }: VehicleCardProps) => {
         </div>
       </div>
 
-      {/* Content */}
       <Accordion type="multiple" defaultValue={["tramites"]} className="px-5">
         <AccordionItem value="tramites" className="border-b-border">
           <AccordionTrigger className="hover:no-underline py-4">
@@ -65,6 +65,8 @@ const VehicleCard = ({ vehiculo }: VehicleCardProps) => {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      {extraContent ? <div className="border-t border-border p-5">{extraContent}</div> : null}
     </div>
   );
 };
