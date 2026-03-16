@@ -248,7 +248,7 @@ serve(async (req) => {
     // ── LIST documents ──
     if (action === "list") {
       const documentoComprador = url.searchParams.get("documento_comprador");
-      const placa = url.searchParams.get("placa");
+      const placa = url.searchParams.get("placa")?.trim().toUpperCase();
 
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -256,7 +256,7 @@ serve(async (req) => {
 
       let query = supabase.from("documentos").select("*").order("created_at", { ascending: false });
       if (documentoComprador) query = query.eq("documento_comprador", documentoComprador);
-      if (placa) query = query.eq("placa", placa);
+      if (placa) query = query.contains("placas", [placa]);
 
       const { data, error } = await query;
       if (error) throw new Error(`DB query error: ${error.message}`);
