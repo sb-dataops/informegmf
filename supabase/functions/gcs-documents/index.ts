@@ -125,7 +125,7 @@ serve(async (req) => {
       const gcsPath = `documentos/${documentoComprador}/${timestamp}_${safeName}`;
 
       // Upload to GCS
-      const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${bucketName}/o?uploadType=media&name=${encodeURIComponent(gcsPath)}`;
+      const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(bucketName)}/o?uploadType=media&name=${encodeURIComponent(gcsPath)}`;
       const fileBuffer = await file.arrayBuffer();
 
       const uploadRes = await fetch(uploadUrl, {
@@ -138,8 +138,11 @@ serve(async (req) => {
       });
 
       if (!uploadRes.ok) {
-        const err = await uploadRes.text();
-        throw new Error(`GCS upload failed: ${err}`);
+        const err = await readErrorBody(uploadRes);
+        if (uploadRes.status === 404) {
+          throw new Error(`Bucket de Google Cloud no encontrado: ${bucketName}. Verifica el secreto GCS_BUCKET_NAME y los permisos de la cuenta de servicio.`);
+        }
+        throw new Error(`GCS upload failed (${uploadRes.status}): ${err}`);
       }
 
       const gcsUrl = `https://storage.googleapis.com/${bucketName}/${gcsPath}`;
