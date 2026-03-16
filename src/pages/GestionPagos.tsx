@@ -43,19 +43,31 @@ const GestionPagos = () => {
   const compradores = searchResult
     ? [...new Map(
         searchResult.relatorio
-          .filter((r) => r.documento)
+          .filter((r) => r.documento && !isCondicionalRechazado(r.estado))
           .map((r) => [r.documento, { documento: r.documento!, nombre: r.comprador || "Sin nombre" }]),
       ).values()]
     : [];
 
   const mayorOfertaPorPlaca = useMemo(() => {
     const map = new Map<string, number>();
-    searchResult?.relatorio.forEach((item) => {
-      if (!item.placa) return;
-      map.set(item.placa.toUpperCase(), parseCurrencyLikeValue(item.mayor_oferta));
-    });
+    searchResult?.relatorio
+      .filter((item) => !isCondicionalRechazado(item.estado))
+      .forEach((item) => {
+        if (!item.placa) return;
+        map.set(item.placa.toUpperCase(), parseCurrencyLikeValue(item.mayor_oferta));
+      });
     return map;
   }, [searchResult]);
+
+  const allowedSearchPlacas = useMemo(
+    () => (searchResult ? buildAllowedPlacasFromRelatorio(searchResult.relatorio) : new Set<string>()),
+    [searchResult],
+  );
+
+  const pagosVisibles = useMemo(() => {
+    if (!searchResult) return pagos;
+    return pagos.filter((pago) => allowedSearchPlacas.has(normalizePlaca(pago.placa)));
+  }, [allowedSearchPlacas, pagos, searchResult]);
 
   const handleDocSearch = () => {
     if (docSearch.trim()) {
