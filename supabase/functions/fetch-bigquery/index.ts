@@ -237,25 +237,40 @@ serve(async (req) => {
           AND ${COMITENTE_FILTER}
       `;
 
-      // Retiros stats - all in one query to avoid type casting issues
+      // Retiros stats - exclude condicional rechazado via relatorio join
       const retirosStatsSQL = `
+        WITH allowed_relatorio AS (
+          SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
+          FROM \`${TABLES.relatorio}\`
+          WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND ${COMITENTE_FILTER}
+            AND IFNULL(placa,'') != ''
+        )
         SELECT 
-          COUNTIF(IFNULL(CAST(cierrecontableTraspasoComision AS STRING), '') = '') as pendientes_pago,
-          COUNTIF(UPPER(IFNULL(CAST(estadoRetiro AS STRING), '')) = 'ABIERTO') as pendientes_retiro
-        FROM \`${TABLES.retiros}\`
+          COUNTIF(IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = '') as pendientes_pago,
+          COUNTIF(UPPER(IFNULL(CAST(r.estadoRetiro AS STRING), '')) = 'ABIERTO') as pendientes_retiro
+        FROM \`${TABLES.retiros}\` r
+        INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
       `;
 
-      // Pendientes de traspaso: tramitadores sin estadoTraspaso aprobado
       const pendientesTraspasoSQL = `
+        WITH allowed_relatorio AS (
+          SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
+          FROM \`${TABLES.relatorio}\`
+          WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND ${COMITENTE_FILTER}
+            AND IFNULL(placa,'') != ''
+        )
         SELECT COUNT(*) as pendientes_traspaso
         FROM (
           SELECT placa, estadoTraspaso FROM \`${TABLES.servitram}\`
           UNION ALL
           SELECT placa, estadoTraspaso FROM \`${TABLES.gestramites}\`
-        )
-        WHERE placa IS NOT NULL AND placa != ''
-          AND (UPPER(IFNULL(estadoTraspaso,'')) NOT LIKE '%APROBADO%' 
-               AND UPPER(IFNULL(estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
+        ) t
+        INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(t.placa,'')) = ar.placa
+        WHERE t.placa IS NOT NULL AND t.placa != ''
+          AND (UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%' 
+               AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
       `;
 
       const [relStats, retirosStats, traspasoStats] = await Promise.all([
