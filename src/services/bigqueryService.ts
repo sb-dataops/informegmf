@@ -118,8 +118,8 @@ export function extractCompradores(result: SearchResult): Comprador[] {
 // Consolidate vehicle data from all 4 tables for a specific buyer
 export function consolidateVehiculos(result: SearchResult, documento?: string): VehiculoConsolidado[] {
   const vehicleMap = new Map<string, VehiculoConsolidado>();
+  const allowedPlacas = buildAllowedPlacasFromRelatorio(result.relatorio);
 
-  // Helper to get or create vehicle entry
   const getVehicle = (placa: string): VehiculoConsolidado => {
     if (!vehicleMap.has(placa)) {
       vehicleMap.set(placa, {
@@ -141,10 +141,9 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
     return vehicleMap.get(placa)!;
   };
 
-  // 1. Relatorio data (sales info)
   result.relatorio
     .filter((r) => r.placa && (!documento || r.documento === documento))
-    .filter((r) => !r.estado || !r.estado.toUpperCase().includes("CONDICIONAL RECHAZADO"))
+    .filter((r) => !isCondicionalRechazado(r.estado))
     .forEach((r) => {
       const v = getVehicle(r.placa!);
       v.descripcion = r.descripcion || v.descripcion;
@@ -164,9 +163,9 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
       v.departamentoComprador = r.departamento_comprador || v.departamentoComprador;
     });
 
-  // 2. Retiros data (process tracking)
   result.retiros
     .filter((r) => r.placa && (!documento || r.documento === documento))
+    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
     .forEach((r) => {
       const v = getVehicle(r.placa!);
       v.descripcion = r.descripcion || v.descripcion;
@@ -189,10 +188,10 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
       v.documento = r.documento || v.documento;
     });
 
-  // 3. Tramitadores data (servitram + gestramites)
   const allTramitadores = [...result.servitram, ...result.gestramites];
   allTramitadores
     .filter((r) => r.placa && (!documento || r.documento === documento))
+    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
     .forEach((r) => {
       const v = getVehicle(r.placa!);
       v.descripcion = r.descripcion || v.descripcion;

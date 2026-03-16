@@ -46,7 +46,7 @@ const PaymentForm = ({ initialPlaca, initialSubasta, initialMayorOferta = 0, onS
     setSearching(true);
     try {
       const result = await searchBigQuery(searchQuery.trim());
-      const records = result.relatorio.filter((r) => r.placa);
+      const records = result.relatorio.filter((r) => r.placa && !isCondicionalRechazado(r.estado));
       if (records.length > 0) {
         const first = records[0];
         setPlaca(first.placa || "");
@@ -65,7 +65,7 @@ const PaymentForm = ({ initialPlaca, initialSubasta, initialMayorOferta = 0, onS
           }
         }
       } else {
-        toast({ title: "Sin resultados", description: "No se encontraron vehículos", variant: "destructive" });
+        toast({ title: "Sin resultados", description: "No se encontraron vehículos disponibles", variant: "destructive" });
       }
     } catch (err) {
       toast({ title: "Error", description: (err as Error).message, variant: "destructive" });

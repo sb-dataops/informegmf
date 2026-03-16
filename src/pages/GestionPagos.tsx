@@ -141,7 +141,7 @@ const GestionPagos = () => {
                 <CardTitle className="text-lg">Pagos Registrados</CardTitle>
               </CardHeader>
               <CardContent>
-                {pagos.length === 0 ? (
+                {pagosVisibles.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">No hay pagos registrados aún</p>
                 ) : (
                   <div className="overflow-x-auto">
@@ -158,7 +158,7 @@ const GestionPagos = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {pagos.map((p) => {
+                        {pagosVisibles.map((p) => {
                           const soportes = sumValorSoportesByPlaca(documentos, p.placa);
                           const saldo = calculateSaldoPendiente(p.total_pagos || 0, soportes);
                           return (
