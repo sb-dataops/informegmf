@@ -50,6 +50,32 @@ const Index = () => {
   const effectiveVehiculos =
     effectiveComprador && searchResult ? consolidateVehiculos(searchResult, effectiveComprador.documento) : [];
 
+  const { data: pagos = [], isLoading: isPagosLoading } = useQuery({
+    queryKey: ["pagos-comprador"],
+    queryFn: fetchAllPagos,
+    enabled: showingDetail,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: documentosComprador = [], isLoading: isDocumentosLoading } = useQuery({
+    queryKey: ["documentos-comprador", effectiveComprador?.documento],
+    queryFn: () => listDocumentos({ documento_comprador: effectiveComprador?.documento || undefined }),
+    enabled: !!effectiveComprador?.documento && showingDetail,
+    staleTime: 60 * 1000,
+  });
+
+  const pagosPorPlaca = useMemo(
+    () => new Map(pagos.map((pago) => [pago.placa.toUpperCase(), pago])),
+    [pagos],
+  );
+
+  const documentosAgrupados = useMemo(
+    () => groupDocumentosByArchivo(documentosComprador),
+    [documentosComprador],
+  );
+
+  const isFinancialDataLoading = isPagosLoading || isDocumentosLoading;
+
   const selectComprador = (c: Comprador) => {
     setSelectedComprador(c);
   };
