@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { upsertPago, fetchPagoByPlaca } from "@/services/pagosService";
 import { searchBigQuery, formatCurrency } from "@/services/bigqueryService";
-import { calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
+import { calculateTotalPagos, formatNumericInput, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { isCondicionalRechazado } from "@/lib/vehicle-filters";
 import { toast } from "@/hooks/use-toast";
 import { DollarSign, Search, Loader2, Save, CalendarDays } from "lucide-react";
@@ -37,7 +37,7 @@ const PaymentForm = ({ initialPlaca, initialSubasta, initialMayorOferta = 0, onS
 
   useEffect(() => {
     if (!existingPago) return;
-    setTotalProrrateo(String(existingPago.total_prorrateo_gastos || ""));
+    setTotalProrrateo(formatNumericInput(existingPago.total_prorrateo_gastos || ""));
     setFechaLimite(existingPago.fecha_limite_pago || "");
   }, [existingPago]);
 
@@ -57,7 +57,7 @@ const PaymentForm = ({ initialPlaca, initialSubasta, initialMayorOferta = 0, onS
         if (first.placa) {
           const pago = await fetchPagoByPlaca(first.placa);
           if (pago) {
-            setTotalProrrateo(String(pago.total_prorrateo_gastos || ""));
+            setTotalProrrateo(formatNumericInput(pago.total_prorrateo_gastos || ""));
             setFechaLimite(pago.fecha_limite_pago || "");
           } else {
             setTotalProrrateo("");
@@ -75,7 +75,7 @@ const PaymentForm = ({ initialPlaca, initialSubasta, initialMayorOferta = 0, onS
   };
 
   const totalPagosCalculado = useMemo(() => {
-    return calculateTotalPagos(mayorOferta, parseFloat(totalProrrateo) || 0);
+    return calculateTotalPagos(mayorOferta, parseCurrencyLikeValue(totalProrrateo));
   }, [mayorOferta, totalProrrateo]);
 
   const handleSave = async () => {
@@ -88,7 +88,7 @@ const PaymentForm = ({ initialPlaca, initialSubasta, initialMayorOferta = 0, onS
       await upsertPago({
         placa: placa.toUpperCase(),
         subasta: subasta || undefined,
-        total_prorrateo_gastos: parseFloat(totalProrrateo) || 0,
+        total_prorrateo_gastos: parseCurrencyLikeValue(totalProrrateo),
         total_pagos: totalPagosCalculado,
         fecha_limite_pago: fechaLimite || null,
       });
@@ -149,10 +149,11 @@ const PaymentForm = ({ initialPlaca, initialSubasta, initialMayorOferta = 0, onS
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
               <Input
                 id="prorrateo"
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="0"
                 value={totalProrrateo}
-                onChange={(e) => setTotalProrrateo(e.target.value)}
+                onChange={(e) => setTotalProrrateo(formatNumericInput(e.target.value))}
                 className="pl-7"
               />
             </div>

@@ -1,3 +1,45 @@
+const integerFormatter = new Intl.NumberFormat("es-CO", {
+  maximumFractionDigits: 0,
+});
+
+export function formatNumericInput(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+
+  const raw = String(value).replace(/[^\d.,]/g, "").trim();
+  if (!raw) return "";
+
+  if (raw.includes(",")) {
+    const [integerPartRaw, ...decimalParts] = raw.split(",");
+    const integerDigits = integerPartRaw.replace(/\D/g, "");
+    const decimalDigits = decimalParts.join("").replace(/\D/g, "").slice(0, 2);
+    const formattedInteger = integerDigits ? integerFormatter.format(Number(integerDigits)) : "0";
+
+    if (raw.endsWith(",") && decimalDigits.length === 0) {
+      return `${formattedInteger},`;
+    }
+
+    return decimalDigits ? `${formattedInteger},${decimalDigits}` : formattedInteger;
+  }
+
+  const dotMatches = raw.match(/\./g) || [];
+  if (dotMatches.length === 1) {
+    const [integerPartRaw = "", decimalPartRaw = ""] = raw.split(".");
+    const integerDigits = integerPartRaw.replace(/\D/g, "");
+    const decimalDigits = decimalPartRaw.replace(/\D/g, "").slice(0, 2);
+
+    if (decimalPartRaw.length <= 2) {
+      const formattedInteger = integerDigits ? integerFormatter.format(Number(integerDigits)) : "0";
+      if (raw.endsWith(".") && decimalDigits.length === 0) {
+        return `${formattedInteger},`;
+      }
+      return decimalDigits ? `${formattedInteger},${decimalDigits}` : formattedInteger;
+    }
+  }
+
+  const integerDigits = raw.replace(/\D/g, "");
+  return integerDigits ? integerFormatter.format(Number(integerDigits)) : "";
+}
+
 export function parseCurrencyLikeValue(value: string | number | null | undefined): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (value === null || value === undefined || value === "") return 0;
