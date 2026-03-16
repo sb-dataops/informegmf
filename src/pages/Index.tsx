@@ -48,6 +48,10 @@ const Index = () => {
   const effectiveVehiculos =
     effectiveComprador && searchResult ? consolidateVehiculos(searchResult, effectiveComprador.documento) : [];
 
+  const hasSearched = !!searchTerm;
+  const showingDetail = !!effectiveComprador && !!searchResult;
+  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador;
+
   const { data: pagos = [], isLoading: isPagosLoading } = useQuery({
     queryKey: ["pagos-comprador"],
     queryFn: fetchAllPagos,
@@ -74,23 +78,6 @@ const Index = () => {
 
   const isFinancialDataLoading = isPagosLoading || isDocumentosLoading;
 
-  const selectComprador = (c: Comprador) => {
-    setSelectedComprador(c);
-  };
-
-  const goBack = () => {
-    setSelectedComprador(null);
-    setSearchTerm("");
-    setQuery("");
-  };
-
-  const goBackToResults = () => {
-    setSelectedComprador(null);
-  };
-
-  const hasSearched = !!searchTerm;
-  const showingDetail = !!effectiveComprador && !!searchResult;
-  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador;
 
   return (
     <div className="min-h-screen bg-background">
