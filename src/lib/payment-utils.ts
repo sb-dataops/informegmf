@@ -47,9 +47,6 @@ export function parseCurrencyLikeValue(value: string | number | null | undefined
   const raw = String(value).trim();
   if (!raw) return 0;
 
-  const directParsed = Number(raw);
-  if (Number.isFinite(directParsed)) return directParsed;
-
   let normalized = raw.replace(/[^[\d.,\-+eE]]/g, "");
   normalized = normalized.replace(/[^\d.,\-+eE]/g, "");
   if (!normalized) return 0;
@@ -69,15 +66,13 @@ export function parseCurrencyLikeValue(value: string | number | null | undefined
     normalized = normalized.split(thousandsSeparator).join("");
     normalized = decimalSeparator === "," ? normalized.replace(",", ".") : normalized;
   } else if (lastComma !== -1) {
-    const commaCount = (normalized.match(/,/g) || []).length;
     const decimalPart = normalized.split(",").pop() || "";
-    normalized = commaCount === 1 && decimalPart.length > 0 && decimalPart.length <= 2
+    normalized = decimalPart.length > 0 && decimalPart.length <= 2
       ? normalized.replace(",", ".")
       : normalized.replace(/,/g, "");
   } else if (lastDot !== -1) {
-    const dotCount = (normalized.match(/\./g) || []).length;
     const decimalPart = normalized.split(".").pop() || "";
-    normalized = dotCount === 1 && decimalPart.length > 0 && decimalPart.length <= 2
+    normalized = decimalPart.length > 0 && decimalPart.length <= 2
       ? normalized
       : normalized.replace(/\./g, "");
   }
