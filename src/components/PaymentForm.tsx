@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { upsertPago, fetchPagoByPlaca } from "@/services/pagosService";
 import { searchBigQuery, formatCurrency } from "@/services/bigqueryService";
 import { calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
+import { isCondicionalRechazado } from "@/lib/vehicle-filters";
 import { toast } from "@/hooks/use-toast";
 import { DollarSign, Search, Loader2, Save, CalendarDays } from "lucide-react";
 
@@ -45,7 +46,7 @@ const PaymentForm = ({ initialPlaca, initialSubasta, initialMayorOferta = 0, onS
     setSearching(true);
     try {
       const result = await searchBigQuery(searchQuery.trim());
-      const records = result.relatorio.filter((r) => r.placa);
+      const records = result.relatorio.filter((r) => r.placa && !isCondicionalRechazado(r.estado));
       if (records.length > 0) {
         const first = records[0];
         setPlaca(first.placa || "");
@@ -64,7 +65,7 @@ const PaymentForm = ({ initialPlaca, initialSubasta, initialMayorOferta = 0, onS
           }
         }
       } else {
-        toast({ title: "Sin resultados", description: "No se encontraron vehículos", variant: "destructive" });
+        toast({ title: "Sin resultados", description: "No se encontraron vehículos disponibles", variant: "destructive" });
       }
     } catch (err) {
       toast({ title: "Error", description: (err as Error).message, variant: "destructive" });

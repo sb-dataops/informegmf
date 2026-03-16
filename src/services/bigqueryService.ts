@@ -5,6 +5,7 @@ import {
   Comprador,
   VehiculoConsolidado,
 } from "@/types";
+import { buildAllowedPlacasFromRelatorio, isAllowedPlaca, isCondicionalRechazado } from "@/lib/vehicle-filters";
 
 const FUNCTION_NAME = "fetch-bigquery";
 
@@ -74,6 +75,7 @@ export async function fetchFilteredLots(category: string): Promise<FilteredLotsR
 // Extract unique buyers from search results
 export function extractCompradores(result: SearchResult): Comprador[] {
   const map = new Map<string, Comprador>();
+  const allowedPlacas = buildAllowedPlacasFromRelatorio(result.relatorio);
 
   const addBuyer = (doc: string | null, name: string | null, email?: string | null, movil?: string | null, dir?: string | null, ciudad?: string | null, depto?: string | null) => {
     if (!doc) return;
@@ -90,18 +92,25 @@ export function extractCompradores(result: SearchResult): Comprador[] {
     }
   };
 
-  result.relatorio.forEach((r) =>
-    addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudad_comprador, r.departamento_comprador)
-  );
-  result.retiros.forEach((r) =>
-    addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudadComprador, r.departamentoComprador)
-  );
-  result.servitram.forEach((r) =>
-    addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion)
-  );
-  result.gestramites.forEach((r) =>
-    addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion)
-  );
+  result.relatorio
+    .filter((r) => !isCondicionalRechazado(r.estado))
+    .forEach((r) =>
+      addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudad_comprador, r.departamento_comprador)
+    );
+
+  result.retiros
+    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .forEach((r) =>
+      addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudadComprador, r.departamentoComprador)
+    );
+
+  result.servitram
+    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .forEach((r) => addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion));
+
+  result.gestramites
+    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .forEach((r) => addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion));
 
   return Array.from(map.values());
 }
@@ -109,8 +118,8 @@ export function extractCompradores(result: SearchResult): Comprador[] {
 // Consolidate vehicle data from all 4 tables for a specific buyer
 export function consolidateVehiculos(result: SearchResult, documento?: string): VehiculoConsolidado[] {
   const vehicleMap = new Map<string, VehiculoConsolidado>();
+  const allowedPlacas = buildAllowedPlacasFromRelatorio(result.relatorio);
 
-  // Helper to get or create vehicle entry
   const getVehicle = (placa: string): VehiculoConsolidado => {
     if (!vehicleMap.has(placa)) {
       vehicleMap.set(placa, {
@@ -132,10 +141,9 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
     return vehicleMap.get(placa)!;
   };
 
-  // 1. Relatorio data (sales info)
   result.relatorio
     .filter((r) => r.placa && (!documento || r.documento === documento))
-    .filter((r) => !r.estado || !r.estado.toUpperCase().includes("CONDICIONAL RECHAZADO"))
+    .filter((r) => !isCondicionalRechazado(r.estado))
     .forEach((r) => {
       const v = getVehicle(r.placa!);
       v.descripcion = r.descripcion || v.descripcion;
@@ -155,9 +163,9 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
       v.departamentoComprador = r.departamento_comprador || v.departamentoComprador;
     });
 
-  // 2. Retiros data (process tracking)
   result.retiros
     .filter((r) => r.placa && (!documento || r.documento === documento))
+    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
     .forEach((r) => {
       const v = getVehicle(r.placa!);
       v.descripcion = r.descripcion || v.descripcion;
@@ -180,10 +188,10 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
       v.documento = r.documento || v.documento;
     });
 
-  // 3. Tramitadores data (servitram + gestramites)
   const allTramitadores = [...result.servitram, ...result.gestramites];
   allTramitadores
     .filter((r) => r.placa && (!documento || r.documento === documento))
+    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
     .forEach((r) => {
       const v = getVehicle(r.placa!);
       v.descripcion = r.descripcion || v.descripcion;

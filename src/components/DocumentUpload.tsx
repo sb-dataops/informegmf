@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { uploadDocumento, listDocumentos, deleteDocumento, formatFileSize, DocumentoRecord } from "@/services/documentosService";
 import { searchBigQuery } from "@/services/bigqueryService";
 import { toast } from "@/hooks/use-toast";
+import { buildAllowedPlacasFromRelatorio, normalizePlaca } from "@/lib/vehicle-filters";
 import { Upload, File, Trash2, Loader2, FileText, Download } from "lucide-react";
 
 interface DocumentUploadProps {
@@ -38,17 +39,27 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
 
   const placasDisponibles = useMemo(() => {
     const placas = new Set<string>();
+    const allowedPlacas = buildAllowedPlacasFromRelatorio(vehiculosResult?.relatorio || []);
+
     vehiculosResult?.relatorio.forEach((item) => {
-      if (item.documento === documentoComprador && item.placa) placas.add(item.placa.toUpperCase());
+      if (item.documento === documentoComprador && item.placa && allowedPlacas.has(normalizePlaca(item.placa))) {
+        placas.add(item.placa.toUpperCase());
+      }
     });
     vehiculosResult?.retiros.forEach((item) => {
-      if (item.documento === documentoComprador && item.placa) placas.add(item.placa.toUpperCase());
+      if (item.documento === documentoComprador && item.placa && allowedPlacas.has(normalizePlaca(item.placa))) {
+        placas.add(item.placa.toUpperCase());
+      }
     });
     vehiculosResult?.servitram.forEach((item) => {
-      if (item.documento === documentoComprador && item.placa) placas.add(item.placa.toUpperCase());
+      if (item.documento === documentoComprador && item.placa && allowedPlacas.has(normalizePlaca(item.placa))) {
+        placas.add(item.placa.toUpperCase());
+      }
     });
     vehiculosResult?.gestramites.forEach((item) => {
-      if (item.documento === documentoComprador && item.placa) placas.add(item.placa.toUpperCase());
+      if (item.documento === documentoComprador && item.placa && allowedPlacas.has(normalizePlaca(item.placa))) {
+        placas.add(item.placa.toUpperCase());
+      }
     });
     return Array.from(placas).sort();
   }, [documentoComprador, vehiculosResult]);

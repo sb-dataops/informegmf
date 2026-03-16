@@ -12,6 +12,7 @@ import { listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosSe
 import { searchBigQuery } from "@/services/bigqueryService";
 import { formatCurrency } from "@/services/bigqueryService";
 import { calculateSaldoPendiente, parseCurrencyLikeValue } from "@/lib/payment-utils";
+import { buildAllowedPlacasFromRelatorio, isCondicionalRechazado, normalizePlaca } from "@/lib/vehicle-filters";
 import { ArrowLeft, DollarSign, Search, Loader2, FileText } from "lucide-react";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
@@ -42,19 +43,31 @@ const GestionPagos = () => {
   const compradores = searchResult
     ? [...new Map(
         searchResult.relatorio
-          .filter((r) => r.documento)
+          .filter((r) => r.documento && !isCondicionalRechazado(r.estado))
           .map((r) => [r.documento, { documento: r.documento!, nombre: r.comprador || "Sin nombre" }]),
       ).values()]
     : [];
 
   const mayorOfertaPorPlaca = useMemo(() => {
     const map = new Map<string, number>();
-    searchResult?.relatorio.forEach((item) => {
-      if (!item.placa) return;
-      map.set(item.placa.toUpperCase(), parseCurrencyLikeValue(item.mayor_oferta));
-    });
+    searchResult?.relatorio
+      .filter((item) => !isCondicionalRechazado(item.estado))
+      .forEach((item) => {
+        if (!item.placa) return;
+        map.set(item.placa.toUpperCase(), parseCurrencyLikeValue(item.mayor_oferta));
+      });
     return map;
   }, [searchResult]);
+
+  const allowedSearchPlacas = useMemo(
+    () => (searchResult ? buildAllowedPlacasFromRelatorio(searchResult.relatorio) : new Set<string>()),
+    [searchResult],
+  );
+
+  const pagosVisibles = useMemo(() => {
+    if (!searchResult) return pagos;
+    return pagos.filter((pago) => allowedSearchPlacas.has(normalizePlaca(pago.placa)));
+  }, [allowedSearchPlacas, pagos, searchResult]);
 
   const handleDocSearch = () => {
     if (docSearch.trim()) {
@@ -128,7 +141,7 @@ const GestionPagos = () => {
                 <CardTitle className="text-lg">Pagos Registrados</CardTitle>
               </CardHeader>
               <CardContent>
-                {pagos.length === 0 ? (
+                {pagosVisibles.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">No hay pagos registrados aún</p>
                 ) : (
                   <div className="overflow-x-auto">
@@ -145,7 +158,7 @@ const GestionPagos = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {pagos.map((p) => {
+                        {pagosVisibles.map((p) => {
                           const soportes = sumValorSoportesByPlaca(documentos, p.placa);
                           const saldo = calculateSaldoPendiente(p.total_pagos || 0, soportes);
                           return (
