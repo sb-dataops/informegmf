@@ -239,8 +239,8 @@ function consolidateVehiculosBase(
 }
 
 // Consolidate vehicle data from all 4 tables for a specific buyer
-export function consolidateVehiculos(result: SearchResult, documento?: string): VehiculoConsolidado[] {
-  return consolidateVehiculosBase(result, { documento });
+export function consolidateVehiculos(result: SearchResult, documento?: string, skipAllowedFilter?: boolean): VehiculoConsolidado[] {
+  return consolidateVehiculosBase(result, { documento, allowedPlacas: skipAllowedFilter ? null : undefined });
 }
 
 export function extractVehiculosBySubasta(result: SearchResult, query: string): VehiculoConsolidado[] {
