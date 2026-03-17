@@ -1,5 +1,6 @@
 import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
 import { FileText, Loader2, Download, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,55 +24,55 @@ const TEMPLATE_HEADERS = [
   "fecha_limite_pago",
 ] as const;
 
-const TEMPLATE_SAMPLE = [
-  "ABC123",
-  "12345",
-  "25000000",
-  "1500000",
-  "2025-12-31",
-].join(",");
+const TEMPLATE_SAMPLE = {
+  placa: "ABC123",
+  subasta: "12345",
+  mayor_oferta: 25000000,
+  total_prorrateo_gastos: 1500000,
+  fecha_limite_pago: "2025-12-31",
+};
 
 const normalizeHeader = (value: string) => value.trim().toLowerCase();
 
 const downloadTemplate = () => {
-  const csv = [TEMPLATE_HEADERS.join(","), TEMPLATE_SAMPLE].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "plantilla-cargue-pagos.csv";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet([TEMPLATE_SAMPLE], {
+    header: [...TEMPLATE_HEADERS],
+  });
+
+  worksheet["!cols"] = [
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 18 },
+    { wch: 24 },
+    { wch: 18 },
+  ];
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Pagos");
+  XLSX.writeFile(workbook, "plantilla-cargue-pagos.xlsx");
 };
 
-const parseCsvContent = (content: string): BulkPaymentRow[] => {
-  const lines = content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length < 2) {
-    throw new Error("La plantilla debe incluir encabezados y al menos una fila de datos");
+const mapSheetRows = (sheetRows: Record<string, unknown>[]): BulkPaymentRow[] => {
+  if (sheetRows.length === 0) {
+    throw new Error("La plantilla debe incluir al menos una fila de datos");
   }
 
-  const headers = lines[0].split(",").map(normalizeHeader);
-  const headerIndex = Object.fromEntries(headers.map((header, index) => [header, index]));
+  return sheetRows.map((row, rowIndex) => {
+    const normalizedRow = Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [normalizeHeader(key), value]),
+    ) as Record<string, unknown>;
 
-  for (const requiredHeader of TEMPLATE_HEADERS) {
-    if (headerIndex[requiredHeader] === undefined) {
-      throw new Error(`Falta la columna obligatoria: ${requiredHeader}`);
+    for (const requiredHeader of TEMPLATE_HEADERS) {
+      if (!(requiredHeader in normalizedRow)) {
+        throw new Error(`Falta la columna obligatoria: ${requiredHeader}`);
+      }
     }
-  }
 
-  return lines.slice(1).map((line, rowIndex) => {
-    const cells = line.split(",").map((cell) => cell.trim());
-    const placa = cells[headerIndex.placa]?.toUpperCase();
-    const subasta = cells[headerIndex.subasta] || undefined;
-    const mayorOferta = parseCurrencyLikeValue(cells[headerIndex.mayor_oferta] || "0");
-    const totalProrrateo = parseCurrencyLikeValue(cells[headerIndex.total_prorrateo_gastos] || "0");
-    const fechaLimite = cells[headerIndex.fecha_limite_pago] || null;
+    const placa = String(normalizedRow.placa || "").trim().toUpperCase();
+    const subasta = String(normalizedRow.subasta || "").trim() || undefined;
+    const mayorOferta = parseCurrencyLikeValue(String(normalizedRow.mayor_oferta || "0"));
+    const totalProrrateo = parseCurrencyLikeValue(String(normalizedRow.total_prorrateo_gastos || "0"));
+    const fechaLimite = String(normalizedRow.fecha_limite_pago || "").trim() || null;
 
     if (!placa) {
       throw new Error(`La fila ${rowIndex + 2} no tiene placa`);
@@ -85,6 +86,23 @@ const parseCsvContent = (content: string): BulkPaymentRow[] => {
       fecha_limite_pago: fechaLimite,
     };
   });
+};
+
+const parseWorkbookFile = async (file: File): Promise<BulkPaymentRow[]> => {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const firstSheetName = workbook.SheetNames[0];
+
+  if (!firstSheetName) {
+    throw new Error("El archivo no contiene hojas para procesar");
+  }
+
+  const worksheet = workbook.Sheets[firstSheetName];
+  const sheetRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+    defval: "",
+  });
+
+  return mapSheetRows(sheetRows);
 };
 
 interface MassPaymentUploadProps {
@@ -102,8 +120,7 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
 
   const processFile = async (file: File) => {
     try {
-      const content = await file.text();
-      const parsedRows = parseCsvContent(content);
+      const parsedRows = await parseWorkbookFile(file);
       setRows(parsedRows);
       setFileName(file.name);
       toast({
@@ -184,20 +201,20 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
       <CardHeader className="pb-4">
         <CardTitle className="text-lg">Cargue masivo de pagos</CardTitle>
         <CardDescription>
-          Descarga la plantilla CSV, diligencia los valores y luego cárgala para actualizar múltiples placas.
+          Descarga la plantilla Excel, diligencia los valores por columnas y luego cárgala para actualizar múltiples placas.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button type="button" variant="secondary" className="gap-2" onClick={downloadTemplate}>
           <Download className="h-4 w-4" />
-          Descargar plantilla
+          Descargar plantilla Excel
         </Button>
 
         <Input
           id="mass-payment-file"
           ref={inputRef}
           type="file"
-          accept=".csv,text/csv"
+          accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
           onChange={handleFileChange}
           className="hidden"
         />
@@ -216,7 +233,7 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
           <div className="mb-3 rounded-full bg-accent p-3 text-accent-foreground">
             <Upload className="h-5 w-5" />
           </div>
-          <p className="font-medium text-foreground">Selecciona o arrastra tu archivo CSV aquí</p>
+          <p className="font-medium text-foreground">Selecciona o arrastra tu archivo Excel aquí</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Columnas requeridas: placa, subasta, mayor_oferta, total_prorrateo_gastos, fecha_limite_pago.
           </p>
