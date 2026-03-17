@@ -506,16 +506,29 @@ serve(async (req) => {
       `;
 
       if (category === "pagos_pendientes_revision") {
-        const pendingPaymentReviewEntries = await getPendingPaymentReviewEntries();
+        const [pendingPaymentReviewEntries, pendingPaymentRows] = await Promise.all([
+          getPendingPaymentReviewEntries(),
+          getPendingPaymentRows(token, projectId),
+        ]);
 
-        if (pendingPaymentReviewEntries.length === 0) {
+        if (pendingPaymentReviewEntries.length === 0 && pendingPaymentRows.length === 0) {
           return new Response(JSON.stringify({ category, rows: [], count: 0 }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
 
-        const placaList = pendingPaymentReviewEntries
-          .map((entry) => normalizePlaca(entry.placa))
+        const reviewByPlaca = new Map(
+          pendingPaymentReviewEntries.map((entry) => [entry.placa, entry]),
+        );
+        const paymentByPlaca = new Map(
+          pendingPaymentRows.map((row) => [row.placa, row]),
+        );
+
+        const placaList = Array.from(new Set([
+          ...pendingPaymentReviewEntries.map((entry) => entry.placa),
+          ...pendingPaymentRows.map((row) => row.placa),
+        ]))
+          .map((entry) => normalizePlaca(entry))
           .filter((entry): entry is string => Boolean(entry))
           .map((entry) => `'${sanitize(entry)}'`);
 
@@ -541,20 +554,43 @@ serve(async (req) => {
           metadataRows.map((row) => [normalizePlaca(row.placa) || "", row]),
         );
 
-        const rows = pendingPaymentReviewEntries.map((entry) => {
-          const metadata = metadataByPlaca.get(entry.placa);
-          return {
-            subasta: metadata?.subasta || "Sin subasta",
-            placa: entry.placa,
-            comprador: metadata?.comprador || null,
-            documento: metadata?.documento || null,
-            descripcion: metadata?.descripcion || null,
-            estado: metadata?.estado || "Pendiente por revisar",
-            lote: metadata?.lote || null,
-            cantidadSoportes: entry.documentCount,
-            ultimoSoporteAt: entry.latestDocumentAt,
-          };
-        });
+        const rows = Array.from(new Set([...reviewByPlaca.keys(), ...paymentByPlaca.keys()]))
+          .map((placa) => {
+            const reviewEntry = reviewByPlaca.get(placa);
+            const paymentEntry = paymentByPlaca.get(placa);
+            const metadata = metadataByPlaca.get(placa);
+            const hasPendingReview = Boolean(reviewEntry);
+            const hasPendingPayment = Boolean(paymentEntry);
+
+            return {
+              subasta: paymentEntry?.subasta || metadata?.subasta || "Sin subasta",
+              placa,
+              comprador: paymentEntry?.comprador || metadata?.comprador || null,
+              documento: paymentEntry?.documento || metadata?.documento || null,
+              descripcion: paymentEntry?.descripcion || metadata?.descripcion || null,
+              estado: paymentEntry?.estado || metadata?.estado || "Pendiente por revisar",
+              lote: paymentEntry?.lote || metadata?.lote || null,
+              cantidadSoportes: reviewEntry?.documentCount || null,
+              ultimoSoporteAt: reviewEntry?.latestDocumentAt || null,
+              hasPendingReview,
+              hasPendingPayment,
+              reviewPriority: hasPendingReview ? 0 : 1,
+            };
+          })
+          .sort((a, b) => {
+            if ((a.reviewPriority || 0) !== (b.reviewPriority || 0)) {
+              return (a.reviewPriority || 0) - (b.reviewPriority || 0);
+            }
+
+            const subastaCompare = (a.subasta || "Sin subasta").localeCompare(b.subasta || "Sin subasta");
+            if (subastaCompare !== 0) return subastaCompare;
+
+            const latestA = a.ultimoSoporteAt ? new Date(a.ultimoSoporteAt).getTime() : 0;
+            const latestB = b.ultimoSoporteAt ? new Date(b.ultimoSoporteAt).getTime() : 0;
+            if (latestA !== latestB) return latestB - latestA;
+
+            return a.placa.localeCompare(b.placa);
+          });
 
         return new Response(JSON.stringify({ category, rows, count: rows.length }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },

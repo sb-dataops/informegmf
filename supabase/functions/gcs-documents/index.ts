@@ -409,7 +409,7 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "action requerido: upload, list, delete, signed-url" }), {
+    return new Response(JSON.stringify({ error: "action requerido: upload, list, delete, view, signed-url" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
