@@ -162,6 +162,7 @@ const Index = () => {
               </div>
             )}
 
+            {!hasSearched && <PaymentDeadlineAlerts />}
             {!hasSearched && <DashboardStats />}
 
             {showingResults && (
