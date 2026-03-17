@@ -27,10 +27,17 @@ const DashboardStats = () => {
       items: [
         {
           label: "Lotes con pagos pendientes",
-          value: stats ? Number(stats.pagos_pendientes_revision).toLocaleString("es-CO") : "—",
-          category: "pagos_pendientes_revision",
+          value: stats ? Number(stats.pendientes_pago).toLocaleString("es-CO") : "—",
+          category: "pendientes_pago",
           tone: "bg-warning/10 text-warning",
           icon: Clock,
+        },
+        {
+          label: "Pagos pendientes por revisar",
+          value: stats ? Number(stats.soportes_pendientes_revision).toLocaleString("es-CO") : "—",
+          category: "soportes_pendientes_revision",
+          tone: "bg-info/10 text-info",
+          icon: FileText,
         },
       ],
     },
