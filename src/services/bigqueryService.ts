@@ -210,8 +210,7 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
 }
 
 export function extractVehiculosBySubasta(result: SearchResult, query: string): VehiculoConsolidado[] {
-  const normalizedQuery = (query || "").trim().toUpperCase();
-  if (!normalizedQuery) return [];
+  if (!query?.trim()) return [];
 
   const matchedPlacas = new Set<string>();
 
@@ -219,8 +218,7 @@ export function extractVehiculosBySubasta(result: SearchResult, query: string): 
     .filter(
       (row) =>
         !isCondicionalRechazado(row.estado) &&
-        ((row.subasta || "").trim().toUpperCase() === normalizedQuery ||
-          (row.codigoSubasta || "").trim().toUpperCase() === normalizedQuery),
+        (matchesNormalizedSearch(row.subasta, query) || matchesNormalizedSearch(row.codigoSubasta, query)),
     )
     .forEach((row) => {
       const placa = normalizePlaca(row.placa);
@@ -229,7 +227,7 @@ export function extractVehiculosBySubasta(result: SearchResult, query: string): 
 
   [result.retiros, result.servitram, result.gestramites].forEach((rows) => {
     rows
-      .filter((row) => ((row.subasta || "").trim().toUpperCase() === normalizedQuery))
+      .filter((row) => matchesNormalizedSearch(row.subasta, query))
       .forEach((row) => {
         const placa = normalizePlaca(row.placa);
         if (placa) matchedPlacas.add(placa);

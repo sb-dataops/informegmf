@@ -298,11 +298,15 @@ serve(async (req) => {
     // ── SEARCH by documento, comprador name, placa, or subasta ──
     if (action === "search") {
       const q = sanitize(url.searchParams.get("q") || "");
+      const qUpper = q.toUpperCase();
+      const qNormalized = normalizeSearchText(q);
       if (!q) {
         return new Response(JSON.stringify({ error: "Parámetro 'q' requerido" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      const normalizedContains = (fieldSql: string) => `REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(${fieldSql},''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'`;
 
       // 1) Search relatorio_actual (main sales data)
       const relatorioSQL = `
@@ -312,10 +316,12 @@ serve(async (req) => {
                gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
         FROM \`${TABLES.relatorio}\`
         WHERE UPPER(IFNULL(placa,'')) = UPPER('${q}')
-           OR UPPER(IFNULL(documento,'')) = '${q.toUpperCase()}'
-           OR UPPER(IFNULL(comprador,'')) LIKE '%${q.toUpperCase()}%'
-           OR UPPER(IFNULL(subasta,'')) = '${q.toUpperCase()}'
-           OR UPPER(IFNULL(codigoSubasta,'')) = '${q.toUpperCase()}'
+           OR UPPER(IFNULL(documento,'')) = '${qUpper}'
+           OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
+           OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
+           OR UPPER(IFNULL(codigoSubasta,'')) = '${qUpper}'
+           OR ${normalizedContains("subasta")}
+           OR ${normalizedContains("codigoSubasta")}
         LIMIT 1000
       `;
 
@@ -332,9 +338,10 @@ serve(async (req) => {
                quienRetira, estadoRetiro, fechaEstadoRetiro
         FROM \`${TABLES.retiros}\`
         WHERE UPPER(IFNULL(CAST(placa AS STRING),'')) = UPPER('${q}')
-           OR UPPER(IFNULL(documento,'')) = '${q.toUpperCase()}'
-           OR UPPER(IFNULL(comprador,'')) LIKE '%${q.toUpperCase()}%'
-           OR UPPER(IFNULL(subasta,'')) = '${q.toUpperCase()}'
+           OR UPPER(IFNULL(documento,'')) = '${qUpper}'
+           OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
+           OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
+           OR ${normalizedContains("CAST(subasta AS STRING)")}
         LIMIT 1000
       `;
 
@@ -348,9 +355,10 @@ serve(async (req) => {
                fechaTp, fechaEnvioTpComprador, ans, observacion
         FROM \`${TABLES.servitram}\`
         WHERE UPPER(IFNULL(placa,'')) = UPPER('${q}')
-           OR UPPER(IFNULL(documento,'')) = '${q.toUpperCase()}'
-           OR UPPER(IFNULL(comprador,'')) LIKE '%${q.toUpperCase()}%'
-           OR UPPER(IFNULL(subasta,'')) = '${q.toUpperCase()}'
+           OR UPPER(IFNULL(documento,'')) = '${qUpper}'
+           OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
+           OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
+           OR ${normalizedContains("subasta")}
         LIMIT 1000
       `;
 
@@ -364,9 +372,10 @@ serve(async (req) => {
                fechaTp, fechaEnvioTpComprador, ans, observacion, fechaVencimientoRtm
         FROM \`${TABLES.gestramites}\`
         WHERE UPPER(IFNULL(placa,'')) = UPPER('${q}')
-           OR UPPER(IFNULL(documento,'')) = '${q.toUpperCase()}'
-           OR UPPER(IFNULL(comprador,'')) LIKE '%${q.toUpperCase()}%'
-           OR UPPER(IFNULL(subasta,'')) = '${q.toUpperCase()}'
+           OR UPPER(IFNULL(documento,'')) = '${qUpper}'
+           OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
+           OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
+           OR ${normalizedContains("subasta")}
         LIMIT 1000
       `;
 
