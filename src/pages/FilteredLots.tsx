@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchFilteredLots } from "@/services/bigqueryService";
+import { markPaymentReviewAsReviewed } from "@/services/paymentReviewService";
 import type { FilteredLotRow } from "@/types";
 import { ArrowLeft, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
@@ -12,6 +14,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   total: "Total Lotes",
   aprobados: "Aprobados",
   en_proceso: "En Proceso",
+  pagos_pendientes_revision: "Pagos pendientes por revisar",
   pendientes_pago: "Pendientes de Pago",
   pendientes_traspaso: "Pendientes de Traspaso",
   pendientes_retiro: "Pendientes de Retiro",
@@ -20,13 +23,25 @@ const CATEGORY_LABELS: Record<string, string> = {
 const FilteredLots = () => {
   const { category } = useParams<{ category: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const isPaymentReviewCategory = category === "pagos_pendientes_revision";
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["bigquery-filter", category],
     queryFn: () => fetchFilteredLots(category!),
     enabled: !!category,
     staleTime: 5 * 60 * 1000,
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: (placa: string) => markPaymentReviewAsReviewed(placa),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["bigquery-filter", category] }),
+        queryClient.invalidateQueries({ queryKey: ["bigquery-stats"] }),
+      ]);
+    },
   });
 
   const title = CATEGORY_LABELS[category || ""] || category || "";
@@ -41,13 +56,17 @@ const FilteredLots = () => {
       )
     : rows;
 
-  // Group by subasta
   const grouped = filteredRows.reduce<Record<string, typeof filteredRows>>((acc, row) => {
     const key = row.subasta || "Sin subasta";
     if (!acc[key]) acc[key] = [];
     acc[key].push(row);
     return acc;
   }, {});
+
+  const handleReviewCheck = (item: FilteredLotRow, checked: boolean | string) => {
+    if (!checked || !item.placa || reviewMutation.isPending) return;
+    reviewMutation.mutate(item.placa);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,12 +95,17 @@ const FilteredLots = () => {
             Volver al inicio
           </Button>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-foreground">{title}</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 {isLoading ? "Cargando..." : `${filteredRows.length} lote(s) encontrado(s)`}
               </p>
+              {isPaymentReviewCategory && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Marca cada lote como revisado para retirarlo de esta bandeja. Si recibe nuevos soportes, volverá a aparecer.
+                </p>
+              )}
             </div>
           </div>
 
@@ -129,6 +153,9 @@ const FilteredLots = () => {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border bg-muted/50">
+                          {isPaymentReviewCategory && (
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Revisado</th>
+                          )}
                           <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Placa</th>
                           <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Comprador</th>
                           <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Descripción</th>
@@ -136,34 +163,51 @@ const FilteredLots = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {items.map((item, idx) => (
-                          <tr
-                            key={`${item.placa}-${idx}`}
-                            className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
-                          >
-                            <td className="px-4 py-2.5 font-mono font-semibold">
-                              {item.placa ? (
-                                <Link
-                                  to={`/vehiculo/${encodeURIComponent(item.placa)}`}
-                                  className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
-                                >
-                                  {item.placa}
-                                </Link>
-                              ) : "—"}
-                            </td>
-                            <td className="px-4 py-2.5 text-foreground">
-                              {item.comprador || "—"}
-                            </td>
-                            <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[200px] truncate">
-                              {item.descripcion || "—"}
-                            </td>
-                            <td className="px-4 py-2.5 hidden md:table-cell">
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                {item.estadoTraspaso || item.estadoRetiro || item.estado || "—"}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {items.map((item, idx) => {
+                          const isUpdating = reviewMutation.isPending && reviewMutation.variables === item.placa;
+
+                          return (
+                            <tr
+                              key={`${item.placa}-${idx}`}
+                              className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                            >
+                              {isPaymentReviewCategory && (
+                                <td className="px-4 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      checked={false}
+                                      disabled={isUpdating}
+                                      onCheckedChange={(checked) => handleReviewCheck(item, checked)}
+                                      aria-label={`Marcar ${item.placa || "lote"} como revisado`}
+                                    />
+                                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : null}
+                                  </div>
+                                </td>
+                              )}
+                              <td className="px-4 py-2.5 font-mono font-semibold">
+                                {item.placa ? (
+                                  <Link
+                                    to={`/vehiculo/${encodeURIComponent(item.placa)}`}
+                                    className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+                                  >
+                                    {item.placa}
+                                  </Link>
+                                ) : "—"}
+                              </td>
+                              <td className="px-4 py-2.5 text-foreground">
+                                {item.comprador || "—"}
+                              </td>
+                              <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[200px] truncate">
+                                {item.descripcion || "—"}
+                              </td>
+                              <td className="px-4 py-2.5 hidden md:table-cell">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                  {item.estadoTraspaso || item.estadoRetiro || item.estado || "—"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

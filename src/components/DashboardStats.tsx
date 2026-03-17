@@ -46,12 +46,12 @@ const DashboardStats = () => {
       category: "aprobados",
     },
     {
-      label: "En Proceso",
-      value: stats ? Number(stats.en_proceso).toLocaleString("es-CO") : "—",
+      label: "Pagos pendientes por revisar",
+      value: stats ? Number(stats.pagos_pendientes_revision).toLocaleString("es-CO") : "—",
       icon: Clock,
       color: "text-warning",
       bgColor: "bg-warning/10",
-      category: "en_proceso",
+      category: "pagos_pendientes_revision",
     },
     {
       label: "Pendientes de Pago",

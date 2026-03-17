@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -124,6 +124,98 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
 function sanitize(input: string): string {
   return input.replace(/[^a-zA-Z0-9\s\-_.áéíóúñÁÉÍÓÚÑ]/g, '').substring(0, 100);
 }
+
+function normalizePlaca(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim().toUpperCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getAdminClient() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error("Supabase admin credentials not configured");
+  }
+
+  return createClient(supabaseUrl, supabaseServiceRoleKey);
+}
+
+type PendingPaymentReviewEntry = {
+  placa: string;
+  latestDocumentAt: string;
+  documentCount: number;
+};
+
+async function getPendingPaymentReviewEntries(): Promise<PendingPaymentReviewEntry[]> {
+  const supabase = getAdminClient();
+
+  const [{ data: documentos, error: documentosError }, { data: reviewRows, error: reviewError }] = await Promise.all([
+    supabase
+      .from("documentos")
+      .select("placa, created_at")
+      .not("placa", "is", null)
+      .order("created_at", { ascending: false })
+      .range(0, 4999),
+    supabase
+      .from("payment_review_status")
+      .select("placa, last_reviewed_at")
+      .range(0, 4999),
+  ]);
+
+  if (documentosError) {
+    throw new Error(`Error reading documentos: ${documentosError.message}`);
+  }
+
+  if (reviewError) {
+    throw new Error(`Error reading payment review status: ${reviewError.message}`);
+  }
+
+  const latestByPlaca = new Map<string, { latestDocumentAt: string; documentCount: number }>();
+
+  for (const documento of documentos || []) {
+    const placa = normalizePlaca(documento.placa);
+    if (!placa || !documento.created_at) continue;
+
+    const existing = latestByPlaca.get(placa);
+    if (!existing) {
+      latestByPlaca.set(placa, {
+        latestDocumentAt: documento.created_at,
+        documentCount: 1,
+      });
+      continue;
+    }
+
+    latestByPlaca.set(placa, {
+      latestDocumentAt: new Date(documento.created_at).getTime() > new Date(existing.latestDocumentAt).getTime()
+        ? documento.created_at
+        : existing.latestDocumentAt,
+      documentCount: existing.documentCount + 1,
+    });
+  }
+
+  const reviewedAtByPlaca = new Map<string, string>();
+  for (const reviewRow of reviewRows || []) {
+    const placa = normalizePlaca(reviewRow.placa);
+    if (!placa || !reviewRow.last_reviewed_at) continue;
+    reviewedAtByPlaca.set(placa, reviewRow.last_reviewed_at);
+  }
+
+  return Array.from(latestByPlaca.entries())
+    .filter(([placa, entry]) => {
+      const reviewedAt = reviewedAtByPlaca.get(placa);
+      if (!reviewedAt) return true;
+      return new Date(entry.latestDocumentAt).getTime() > new Date(reviewedAt).getTime();
+    })
+    .map(([placa, entry]) => ({
+      placa,
+      latestDocumentAt: entry.latestDocumentAt,
+      documentCount: entry.documentCount,
+    }))
+    .sort((a, b) => new Date(b.latestDocumentAt).getTime() - new Date(a.latestDocumentAt).getTime());
+}
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -301,10 +393,18 @@ serve(async (req) => {
         pendientes_pago: '0',
         pendientes_traspaso: '0',
         pendientes_retiro: '0',
+        pagos_pendientes_revision: '0',
       };
 
       try {
-        const result = await queryBQ(token, projectId, statsSQL);
+        const [result, pendingPaymentReviewEntries] = await Promise.all([
+          queryBQ(token, projectId, statsSQL),
+          getPendingPaymentReviewEntries().catch((error) => {
+            console.error(`[payment-review-stats] FAILED:`, error instanceof Error ? error.message : error);
+            return [] as PendingPaymentReviewEntry[];
+          }),
+        ]);
+
         console.log(`[stats] result:`, JSON.stringify(result));
         stats = {
           total: result[0]?.total || '0',
@@ -314,6 +414,7 @@ serve(async (req) => {
           pendientes_pago: result[0]?.pendientes_pago || '0',
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
+          pagos_pendientes_revision: String(pendingPaymentReviewEntries.length),
         };
       } catch (e) {
         console.error(`[stats] FAILED:`, e instanceof Error ? e.message : e);
@@ -344,6 +445,62 @@ serve(async (req) => {
         )
       `;
 
+      if (category === "pagos_pendientes_revision") {
+        const pendingPaymentReviewEntries = await getPendingPaymentReviewEntries();
+
+        if (pendingPaymentReviewEntries.length === 0) {
+          return new Response(JSON.stringify({ category, rows: [], count: 0 }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const placaList = pendingPaymentReviewEntries
+          .map((entry) => normalizePlaca(entry.placa))
+          .filter((entry): entry is string => Boolean(entry))
+          .map((entry) => `'${sanitize(entry)}'`);
+
+        const metadataRows = placaList.length > 0
+          ? await queryBQ(token, projectId, `
+              SELECT
+                UPPER(IFNULL(placa,'')) AS placa,
+                ANY_VALUE(subasta) AS subasta,
+                ANY_VALUE(comprador) AS comprador,
+                ANY_VALUE(documento) AS documento,
+                ANY_VALUE(descripcion) AS descripcion,
+                ANY_VALUE(estado) AS estado,
+                ANY_VALUE(lote) AS lote
+              FROM \`${TABLES.relatorio}\`
+              WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+                AND ${COMITENTE_FILTER}
+                AND UPPER(IFNULL(placa,'')) IN (${placaList.join(",")})
+              GROUP BY UPPER(IFNULL(placa,''))
+            `)
+          : [];
+
+        const metadataByPlaca = new Map(
+          metadataRows.map((row) => [normalizePlaca(row.placa) || "", row]),
+        );
+
+        const rows = pendingPaymentReviewEntries.map((entry) => {
+          const metadata = metadataByPlaca.get(entry.placa);
+          return {
+            subasta: metadata?.subasta || "Sin subasta",
+            placa: entry.placa,
+            comprador: metadata?.comprador || null,
+            documento: metadata?.documento || null,
+            descripcion: metadata?.descripcion || null,
+            estado: metadata?.estado || "Pendiente por revisar",
+            lote: metadata?.lote || null,
+            cantidadSoportes: entry.documentCount,
+            ultimoSoporteAt: entry.latestDocumentAt,
+          };
+        });
+
+        return new Response(JSON.stringify({ category, rows, count: rows.length }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       let sql = "";
       if (category === "pendientes_traspaso") {
         sql = `
@@ -356,7 +513,7 @@ serve(async (req) => {
           ) t
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(t.placa,'')) = ar.placa
           WHERE t.placa IS NOT NULL AND t.placa != ''
-            AND (UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%' 
+            AND (UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%'
                  AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
           ORDER BY t.subasta, t.placa
           LIMIT 2000

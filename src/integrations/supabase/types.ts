@@ -89,6 +89,30 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_review_status: {
+        Row: {
+          created_at: string
+          id: string
+          last_reviewed_at: string | null
+          placa: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_reviewed_at?: string | null
+          placa: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_reviewed_at?: string | null
+          placa?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

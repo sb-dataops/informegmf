@@ -295,9 +295,17 @@ serve(async (req) => {
         gcs_url: gcsUrl,
       }));
 
-      const { data, error } = await supabase.from("documentos").insert(registros).select();
+      const [insertResult, reviewStatusResult] = await Promise.all([
+        supabase.from("documentos").insert(registros).select(),
+        supabase.from("payment_review_status").upsert(
+          uniquePlacas.map((placaItem) => ({ placa: placaItem })),
+          { onConflict: "placa", ignoreDuplicates: true },
+        ),
+      ]);
 
+      const { data, error } = insertResult;
       if (error) throw new Error(`DB insert error: ${error.message}`);
+      if (reviewStatusResult.error) throw new Error(`Review status error: ${reviewStatusResult.error.message}`);
 
       return new Response(JSON.stringify({ success: true, documentos: data, documento: data?.[0] ?? null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
