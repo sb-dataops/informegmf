@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchFilteredLots } from "@/services/bigqueryService";
@@ -7,14 +7,14 @@ import type { FilteredLotRow } from "@/types";
 import { ArrowLeft, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
 const CATEGORY_LABELS: Record<string, string> = {
   total: "Total Lotes",
   aprobados: "Aprobados",
-  en_proceso: "En Proceso",
-  pagos_pendientes_revision: "Pagos pendientes por revisar",
+  pagos_pendientes_revision: "Lotes con pagos pendientes",
   pendientes_pago: "Pendientes de Pago",
   pendientes_traspaso: "Pendientes de Traspaso",
   pendientes_retiro: "Pendientes de Retiro",
@@ -25,7 +25,7 @@ const FilteredLots = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const isPaymentReviewCategory = category === "pagos_pendientes_revision";
+  const isPendingPaymentsCategory = category === "pagos_pendientes_revision";
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["bigquery-filter", category],
@@ -46,15 +46,38 @@ const FilteredLots = () => {
 
   const title = CATEGORY_LABELS[category || ""] || category || "";
   const rows = data?.rows || [];
-
   const normalizedSearch = search.toLowerCase().trim();
-  const filteredRows = normalizedSearch
-    ? rows.filter((r) =>
-        [r.placa, r.comprador, r.subasta, r.descripcion]
-          .filter(Boolean)
-          .some((val) => val!.toLowerCase().includes(normalizedSearch))
-      )
-    : rows;
+
+  const filteredRows = useMemo(() => {
+    const baseRows = normalizedSearch
+      ? rows.filter((r) =>
+          [r.placa, r.comprador, r.subasta, r.descripcion]
+            .filter(Boolean)
+            .some((val) => val!.toLowerCase().includes(normalizedSearch)),
+        )
+      : rows;
+
+    if (!isPendingPaymentsCategory) {
+      return baseRows;
+    }
+
+    return [...baseRows].sort((a, b) => {
+      const priorityA = a.reviewPriority ?? (a.hasPendingReview ? 0 : 1);
+      const priorityB = b.reviewPriority ?? (b.hasPendingReview ? 0 : 1);
+      if (priorityA !== priorityB) return priorityA - priorityB;
+
+      const subastaA = a.subasta || "Sin subasta";
+      const subastaB = b.subasta || "Sin subasta";
+      const subastaCompare = subastaA.localeCompare(subastaB, "es", { sensitivity: "base" });
+      if (subastaCompare !== 0) return subastaCompare;
+
+      const latestA = a.ultimoSoporteAt ? new Date(a.ultimoSoporteAt).getTime() : 0;
+      const latestB = b.ultimoSoporteAt ? new Date(b.ultimoSoporteAt).getTime() : 0;
+      if (latestA !== latestB) return latestB - latestA;
+
+      return (a.placa || "").localeCompare(b.placa || "", "es", { sensitivity: "base" });
+    });
+  }, [isPendingPaymentsCategory, normalizedSearch, rows]);
 
   const grouped = filteredRows.reduce<Record<string, typeof filteredRows>>((acc, row) => {
     const key = row.subasta || "Sin subasta";
@@ -63,8 +86,11 @@ const FilteredLots = () => {
     return acc;
   }, {});
 
+  const pendingReviewCount = rows.filter((row) => row.hasPendingReview).length;
+  const pendingPaymentCount = rows.filter((row) => row.hasPendingPayment).length;
+
   const handleReviewCheck = (item: FilteredLotRow, checked: boolean | string) => {
-    if (!checked || !item.placa || reviewMutation.isPending) return;
+    if (!checked || !item.placa || !item.hasPendingReview || reviewMutation.isPending) return;
     reviewMutation.mutate(item.placa);
   };
 
@@ -101,13 +127,26 @@ const FilteredLots = () => {
               <p className="text-sm text-muted-foreground mt-1">
                 {isLoading ? "Cargando..." : `${filteredRows.length} lote(s) encontrado(s)`}
               </p>
-              {isPaymentReviewCategory && (
+              {isPendingPaymentsCategory && (
                 <p className="text-sm text-muted-foreground mt-2">
-                  Marca cada lote como revisado para retirarlo de esta bandeja. Si recibe nuevos soportes, volverá a aparecer.
+                  Aquí se listan primero los lotes con soportes nuevos por revisar y también los lotes pendientes de pago.
                 </p>
               )}
             </div>
           </div>
+
+          {isPendingPaymentsCategory && !isLoading && !isError && rows.length > 0 && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+                <p className="text-xs text-muted-foreground">Con soportes pendientes por revisar</p>
+                <p className="mt-1 text-2xl font-bold text-foreground">{pendingReviewCount}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+                <p className="text-xs text-muted-foreground">Pendientes de pago</p>
+                <p className="mt-1 text-2xl font-bold text-foreground">{pendingPaymentCount}</p>
+              </div>
+            </div>
+          )}
 
           {!isLoading && rows.length > 0 && (
             <div className="relative w-full max-w-2xl">
@@ -153,11 +192,14 @@ const FilteredLots = () => {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border bg-muted/50">
-                          {isPaymentReviewCategory && (
-                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-24">Revisado</th>
+                          {isPendingPaymentsCategory && (
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-36">Revisado</th>
                           )}
                           <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Placa</th>
                           <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Comprador</th>
+                          {isPendingPaymentsCategory && (
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Tipo</th>
+                          )}
                           <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Descripción</th>
                           <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Estado</th>
                         </tr>
@@ -171,20 +213,28 @@ const FilteredLots = () => {
                               key={`${item.placa}-${idx}`}
                               className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
                             >
-                              {isPaymentReviewCategory && (
-                                <td className="px-4 py-2.5">
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox
-                                      checked={false}
-                                      disabled={isUpdating}
-                                      onCheckedChange={(checked) => handleReviewCheck(item, checked)}
-                                      aria-label={`Marcar ${item.placa || "lote"} como revisado`}
-                                    />
-                                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : null}
-                                  </div>
+                              {isPendingPaymentsCategory && (
+                                <td className="px-4 py-2.5 align-top">
+                                  {item.hasPendingReview ? (
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox
+                                        checked={false}
+                                        disabled={isUpdating}
+                                        onCheckedChange={(checked) => handleReviewCheck(item, checked)}
+                                        aria-label={`Marcar ${item.placa || "lote"} como revisado`}
+                                      />
+                                      {isUpdating ? (
+                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">Marcar revisión</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">No aplica</span>
+                                  )}
                                 </td>
                               )}
-                              <td className="px-4 py-2.5 font-mono font-semibold">
+                              <td className="px-4 py-2.5 font-mono font-semibold align-top">
                                 {item.placa ? (
                                   <Link
                                     to={`/vehiculo/${encodeURIComponent(item.placa)}`}
@@ -194,13 +244,21 @@ const FilteredLots = () => {
                                   </Link>
                                 ) : "—"}
                               </td>
-                              <td className="px-4 py-2.5 text-foreground">
+                              <td className="px-4 py-2.5 text-foreground align-top">
                                 {item.comprador || "—"}
                               </td>
-                              <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[200px] truncate">
+                              {isPendingPaymentsCategory && (
+                                <td className="px-4 py-2.5 hidden md:table-cell align-top">
+                                  <div className="flex flex-wrap gap-2">
+                                    {item.hasPendingReview ? <Badge variant="secondary">Soporte por revisar</Badge> : null}
+                                    {item.hasPendingPayment ? <Badge variant="outline">Pendiente de pago</Badge> : null}
+                                  </div>
+                                </td>
+                              )}
+                              <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[260px] truncate align-top">
                                 {item.descripcion || "—"}
                               </td>
-                              <td className="px-4 py-2.5 hidden md:table-cell">
+                              <td className="px-4 py-2.5 hidden md:table-cell align-top">
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                                   {item.estadoTraspaso || item.estadoRetiro || item.estado || "—"}
                                 </span>
