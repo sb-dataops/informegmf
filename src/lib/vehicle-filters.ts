@@ -6,6 +6,23 @@ export function normalizePlaca(placa: string | null | undefined): string {
   return (placa || "").trim().toUpperCase();
 }
 
+export function normalizeSearchText(value: string | null | undefined): string {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+export function matchesNormalizedSearch(value: string | null | undefined, query: string | null | undefined): boolean {
+  const normalizedValue = normalizeSearchText(value);
+  const normalizedQuery = normalizeSearchText(query);
+
+  if (!normalizedValue || !normalizedQuery) return false;
+
+  return normalizedValue === normalizedQuery || normalizedValue.includes(normalizedQuery) || normalizedQuery.includes(normalizedValue);
+}
+
 export function buildAllowedPlacasFromRelatorio<T extends { placa: string | null; estado: string | null }>(rows: T[]): Set<string> {
   return new Set(
     rows
