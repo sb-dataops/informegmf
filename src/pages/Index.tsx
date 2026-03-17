@@ -184,7 +184,7 @@ const Index = () => {
               </div>
             )}
 
-            {hasSearched && !isLoading && compradores.length === 0 && !isError && (
+            {hasSearched && !isLoading && compradores.length === 0 && vehiculosSubasta.length === 0 && !isError && (
               <div className="text-center py-12">
                 <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-muted-foreground">No se encontraron resultados para "{searchTerm}"</p>
