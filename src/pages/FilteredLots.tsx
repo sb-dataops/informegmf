@@ -32,6 +32,8 @@ const FilteredLots = () => {
     queryFn: () => fetchFilteredLots(category!),
     enabled: !!category,
     staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const reviewMutation = useMutation({
@@ -79,15 +81,23 @@ const FilteredLots = () => {
     });
   }, [isPendingPaymentsCategory, normalizedSearch, rows]);
 
-  const grouped = filteredRows.reduce<Record<string, typeof filteredRows>>((acc, row) => {
-    const key = row.subasta || "Sin subasta";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(row);
-    return acc;
-  }, {});
+  const grouped = useMemo(
+    () => filteredRows.reduce<Record<string, typeof filteredRows>>((acc, row) => {
+      const key = row.subasta || "Sin subasta";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(row);
+      return acc;
+    }, {}),
+    [filteredRows],
+  );
 
-  const pendingReviewCount = rows.filter((row) => row.hasPendingReview).length;
-  const pendingPaymentCount = rows.filter((row) => row.hasPendingPayment).length;
+  const { pendingReviewCount, pendingPaymentCount } = useMemo(
+    () => ({
+      pendingReviewCount: rows.filter((row) => row.hasPendingReview).length,
+      pendingPaymentCount: rows.filter((row) => row.hasPendingPayment).length,
+    }),
+    [rows],
+  );
 
   const handleReviewCheck = (item: FilteredLotRow, checked: boolean | string) => {
     if (!checked || !item.placa || !item.hasPendingReview || reviewMutation.isPending) return;

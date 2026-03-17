@@ -495,6 +495,13 @@ serve(async (req) => {
     // ── FILTER: get rows by category for dashboard drill-down ──
     if (action === "filter") {
       const category = url.searchParams.get("category") || "";
+      const canUseFilterCache = category !== "pagos_pendientes_revision";
+      const cachedFilter = canUseFilterCache ? filterResultsCache.get(category) : null;
+      if (cachedFilter && cachedFilter.expiresAt > Date.now()) {
+        return new Response(cachedFilter.payload, {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=30, s-maxage=120" },
+        });
+      }
 
       const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
       const allowedRelatorioCte = `
