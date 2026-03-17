@@ -52,32 +52,27 @@ const downloadTemplate = () => {
   XLSX.writeFile(workbook, "plantilla-cargue-pagos.xlsx");
 };
 
-const parseCsvContent = (content: string): BulkPaymentRow[] => {
-  const lines = content
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length < 2) {
-    throw new Error("La plantilla debe incluir encabezados y al menos una fila de datos");
+const mapSheetRows = (sheetRows: Record<string, unknown>[]): BulkPaymentRow[] => {
+  if (sheetRows.length === 0) {
+    throw new Error("La plantilla debe incluir al menos una fila de datos");
   }
 
-  const headers = lines[0].split(",").map(normalizeHeader);
-  const headerIndex = Object.fromEntries(headers.map((header, index) => [header, index]));
+  return sheetRows.map((row, rowIndex) => {
+    const normalizedRow = Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [normalizeHeader(key), value]),
+    ) as Record<string, unknown>;
 
-  for (const requiredHeader of TEMPLATE_HEADERS) {
-    if (headerIndex[requiredHeader] === undefined) {
-      throw new Error(`Falta la columna obligatoria: ${requiredHeader}`);
+    for (const requiredHeader of TEMPLATE_HEADERS) {
+      if (!(requiredHeader in normalizedRow)) {
+        throw new Error(`Falta la columna obligatoria: ${requiredHeader}`);
+      }
     }
-  }
 
-  return lines.slice(1).map((line, rowIndex) => {
-    const cells = line.split(",").map((cell) => cell.trim());
-    const placa = cells[headerIndex.placa]?.toUpperCase();
-    const subasta = cells[headerIndex.subasta] || undefined;
-    const mayorOferta = parseCurrencyLikeValue(cells[headerIndex.mayor_oferta] || "0");
-    const totalProrrateo = parseCurrencyLikeValue(cells[headerIndex.total_prorrateo_gastos] || "0");
-    const fechaLimite = cells[headerIndex.fecha_limite_pago] || null;
+    const placa = String(normalizedRow.placa || "").trim().toUpperCase();
+    const subasta = String(normalizedRow.subasta || "").trim() || undefined;
+    const mayorOferta = parseCurrencyLikeValue(String(normalizedRow.mayor_oferta || "0"));
+    const totalProrrateo = parseCurrencyLikeValue(String(normalizedRow.total_prorrateo_gastos || "0"));
+    const fechaLimite = String(normalizedRow.fecha_limite_pago || "").trim() || null;
 
     if (!placa) {
       throw new Error(`La fila ${rowIndex + 2} no tiene placa`);
@@ -91,6 +86,23 @@ const parseCsvContent = (content: string): BulkPaymentRow[] => {
       fecha_limite_pago: fechaLimite,
     };
   });
+};
+
+const parseWorkbookFile = async (file: File): Promise<BulkPaymentRow[]> => {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const firstSheetName = workbook.SheetNames[0];
+
+  if (!firstSheetName) {
+    throw new Error("El archivo no contiene hojas para procesar");
+  }
+
+  const worksheet = workbook.Sheets[firstSheetName];
+  const sheetRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+    defval: "",
+  });
+
+  return mapSheetRows(sheetRows);
 };
 
 interface MassPaymentUploadProps {
@@ -108,8 +120,7 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
 
   const processFile = async (file: File) => {
     try {
-      const content = await file.text();
-      const parsedRows = parseCsvContent(content);
+      const parsedRows = await parseWorkbookFile(file);
       setRows(parsedRows);
       setFileName(file.name);
       toast({
@@ -203,7 +214,7 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
           id="mass-payment-file"
           ref={inputRef}
           type="file"
-          accept=".csv,text/csv"
+          accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
           onChange={handleFileChange}
           className="hidden"
         />
@@ -222,7 +233,7 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
           <div className="mb-3 rounded-full bg-accent p-3 text-accent-foreground">
             <Upload className="h-5 w-5" />
           </div>
-          <p className="font-medium text-foreground">Selecciona o arrastra tu archivo CSV aquí</p>
+          <p className="font-medium text-foreground">Selecciona o arrastra tu archivo Excel aquí</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Columnas requeridas: placa, subasta, mayor_oferta, total_prorrateo_gastos, fecha_limite_pago.
           </p>
