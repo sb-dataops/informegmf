@@ -14,9 +14,11 @@ const TABLES = {
 
 const GCP_TOKEN_TTL_MS = 55 * 60 * 1000;
 const DASHBOARD_STATS_TTL_MS = 2 * 60 * 1000;
+const FILTER_RESULT_TTL_MS = 2 * 60 * 1000;
 
 let gcpTokenCache: { accessToken: string; expiresAt: number } | null = null;
 let dashboardStatsCache: { stats: Record<string, string>; expiresAt: number } | null = null;
+const filterResultsCache = new Map<string, { payload: string; expiresAt: number }>();
 
 async function createGCPToken(sa: { client_email: string; private_key: string }): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
