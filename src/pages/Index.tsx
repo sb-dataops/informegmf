@@ -5,6 +5,7 @@ import BuyerHeader from "@/components/BuyerHeader";
 import VehicleCard from "@/components/VehicleCard";
 import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import DashboardStats from "@/components/DashboardStats";
+import PaymentDeadlineAlerts from "@/components/PaymentDeadlineAlerts";
 import { searchBigQuery, extractCompradores, consolidateVehiculos, extractVehiculosBySubasta } from "@/services/bigqueryService";
 import { fetchAllPagos } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
@@ -161,6 +162,7 @@ const Index = () => {
               </div>
             )}
 
+            {!hasSearched && <PaymentDeadlineAlerts />}
             {!hasSearched && <DashboardStats />}
 
             {showingResults && (
