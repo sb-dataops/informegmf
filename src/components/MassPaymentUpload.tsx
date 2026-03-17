@@ -10,24 +10,18 @@ import { upsertPagosBulk } from "@/services/pagosService";
 
 interface BulkPaymentRow {
   placa: string;
-  subasta?: string;
-  mayor_oferta: number;
   total_prorrateo_gastos: number;
   fecha_limite_pago: string | null;
 }
 
 const TEMPLATE_HEADERS = [
   "placa",
-  "subasta",
-  "mayor_oferta",
   "total_prorrateo_gastos",
   "fecha_limite_pago",
 ] as const;
 
 const TEMPLATE_SAMPLE = {
   placa: "ABC123",
-  subasta: "12345",
-  mayor_oferta: 25000000,
   total_prorrateo_gastos: 1500000,
   fecha_limite_pago: "2025-12-31",
 };
@@ -42,8 +36,6 @@ const downloadTemplate = () => {
 
   worksheet["!cols"] = [
     { wch: 14 },
-    { wch: 14 },
-    { wch: 18 },
     { wch: 24 },
     { wch: 18 },
   ];
@@ -69,8 +61,6 @@ const mapSheetRows = (sheetRows: Record<string, unknown>[]): BulkPaymentRow[] =>
     }
 
     const placa = String(normalizedRow.placa || "").trim().toUpperCase();
-    const subasta = String(normalizedRow.subasta || "").trim() || undefined;
-    const mayorOferta = parseCurrencyLikeValue(String(normalizedRow.mayor_oferta || "0"));
     const totalProrrateo = parseCurrencyLikeValue(String(normalizedRow.total_prorrateo_gastos || "0"));
     const fechaLimite = String(normalizedRow.fecha_limite_pago || "").trim() || null;
 
@@ -80,8 +70,6 @@ const mapSheetRows = (sheetRows: Record<string, unknown>[]): BulkPaymentRow[] =>
 
     return {
       placa,
-      subasta,
-      mayor_oferta: mayorOferta,
       total_prorrateo_gastos: totalProrrateo,
       fecha_limite_pago: fechaLimite,
     };
@@ -201,7 +189,7 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
       <CardHeader className="pb-4">
         <CardTitle className="text-lg">Cargue masivo de pagos</CardTitle>
         <CardDescription>
-          Descarga la plantilla Excel, diligencia los valores por columnas y luego cárgala para actualizar múltiples placas.
+          Descarga la plantilla Excel y carga solo placa, total_prorrateo_gastos y fecha_limite_pago para actualizar múltiples placas.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -235,7 +223,7 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
           </div>
           <p className="font-medium text-foreground">Selecciona o arrastra tu archivo Excel aquí</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Columnas requeridas: placa, subasta, mayor_oferta, total_prorrateo_gastos, fecha_limite_pago.
+            Columnas requeridas: placa, total_prorrateo_gastos, fecha_limite_pago.
           </p>
         </label>
 

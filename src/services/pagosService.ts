@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
-import { calculateTotalPagos } from "@/lib/payment-utils";
+import { calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
+import { searchBigQuery } from "@/services/bigqueryService";
+import { isCondicionalRechazado, normalizePlaca } from "@/lib/vehicle-filters";
 
 export interface PagoRecord {
   id: string;
@@ -22,8 +24,6 @@ interface UpsertPagoInput {
 
 interface BulkPagoInput {
   placa: string;
-  subasta?: string;
-  mayor_oferta: number;
   total_prorrateo_gastos: number;
   fecha_limite_pago: string | null;
 }
@@ -69,15 +69,28 @@ export async function upsertPago(data: UpsertPagoInput): Promise<PagoRecord> {
 
 export async function upsertPagosBulk(rows: BulkPagoInput[]): Promise<PagoRecord[]> {
   return Promise.all(
-    rows.map((row) =>
-      upsertPago({
-        placa: row.placa,
-        subasta: row.subasta,
+    rows.map(async (row) => {
+      const normalizedPlaca = normalizePlaca(row.placa);
+      const result = await searchBigQuery(normalizedPlaca);
+      const matchedRecord = result.relatorio.find(
+        (record) => normalizePlaca(record.placa) === normalizedPlaca && !isCondicionalRechazado(record.estado),
+      );
+
+      if (!matchedRecord) {
+        throw new Error(`La placa ${normalizedPlaca} no existe o está en estado condicional rechazado`);
+      }
+
+      return upsertPago({
+        placa: normalizedPlaca,
+        subasta: matchedRecord.subasta || undefined,
         total_prorrateo_gastos: row.total_prorrateo_gastos,
-        total_pagos: calculateTotalPagos(row.mayor_oferta, row.total_prorrateo_gastos),
+        total_pagos: calculateTotalPagos(
+          parseCurrencyLikeValue(matchedRecord.mayor_oferta),
+          row.total_prorrateo_gastos,
+        ),
         fecha_limite_pago: row.fecha_limite_pago,
-      }),
-    ),
+      });
+    }),
   );
 }
 
