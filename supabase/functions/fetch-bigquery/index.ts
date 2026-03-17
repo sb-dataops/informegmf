@@ -124,7 +124,16 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
 }
 
 function sanitize(input: string): string {
-  return input.replace(/[^a-zA-Z0-9\s\-_.áéíóúñÁÉÍÓÚÑ]/g, '').substring(0, 100);
+  return input.replace(/[^a-zA-Z0-9\s\-_.áéíóúñÁÉÍÓÚÑ()]/g, '').substring(0, 100);
+}
+
+function normalizeSearchText(value: string | null | undefined): string {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .substring(0, 100);
 }
 
 function normalizePlaca(value: string | null | undefined): string | null {
