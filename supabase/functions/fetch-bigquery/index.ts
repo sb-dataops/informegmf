@@ -445,6 +445,62 @@ serve(async (req) => {
         )
       `;
 
+      if (category === "pagos_pendientes_revision") {
+        const pendingPaymentReviewEntries = await getPendingPaymentReviewEntries();
+
+        if (pendingPaymentReviewEntries.length === 0) {
+          return new Response(JSON.stringify({ category, rows: [], count: 0 }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const placaList = pendingPaymentReviewEntries
+          .map((entry) => normalizePlaca(entry.placa))
+          .filter((entry): entry is string => Boolean(entry))
+          .map((entry) => `'${sanitize(entry)}'`);
+
+        const metadataRows = placaList.length > 0
+          ? await queryBQ(token, projectId, `
+              SELECT
+                UPPER(IFNULL(placa,'')) AS placa,
+                ANY_VALUE(subasta) AS subasta,
+                ANY_VALUE(comprador) AS comprador,
+                ANY_VALUE(documento) AS documento,
+                ANY_VALUE(descripcion) AS descripcion,
+                ANY_VALUE(estado) AS estado,
+                ANY_VALUE(lote) AS lote
+              FROM \`${TABLES.relatorio}\`
+              WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+                AND ${COMITENTE_FILTER}
+                AND UPPER(IFNULL(placa,'')) IN (${placaList.join(",")})
+              GROUP BY UPPER(IFNULL(placa,''))
+            `)
+          : [];
+
+        const metadataByPlaca = new Map(
+          metadataRows.map((row) => [normalizePlaca(row.placa) || "", row]),
+        );
+
+        const rows = pendingPaymentReviewEntries.map((entry) => {
+          const metadata = metadataByPlaca.get(entry.placa);
+          return {
+            subasta: metadata?.subasta || "Sin subasta",
+            placa: entry.placa,
+            comprador: metadata?.comprador || null,
+            documento: metadata?.documento || null,
+            descripcion: metadata?.descripcion || null,
+            estado: metadata?.estado || "Pendiente por revisar",
+            lote: metadata?.lote || null,
+            cantidadSoportes: entry.documentCount,
+            ultimoSoporteAt: entry.latestDocumentAt,
+          };
+        });
+
+        return new Response(JSON.stringify({ category, rows, count: rows.length }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       let sql = "";
       if (category === "pendientes_traspaso") {
         sql = `
@@ -457,7 +513,7 @@ serve(async (req) => {
           ) t
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(t.placa,'')) = ar.placa
           WHERE t.placa IS NOT NULL AND t.placa != ''
-            AND (UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%' 
+            AND (UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%'
                  AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
           ORDER BY t.subasta, t.placa
           LIMIT 2000

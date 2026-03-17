@@ -160,6 +160,7 @@ export interface DashboardStatsData {
   pendientes_pago: string;
   pendientes_traspaso: string;
   pendientes_retiro: string;
+  pagos_pendientes_revision: string;
 }
 
 export interface FilteredLotRow {
@@ -174,6 +175,8 @@ export interface FilteredLotRow {
   tramitador?: string | null;
   transito?: string | null;
   lote?: string | null;
+  cantidadSoportes?: number | null;
+  ultimoSoporteAt?: string | null;
 }
 
 export interface FilteredLotsResult {
