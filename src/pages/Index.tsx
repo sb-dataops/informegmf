@@ -5,7 +5,7 @@ import BuyerHeader from "@/components/BuyerHeader";
 import VehicleCard from "@/components/VehicleCard";
 import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import DashboardStats from "@/components/DashboardStats";
-import { searchBigQuery, extractCompradores, consolidateVehiculos } from "@/services/bigqueryService";
+import { searchBigQuery, extractCompradores, consolidateVehiculos, extractVehiculosBySubasta } from "@/services/bigqueryService";
 import { fetchAllPagos } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
@@ -35,6 +35,13 @@ const Index = () => {
   });
 
   const compradores = searchResult ? extractCompradores(searchResult) : [];
+  const hasSearched = !!searchTerm;
+  const vehiculosSubasta = searchResult ? extractVehiculosBySubasta(searchResult, searchTerm) : [];
+  const totalCompradoresSubasta = useMemo(
+    () => new Set(vehiculosSubasta.map((vehiculo) => vehiculo.documento).filter(Boolean)).size,
+    [vehiculosSubasta],
+  );
+  const showingSubastaDetail = hasSearched && !isLoading && vehiculosSubasta.length > 0;
 
   const handleSearch = () => {
     if (!query.trim()) return;
@@ -42,13 +49,17 @@ const Index = () => {
     setSearchTerm(query.trim());
   };
 
-  const effectiveComprador = selectedComprador || (compradores.length === 1 && searchResult ? compradores[0] : null);
-  const effectiveVehiculos =
-    effectiveComprador && searchResult ? consolidateVehiculos(searchResult, effectiveComprador.documento) : [];
+  const effectiveComprador = showingSubastaDetail
+    ? null
+    : selectedComprador || (compradores.length === 1 && searchResult ? compradores[0] : null);
+  const effectiveVehiculos = showingSubastaDetail
+    ? vehiculosSubasta
+    : effectiveComprador && searchResult
+      ? consolidateVehiculos(searchResult, effectiveComprador.documento)
+      : [];
 
-  const hasSearched = !!searchTerm;
-  const showingDetail = !!effectiveComprador && !!searchResult;
-  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador;
+  const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail;
+  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail;
 
   const { data: pagos = [], isLoading: isPagosLoading } = useQuery({
     queryKey: ["pagos-comprador"],
@@ -60,7 +71,14 @@ const Index = () => {
   const { data: documentosComprador = [], isLoading: isDocumentosLoading } = useQuery({
     queryKey: ["documentos-comprador", effectiveComprador?.documento],
     queryFn: () => listDocumentos({ documento_comprador: effectiveComprador?.documento || undefined }),
-    enabled: !!effectiveComprador?.documento && showingDetail,
+    enabled: !!effectiveComprador?.documento && !!searchResult && !showingSubastaDetail,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: documentosSubasta = [], isLoading: isDocumentosSubastaLoading } = useQuery({
+    queryKey: ["documentos-subasta", searchTerm],
+    queryFn: () => listDocumentos({}),
+    enabled: showingSubastaDetail,
     staleTime: 60 * 1000,
   });
 
@@ -69,12 +87,13 @@ const Index = () => {
     [pagos],
   );
 
+  const documentosFuente = showingSubastaDetail ? documentosSubasta : documentosComprador;
   const documentosAgrupados = useMemo(
-    () => groupDocumentosByArchivo(documentosComprador),
-    [documentosComprador],
+    () => groupDocumentosByArchivo(documentosFuente),
+    [documentosFuente],
   );
 
-  const isFinancialDataLoading = isPagosLoading || isDocumentosLoading;
+  const isFinancialDataLoading = isPagosLoading || (showingSubastaDetail ? isDocumentosSubastaLoading : isDocumentosLoading);
 
   const selectComprador = (c: Comprador) => {
     setSelectedComprador(c);
@@ -114,7 +133,7 @@ const Index = () => {
                 Portal Consolidado de Vehículos
               </h2>
               <p className="text-muted-foreground text-sm">
-                Busca por nombre, cédula/NIT o placa para consultar trámites y retiros
+                Busca por nombre, cédula/NIT, placa o subasta para consultar trámites y retiros
               </p>
             </div>
 
@@ -165,7 +184,7 @@ const Index = () => {
               </div>
             )}
 
-            {hasSearched && !isLoading && compradores.length === 0 && !isError && (
+            {hasSearched && !isLoading && compradores.length === 0 && vehiculosSubasta.length === 0 && !isError && (
               <div className="text-center py-12">
                 <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-muted-foreground">No se encontraron resultados para "{searchTerm}"</p>
@@ -178,14 +197,31 @@ const Index = () => {
           <div className="space-y-5">
             <Button
               variant="ghost"
-              onClick={compradores.length > 1 ? goBackToResults : goBack}
+              onClick={showingSubastaDetail ? goBack : compradores.length > 1 ? goBackToResults : goBack}
               className="text-muted-foreground hover:text-foreground -ml-2"
             >
               <ArrowLeft className="h-4 w-4 mr-1.5" />
-              {compradores.length > 1 ? "Volver a resultados" : "Volver al inicio"}
+              {showingSubastaDetail ? "Volver al inicio" : compradores.length > 1 ? "Volver a resultados" : "Volver al inicio"}
             </Button>
 
-            <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
+            {showingSubastaDetail ? (
+              <div className="bg-card rounded-xl border border-border shadow-card p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">Subasta {searchTerm}</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {effectiveVehiculos.length} vehículo(s) encontrado(s) con información consolidada
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                    <span>🚗 {effectiveVehiculos.length} placa(s)</span>
+                    <span>👤 {totalCompradoresSubasta} comprador(es)</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
+            )}
 
             <div className="space-y-4">
               {effectiveVehiculos.map((v) => {

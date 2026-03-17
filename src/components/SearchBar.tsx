@@ -13,7 +13,7 @@ const SearchBar = ({ value, onChange, onSearch }: SearchBarProps) => {
       <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
       <Input
         type="text"
-        placeholder="Buscar por nombre, cédula/NIT o placa..."
+        placeholder="Buscar por nombre, cédula/NIT, placa o subasta..."
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && onSearch()}
