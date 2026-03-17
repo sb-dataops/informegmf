@@ -100,7 +100,7 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
 
   const totalRows = useMemo(() => rows.length, [rows]);
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 

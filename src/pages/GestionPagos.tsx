@@ -63,16 +63,6 @@ const GestionPagos = () => {
       ).values()]
     : [];
 
-  const mayorOfertaPorPlaca = useMemo(() => {
-    const map = new Map<string, number>();
-    searchResult?.relatorio
-      .filter((item) => !isCondicionalRechazado(item.estado))
-      .forEach((item) => {
-        if (!item.placa) return;
-        map.set(item.placa.toUpperCase(), parseCurrencyLikeValue(item.mayor_oferta));
-      });
-    return map;
-  }, [searchResult]);
 
   const allowedSearchPlacas = useMemo(
     () => (searchResult ? buildAllowedPlacasFromRelatorio(searchResult.relatorio) : new Set<string>()),
