@@ -25,7 +25,7 @@ const VehicleDetail = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const vehiculos = data ? consolidateVehiculos(data) : [];
+  const vehiculos = data ? consolidateVehiculos(data, undefined, true) : [];
   const vehiculo = vehiculos.find(
     (v) => v.placa.toUpperCase() === placa?.toUpperCase(),
   ) || vehiculos[0];
