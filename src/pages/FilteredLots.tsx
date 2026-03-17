@@ -138,7 +138,7 @@ const FilteredLots = () => {
               <p className="text-sm text-muted-foreground mt-1">
                 {isLoading ? "Cargando..." : `${filteredRows.length} lote(s) encontrado(s)`}
               </p>
-              {isPendingPaymentsCategory && (
+              {category === "pagos_pendientes_revision" && (
                 <p className="text-sm text-muted-foreground mt-2">
                   Aquí se listan primero los lotes con soportes nuevos por revisar y también los lotes pendientes de pago.
                 </p>
@@ -146,7 +146,7 @@ const FilteredLots = () => {
             </div>
           </div>
 
-          {isPendingPaymentsCategory && !isLoading && !isError && rows.length > 0 && (
+          {category === "pagos_pendientes_revision" && !isLoading && !isError && rows.length > 0 && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-border bg-card p-4 shadow-card">
                 <p className="text-xs text-muted-foreground">Con soportes pendientes por revisar</p>
