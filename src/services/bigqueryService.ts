@@ -115,10 +115,27 @@ export function extractCompradores(result: SearchResult): Comprador[] {
   return Array.from(map.values());
 }
 
-// Consolidate vehicle data from all 4 tables for a specific buyer
-export function consolidateVehiculos(result: SearchResult, documento?: string): VehiculoConsolidado[] {
+function consolidateVehiculosBase(
+  result: SearchResult,
+  options?: {
+    documento?: string;
+    placaFilter?: Set<string>;
+    allowedPlacas?: Set<string> | null;
+  },
+): VehiculoConsolidado[] {
   const vehicleMap = new Map<string, VehiculoConsolidado>();
-  const allowedPlacas = buildAllowedPlacasFromRelatorio(result.relatorio);
+  const { documento, placaFilter, allowedPlacas = buildAllowedPlacasFromRelatorio(result.relatorio) } = options || {};
+
+  const matchesDocumento = (value: string | null | undefined) => !documento || value === documento;
+  const matchesPlaca = (value: string | null | undefined) => {
+    if (!placaFilter) return true;
+    const placa = normalizePlaca(value);
+    return !!placa && placaFilter.has(placa);
+  };
+  const matchesAllowedPlaca = (value: string | null | undefined) => {
+    if (allowedPlacas === null) return true;
+    return isAllowedPlaca(value, allowedPlacas);
+  };
 
   const getVehicle = (placa: string): VehiculoConsolidado => {
     if (!vehicleMap.has(placa)) {
@@ -142,10 +159,12 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
   };
 
   result.relatorio
-    .filter((r) => r.placa && (!documento || r.documento === documento))
+    .filter((r) => r.placa && matchesDocumento(r.documento) && matchesPlaca(r.placa))
     .filter((r) => !isCondicionalRechazado(r.estado))
     .forEach((r) => {
-      const v = getVehicle(r.placa!);
+      const placa = normalizePlaca(r.placa);
+      if (!placa) return;
+      const v = getVehicle(placa);
       v.descripcion = r.descripcion || v.descripcion;
       v.fecha = r.fecha || v.fecha;
       v.subasta = r.subasta || v.subasta;
@@ -164,10 +183,11 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
     });
 
   result.retiros
-    .filter((r) => r.placa && (!documento || r.documento === documento))
-    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .filter((r) => r.placa && matchesDocumento(r.documento) && matchesPlaca(r.placa) && matchesAllowedPlaca(r.placa))
     .forEach((r) => {
-      const v = getVehicle(r.placa!);
+      const placa = normalizePlaca(r.placa);
+      if (!placa) return;
+      const v = getVehicle(placa);
       v.descripcion = r.descripcion || v.descripcion;
       v.fecha = r.fecha || v.fecha;
       v.subasta = r.subasta || v.subasta;
@@ -186,15 +206,22 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
       v.mayor_oferta = r.mayoroferta || v.mayor_oferta;
       v.comprador = r.comprador || v.comprador;
       v.documento = r.documento || v.documento;
+      v.email = r.email || v.email;
+      v.movil = r.movil || v.movil;
+      v.ciudadComprador = r.ciudadComprador || v.ciudadComprador;
+      v.departamentoComprador = r.departamentoComprador || v.departamentoComprador;
     });
 
   const allTramitadores = [...result.servitram, ...result.gestramites];
   allTramitadores
-    .filter((r) => r.placa && (!documento || r.documento === documento))
-    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .filter((r) => r.placa && matchesDocumento(r.documento) && matchesPlaca(r.placa) && matchesAllowedPlaca(r.placa))
     .forEach((r) => {
-      const v = getVehicle(r.placa!);
+      const placa = normalizePlaca(r.placa);
+      if (!placa) return;
+      const v = getVehicle(placa);
       v.descripcion = r.descripcion || v.descripcion;
+      v.subasta = r.subasta || v.subasta;
+      v.lote = r.lote || v.lote;
       v.tramitador = r.tramitador || v.tramitador;
       v.transito = r.transito || v.transito;
       v.fechaRecibidoImprontas = r.fechaRecibidoImprontas || v.fechaRecibidoImprontas;
@@ -204,9 +231,16 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
       v.fechaTp = r.fechaTp || v.fechaTp;
       v.comprador = r.comprador || v.comprador;
       v.documento = r.documento || v.documento;
+      v.email = r.email || v.email;
+      v.movil = r.movil || v.movil;
     });
 
   return Array.from(vehicleMap.values());
+}
+
+// Consolidate vehicle data from all 4 tables for a specific buyer
+export function consolidateVehiculos(result: SearchResult, documento?: string): VehiculoConsolidado[] {
+  return consolidateVehiculosBase(result, { documento });
 }
 
 export function extractVehiculosBySubasta(result: SearchResult, query: string): VehiculoConsolidado[] {
@@ -236,7 +270,10 @@ export function extractVehiculosBySubasta(result: SearchResult, query: string): 
 
   if (matchedPlacas.size === 0) return [];
 
-  return consolidateVehiculos(result).filter((vehiculo) => matchedPlacas.has(normalizePlaca(vehiculo.placa) || ""));
+  return consolidateVehiculosBase(result, {
+    placaFilter: matchedPlacas,
+    allowedPlacas: null,
+  });
 }
 
 export function formatCurrency(amount: number): string {

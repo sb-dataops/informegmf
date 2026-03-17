@@ -193,7 +193,7 @@ const Index = () => {
           </div>
         )}
 
-        {showingDetail && effectiveComprador && (
+        {showingDetail && (
           <div className="space-y-5">
             <Button
               variant="ghost"
@@ -219,9 +219,9 @@ const Index = () => {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : effectiveComprador ? (
               <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
-            )}
+            ) : null}
 
             <div className="space-y-4">
               {effectiveVehiculos.map((v) => {
@@ -230,7 +230,7 @@ const Index = () => {
                   parseCurrencyLikeValue(v.mayor_oferta),
                   Number(pagoVehiculo?.total_prorrateo_gastos || 0),
                 );
-                const totalSoportes = sumValorSoportesByPlaca(documentosComprador, v.placa);
+                const totalSoportes = sumValorSoportesByPlaca(documentosFuente, v.placa);
                 const saldoPendiente = calculateSaldoPendiente(totalPagos, totalSoportes);
 
                 return (
@@ -258,7 +258,9 @@ const Index = () => {
               })}
               {effectiveVehiculos.length === 0 && (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">No se encontraron vehículos con placa para este comprador</p>
+                  <p className="text-muted-foreground">
+                    {showingSubastaDetail ? "No se encontraron vehículos para esta subasta" : "No se encontraron vehículos con placa para este comprador"}
+                  </p>
                 </div>
               )}
             </div>
