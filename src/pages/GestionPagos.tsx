@@ -138,8 +138,8 @@ const GestionPagos = () => {
         </div>
 
         {activeTab === "pagos" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-6">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
               <PaymentForm onSaved={() => refetchPagos()} />
               <MassPaymentUpload onCompleted={() => refetchPagos()} />
             </div>
@@ -172,14 +172,14 @@ const GestionPagos = () => {
                           return (
                             <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/vehiculo/${p.placa}`)}>
                               <TableCell className="font-medium text-primary">{p.placa}</TableCell>
-                              <TableCell className="text-muted-foreground">{p.subasta || "—"}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(p.total_prorrateo_gastos)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(p.total_pagos)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(soportes)}</TableCell>
-                              <TableCell className={`text-right font-medium ${saldo > 0 ? "text-destructive" : "text-accent-foreground"}`}>
+                              <TableCell className="text-muted-foreground whitespace-nowrap">{p.subasta || "—"}</TableCell>
+                              <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.total_prorrateo_gastos)}</TableCell>
+                              <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.total_pagos)}</TableCell>
+                              <TableCell className="text-right whitespace-nowrap">{formatCurrency(soportes)}</TableCell>
+                              <TableCell className={`text-right font-medium whitespace-nowrap ${saldo > 0 ? "text-destructive" : "text-accent-foreground"}`}>
                                 {formatCurrency(saldo)}
                               </TableCell>
-                              <TableCell className="text-muted-foreground">
+                              <TableCell className="text-muted-foreground whitespace-nowrap">
                                 {p.fecha_limite_pago ? new Date(p.fecha_limite_pago).toLocaleDateString("es-CO") : "—"}
                               </TableCell>
                             </TableRow>
