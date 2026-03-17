@@ -25,8 +25,8 @@ const PaymentDeadlineAlerts = () => {
 
   // Get plates that are still pending (not closed)
   const pendingPlacas = new Set(
-    (filteredData?.vehicles || []).map((v: { placa?: string }) =>
-      v.placa?.toUpperCase?.()
+    (filteredData?.rows || []).map((r) =>
+      r.placa?.toUpperCase?.()
     ).filter(Boolean)
   );
 
