@@ -679,8 +679,15 @@ serve(async (req) => {
       }
 
       const rows = await queryBQ(token, projectId, sql);
-      return new Response(JSON.stringify({ category, rows, count: rows.length }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const payload = JSON.stringify({ category, rows, count: rows.length });
+      if (canUseFilterCache) {
+        filterResultsCache.set(category, {
+          payload,
+          expiresAt: Date.now() + FILTER_RESULT_TTL_MS,
+        });
+      }
+      return new Response(payload, {
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=30, s-maxage=120" },
       });
     }
 
