@@ -26,7 +26,7 @@ const FilteredLots = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const isPendingPaymentsCategory = category === "pagos_pendientes_revision";
+  const isPendingPaymentsCategory = category === "pagos_pendientes_revision" || category === "soportes_pendientes_revision";
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["bigquery-filter", category],
