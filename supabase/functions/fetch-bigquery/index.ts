@@ -470,6 +470,7 @@ serve(async (req) => {
         pendientes_traspaso: '0',
         pendientes_retiro: '0',
         pagos_pendientes_revision: '0',
+        soportes_pendientes_revision: '0',
       };
 
       try {
@@ -485,7 +486,7 @@ serve(async (req) => {
           }),
         ]);
 
-        console.log(`[stats] result:`, JSON.stringify(result));
+      console.log(`[stats] result:`, JSON.stringify(result));
         const combinedPendingPlacas = new Set([
           ...pendingPaymentReviewEntries.map((entry) => entry.placa),
           ...pendingPaymentRows.map((row) => row.placa),
@@ -500,6 +501,7 @@ serve(async (req) => {
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
           pagos_pendientes_revision: String(combinedPendingPlacas.size),
+          soportes_pendientes_revision: String(pendingPaymentReviewEntries.length),
         };
       } catch (e) {
         console.error(`[stats] FAILED:`, e instanceof Error ? e.message : e);
@@ -518,7 +520,7 @@ serve(async (req) => {
     // ── FILTER: get rows by category for dashboard drill-down ──
     if (action === "filter") {
       const category = url.searchParams.get("category") || "";
-      const canUseFilterCache = category !== "pagos_pendientes_revision";
+      const canUseFilterCache = category !== "pagos_pendientes_revision" && category !== "soportes_pendientes_revision";
       const cachedFilter = canUseFilterCache ? filterResultsCache.get(category) : null;
       if (cachedFilter && cachedFilter.expiresAt > Date.now()) {
         return new Response(cachedFilter.payload, {
@@ -621,6 +623,78 @@ serve(async (req) => {
             const latestB = b.ultimoSoporteAt ? new Date(b.ultimoSoporteAt).getTime() : 0;
             if (latestA !== latestB) return latestB - latestA;
 
+            return a.placa.localeCompare(b.placa);
+          });
+
+        return new Response(JSON.stringify({ category, rows, count: rows.length }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (category === "soportes_pendientes_revision") {
+        const pendingPaymentReviewEntries = await getPendingPaymentReviewEntries();
+
+        if (pendingPaymentReviewEntries.length === 0) {
+          return new Response(JSON.stringify({ category, rows: [], count: 0 }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const reviewByPlaca = new Map(
+          pendingPaymentReviewEntries.map((entry) => [entry.placa, entry]),
+        );
+
+        const placaList = pendingPaymentReviewEntries
+          .map((entry) => normalizePlaca(entry.placa))
+          .filter((p): p is string => Boolean(p))
+          .map((p) => `'${sanitize(p)}'`);
+
+        const metadataRows = placaList.length > 0
+          ? await queryBQ(token, projectId, `
+              SELECT
+                UPPER(IFNULL(placa,'')) AS placa,
+                ANY_VALUE(subasta) AS subasta,
+                ANY_VALUE(comprador) AS comprador,
+                ANY_VALUE(documento) AS documento,
+                ANY_VALUE(descripcion) AS descripcion,
+                ANY_VALUE(estado) AS estado,
+                ANY_VALUE(lote) AS lote
+              FROM \`${TABLES.relatorio}\`
+              WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+                AND ${COMITENTE_FILTER}
+                AND UPPER(IFNULL(placa,'')) IN (${placaList.join(",")})
+              GROUP BY UPPER(IFNULL(placa,''))
+            `)
+          : [];
+
+        const metadataByPlaca = new Map(
+          metadataRows.map((row) => [normalizePlaca(row.placa) || "", row]),
+        );
+
+        const rows = Array.from(reviewByPlaca.entries())
+          .map(([placa, reviewEntry]) => {
+            const metadata = metadataByPlaca.get(placa);
+            return {
+              subasta: metadata?.subasta || "Sin subasta",
+              placa,
+              comprador: metadata?.comprador || null,
+              documento: metadata?.documento || null,
+              descripcion: metadata?.descripcion || null,
+              estado: metadata?.estado || "Pendiente por revisar",
+              lote: metadata?.lote || null,
+              cantidadSoportes: reviewEntry.documentCount || null,
+              ultimoSoporteAt: reviewEntry.latestDocumentAt || null,
+              hasPendingReview: true,
+              hasPendingPayment: false,
+              reviewPriority: 0,
+            };
+          })
+          .sort((a, b) => {
+            const subastaCompare = (a.subasta || "").localeCompare(b.subasta || "");
+            if (subastaCompare !== 0) return subastaCompare;
+            const latestA = a.ultimoSoporteAt ? new Date(a.ultimoSoporteAt).getTime() : 0;
+            const latestB = b.ultimoSoporteAt ? new Date(b.ultimoSoporteAt).getTime() : 0;
+            if (latestA !== latestB) return latestB - latestA;
             return a.placa.localeCompare(b.placa);
           });
 
