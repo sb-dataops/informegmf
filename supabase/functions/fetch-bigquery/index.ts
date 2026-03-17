@@ -231,85 +231,101 @@ serve(async (req) => {
 
     // ── STATS for dashboard ──
     if (action === "stats") {
-      const safeQuery2 = async (label: string, sql: string) => {
-        try { 
-          const result = await queryBQ(token, projectId, sql); 
-          console.log(`[${label}] result:`, JSON.stringify(result));
-          return result;
-        }
-        catch (e) { 
-          console.error(`[${label}] FAILED:`, e instanceof Error ? e.message : e); 
-          return []; 
-        }
+      if (dashboardStatsCache && dashboardStatsCache.expiresAt > Date.now()) {
+        return new Response(JSON.stringify({ stats: dashboardStatsCache.stats, cached: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=30, s-maxage=120" },
+        });
+      }
+
+      const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
+      const statsSQL = `
+        WITH allowed_relatorio AS (
+          SELECT UPPER(IFNULL(placa,'')) AS placa, UPPER(IFNULL(estado,'')) AS estado
+          FROM \`${TABLES.relatorio}\`
+          WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND ${COMITENTE_FILTER}
+        ),
+        relatorio_stats AS (
+          SELECT
+            COUNT(*) AS total,
+            COUNTIF(estado LIKE '%APROBADO%') AS aprobados,
+            COUNTIF((estado LIKE '%PROCESO%' OR estado LIKE '%CONDICIONAL%') AND estado NOT LIKE '%CONDICIONAL RECHAZADO%') AS en_proceso,
+            COUNTIF(estado LIKE '%PENDIENTE%') AS pendientes
+          FROM allowed_relatorio
+        ),
+        retiros_stats AS (
+          SELECT
+            COUNTIF(IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = '') AS pendientes_pago,
+            COUNTIF(UPPER(IFNULL(CAST(r.estadoRetiro AS STRING), '')) = 'ABIERTO') AS pendientes_retiro
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN (
+            SELECT DISTINCT placa
+            FROM allowed_relatorio
+            WHERE placa != ''
+          ) ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+        ),
+        traspaso_stats AS (
+          SELECT COUNT(*) AS pendientes_traspaso
+          FROM (
+            SELECT placa, estadoTraspaso FROM \`${TABLES.servitram}\`
+            UNION ALL
+            SELECT placa, estadoTraspaso FROM \`${TABLES.gestramites}\`
+          ) t
+          INNER JOIN (
+            SELECT DISTINCT placa
+            FROM allowed_relatorio
+            WHERE placa != ''
+          ) ar ON UPPER(IFNULL(t.placa,'')) = ar.placa
+          WHERE t.placa IS NOT NULL AND t.placa != ''
+            AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%'
+            AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%MATRICULADO%'
+        )
+        SELECT
+          CAST(relatorio_stats.total AS STRING) AS total,
+          CAST(relatorio_stats.aprobados AS STRING) AS aprobados,
+          CAST(relatorio_stats.en_proceso AS STRING) AS en_proceso,
+          CAST(relatorio_stats.pendientes AS STRING) AS pendientes,
+          CAST(retiros_stats.pendientes_pago AS STRING) AS pendientes_pago,
+          CAST(traspaso_stats.pendientes_traspaso AS STRING) AS pendientes_traspaso,
+          CAST(retiros_stats.pendientes_retiro AS STRING) AS pendientes_retiro
+        FROM relatorio_stats
+        CROSS JOIN retiros_stats
+        CROSS JOIN traspaso_stats
+      `;
+
+      let stats = {
+        total: '0',
+        aprobados: '0',
+        en_proceso: '0',
+        pendientes: '0',
+        pendientes_pago: '0',
+        pendientes_traspaso: '0',
+        pendientes_retiro: '0',
       };
 
-      // Total from relatorio — only "Gm Financial Colombia Sa Compañia De Financiamiento"
-      const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
-      const relatorioStatsSQL = `
-        SELECT 
-          COUNT(*) as total,
-          COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%APROBADO%') as aprobados,
-          COUNTIF((UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%') AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%') as en_proceso,
-          COUNTIF(UPPER(IFNULL(estado,'')) LIKE '%PENDIENTE%') as pendientes
-        FROM \`${TABLES.relatorio}\`
-        WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
-          AND ${COMITENTE_FILTER}
-      `;
+      try {
+        const result = await queryBQ(token, projectId, statsSQL);
+        console.log(`[stats] result:`, JSON.stringify(result));
+        stats = {
+          total: result[0]?.total || '0',
+          aprobados: result[0]?.aprobados || '0',
+          en_proceso: result[0]?.en_proceso || '0',
+          pendientes: result[0]?.pendientes || '0',
+          pendientes_pago: result[0]?.pendientes_pago || '0',
+          pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
+          pendientes_retiro: result[0]?.pendientes_retiro || '0',
+        };
+      } catch (e) {
+        console.error(`[stats] FAILED:`, e instanceof Error ? e.message : e);
+      }
 
-      // Retiros stats - exclude condicional rechazado via relatorio join
-      const retirosStatsSQL = `
-        WITH allowed_relatorio AS (
-          SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
-          FROM \`${TABLES.relatorio}\`
-          WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
-            AND ${COMITENTE_FILTER}
-            AND IFNULL(placa,'') != ''
-        )
-        SELECT 
-          COUNTIF(IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = '') as pendientes_pago,
-          COUNTIF(UPPER(IFNULL(CAST(r.estadoRetiro AS STRING), '')) = 'ABIERTO') as pendientes_retiro
-        FROM \`${TABLES.retiros}\` r
-        INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
-      `;
-
-      const pendientesTraspasoSQL = `
-        WITH allowed_relatorio AS (
-          SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
-          FROM \`${TABLES.relatorio}\`
-          WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
-            AND ${COMITENTE_FILTER}
-            AND IFNULL(placa,'') != ''
-        )
-        SELECT COUNT(*) as pendientes_traspaso
-        FROM (
-          SELECT placa, estadoTraspaso FROM \`${TABLES.servitram}\`
-          UNION ALL
-          SELECT placa, estadoTraspaso FROM \`${TABLES.gestramites}\`
-        ) t
-        INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(t.placa,'')) = ar.placa
-        WHERE t.placa IS NOT NULL AND t.placa != ''
-          AND (UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%' 
-               AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
-      `;
-
-      const [relStats, retirosStats, traspasoStats] = await Promise.all([
-        safeQuery2("relatorio", relatorioStatsSQL),
-        safeQuery2("retiros", retirosStatsSQL),
-        safeQuery2("traspaso", pendientesTraspasoSQL),
-      ]);
-
-      const stats = {
-        total: relStats[0]?.total || '0',
-        aprobados: relStats[0]?.aprobados || '0',
-        en_proceso: relStats[0]?.en_proceso || '0',
-        pendientes: relStats[0]?.pendientes || '0',
-        pendientes_pago: retirosStats[0]?.pendientes_pago || '0',
-        pendientes_traspaso: traspasoStats[0]?.pendientes_traspaso || '0',
-        pendientes_retiro: retirosStats[0]?.pendientes_retiro || '0',
+      dashboardStatsCache = {
+        stats,
+        expiresAt: Date.now() + DASHBOARD_STATS_TTL_MS,
       };
 
       return new Response(JSON.stringify({ stats }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=30, s-maxage=120" },
       });
     }
 
