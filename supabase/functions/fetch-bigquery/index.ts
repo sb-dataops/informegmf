@@ -520,7 +520,7 @@ serve(async (req) => {
     // ── FILTER: get rows by category for dashboard drill-down ──
     if (action === "filter") {
       const category = url.searchParams.get("category") || "";
-      const canUseFilterCache = category !== "pagos_pendientes_revision";
+      const canUseFilterCache = category !== "pagos_pendientes_revision" && category !== "soportes_pendientes_revision";
       const cachedFilter = canUseFilterCache ? filterResultsCache.get(category) : null;
       if (cachedFilter && cachedFilter.expiresAt > Date.now()) {
         return new Response(cachedFilter.payload, {
