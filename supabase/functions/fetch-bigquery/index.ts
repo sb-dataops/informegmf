@@ -485,7 +485,7 @@ serve(async (req) => {
           }),
         ]);
 
-        console.log(`[stats] result:`, JSON.stringify(result));
+      console.log(`[stats] result:`, JSON.stringify(result));
         const combinedPendingPlacas = new Set([
           ...pendingPaymentReviewEntries.map((entry) => entry.placa),
           ...pendingPaymentRows.map((row) => row.placa),
@@ -500,6 +500,7 @@ serve(async (req) => {
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
           pagos_pendientes_revision: String(combinedPendingPlacas.size),
+          soportes_pendientes_revision: String(pendingPaymentReviewEntries.length),
         };
       } catch (e) {
         console.error(`[stats] FAILED:`, e instanceof Error ? e.message : e);
