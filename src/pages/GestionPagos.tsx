@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import PaymentForm from "@/components/PaymentForm";
 import DocumentUpload from "@/components/DocumentUpload";
+import MassPaymentUpload from "@/components/MassPaymentUpload";
 import { fetchAllPagos } from "@/services/pagosService";
 import { listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { searchBigQuery } from "@/services/bigqueryService";
@@ -17,12 +18,27 @@ import { ArrowLeft, DollarSign, Search, Loader2, FileText } from "lucide-react";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
+const getTabFromQuery = (tab: string | null): "pagos" | "documentos" => (tab === "documentos" ? "documentos" : "pagos");
+
 const GestionPagos = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"pagos" | "documentos">("pagos");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"pagos" | "documentos">(() => getTabFromQuery(searchParams.get("tab")));
   const [docSearch, setDocSearch] = useState("");
   const [docSearchTerm, setDocSearchTerm] = useState("");
   const [selectedComprador, setSelectedComprador] = useState<{ documento: string; nombre: string } | null>(null);
+
+  useEffect(() => {
+    const tabFromQuery = getTabFromQuery(searchParams.get("tab"));
+    setActiveTab((current) => (current === tabFromQuery ? current : tabFromQuery));
+  }, [searchParams]);
+
+  const handleTabChange = (tab: "pagos" | "documentos") => {
+    setActiveTab(tab);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", tab);
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const { data: pagos = [], refetch: refetchPagos } = useQuery({
     queryKey: ["all-pagos"],
@@ -109,7 +125,7 @@ const GestionPagos = () => {
 
         <div className="flex gap-2 border-b border-border pb-0">
           <button
-            onClick={() => setActiveTab("pagos")}
+            onClick={() => handleTabChange("pagos")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
               activeTab === "pagos"
                 ? "border-primary text-primary"
@@ -120,7 +136,7 @@ const GestionPagos = () => {
             Pagos
           </button>
           <button
-            onClick={() => setActiveTab("documentos")}
+            onClick={() => handleTabChange("documentos")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
               activeTab === "documentos"
                 ? "border-primary text-primary"
@@ -134,7 +150,10 @@ const GestionPagos = () => {
 
         {activeTab === "pagos" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PaymentForm onSaved={() => refetchPagos()} />
+            <div className="space-y-6">
+              <PaymentForm onSaved={() => refetchPagos()} />
+              <MassPaymentUpload onCompleted={() => refetchPagos()} />
+            </div>
 
             <Card className="border-border">
               <CardHeader className="pb-4">
@@ -246,3 +265,4 @@ const GestionPagos = () => {
 };
 
 export default GestionPagos;
+
