@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { calculateTotalPagos } from "@/lib/payment-utils";
 
 export interface PagoRecord {
   id: string;
@@ -11,14 +12,23 @@ export interface PagoRecord {
   updated_at: string;
 }
 
-export async function upsertPago(data: {
+interface UpsertPagoInput {
   placa: string;
   subasta?: string;
   total_prorrateo_gastos: number;
   total_pagos: number;
   fecha_limite_pago: string | null;
-}): Promise<PagoRecord> {
-  // Check if a record exists for this placa
+}
+
+interface BulkPagoInput {
+  placa: string;
+  subasta?: string;
+  mayor_oferta: number;
+  total_prorrateo_gastos: number;
+  fecha_limite_pago: string | null;
+}
+
+export async function upsertPago(data: UpsertPagoInput): Promise<PagoRecord> {
   const { data: existing } = await supabase
     .from("pagos")
     .select("id")
@@ -55,6 +65,20 @@ export async function upsertPago(data: {
     .single();
   if (error) throw new Error(error.message);
   return inserted as unknown as PagoRecord;
+}
+
+export async function upsertPagosBulk(rows: BulkPagoInput[]): Promise<PagoRecord[]> {
+  return Promise.all(
+    rows.map((row) =>
+      upsertPago({
+        placa: row.placa,
+        subasta: row.subasta,
+        total_prorrateo_gastos: row.total_prorrateo_gastos,
+        total_pagos: calculateTotalPagos(row.mayor_oferta, row.total_prorrateo_gastos),
+        fecha_limite_pago: row.fecha_limite_pago,
+      }),
+    ),
+  );
 }
 
 export async function fetchPagoByPlaca(placa: string): Promise<PagoRecord | null> {
