@@ -1,9 +1,8 @@
-import { ChangeEvent, useMemo, useRef, useState } from "react";
-import { Loader2, Download, Upload } from "lucide-react";
+import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
+import { FileText, Loader2, Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { upsertPagosBulk } from "@/services/pagosService";
@@ -97,13 +96,11 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
   const [fileName, setFileName] = useState("");
   const [rows, setRows] = useState<BulkPaymentRow[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const totalRows = useMemo(() => rows.length, [rows]);
 
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const processFile = async (file: File) => {
     try {
       const content = await file.text();
       const parsedRows = parseCsvContent(content);
@@ -122,6 +119,30 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    await processFile(file);
   };
 
   const handleUpload = async () => {
@@ -167,43 +188,59 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="button" variant="secondary" className="gap-2" onClick={downloadTemplate}>
-            <Download className="h-4 w-4" />
-            Descargar plantilla
-          </Button>
-          <Button type="button" variant="outline" className="gap-2" onClick={() => inputRef.current?.click()}>
-            <Upload className="h-4 w-4" />
-            Seleccionar archivo
-          </Button>
-        </div>
+        <Button type="button" variant="secondary" className="gap-2" onClick={downloadTemplate}>
+          <Download className="h-4 w-4" />
+          Descargar plantilla
+        </Button>
 
-        <div className="space-y-2">
-          <Label htmlFor="mass-payment-file">Archivo CSV</Label>
-          <Input
-            id="mass-payment-file"
-            ref={inputRef}
-            type="file"
-            accept=".csv,text/csv"
-            onChange={handleFileChange}
-            className="cursor-pointer"
-          />
-          <p className="text-xs text-muted-foreground">
+        <Input
+          id="mass-payment-file"
+          ref={inputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
+        <label
+          htmlFor="mass-payment-file"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-6 py-8 text-center transition-colors ${
+            isDragging
+              ? "border-primary bg-accent/60"
+              : "border-border bg-muted/20 hover:border-primary/40 hover:bg-muted/40"
+          }`}
+        >
+          <div className="mb-3 rounded-full bg-accent p-3 text-accent-foreground">
+            <Upload className="h-5 w-5" />
+          </div>
+          <p className="font-medium text-foreground">Selecciona o arrastra tu archivo CSV aquí</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             Columnas requeridas: placa, subasta, mayor_oferta, total_prorrateo_gastos, fecha_limite_pago.
           </p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
-          <p className="font-medium text-foreground">Resumen del archivo</p>
-          <p className="text-muted-foreground">
-            {fileName ? `${fileName} · ${totalRows} registro(s)` : "Aún no has seleccionado ningún archivo"}
-          </p>
-        </div>
+        </label>
 
         <Button type="button" onClick={handleUpload} disabled={isUploading || rows.length === 0} className="w-full">
           {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
           Cargar pagos masivamente
         </Button>
+
+        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+          <p className="mb-2 font-medium text-foreground">Archivos adjuntos</p>
+          {fileName ? (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate text-foreground">{fileName}</span>
+              </div>
+              <span className="shrink-0 text-muted-foreground">{totalRows} registro(s)</span>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">Aún no has adjuntado ningún archivo</p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
