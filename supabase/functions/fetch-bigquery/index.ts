@@ -14,9 +14,11 @@ const TABLES = {
 
 const GCP_TOKEN_TTL_MS = 55 * 60 * 1000;
 const DASHBOARD_STATS_TTL_MS = 2 * 60 * 1000;
+const FILTER_RESULT_TTL_MS = 2 * 60 * 1000;
 
 let gcpTokenCache: { accessToken: string; expiresAt: number } | null = null;
 let dashboardStatsCache: { stats: Record<string, string>; expiresAt: number } | null = null;
+const filterResultsCache = new Map<string, { payload: string; expiresAt: number }>();
 
 async function createGCPToken(sa: { client_email: string; private_key: string }): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -493,6 +495,13 @@ serve(async (req) => {
     // ── FILTER: get rows by category for dashboard drill-down ──
     if (action === "filter") {
       const category = url.searchParams.get("category") || "";
+      const canUseFilterCache = category !== "pagos_pendientes_revision";
+      const cachedFilter = canUseFilterCache ? filterResultsCache.get(category) : null;
+      if (cachedFilter && cachedFilter.expiresAt > Date.now()) {
+        return new Response(cachedFilter.payload, {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=30, s-maxage=120" },
+        });
+      }
 
       const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
       const allowedRelatorioCte = `
@@ -670,8 +679,15 @@ serve(async (req) => {
       }
 
       const rows = await queryBQ(token, projectId, sql);
-      return new Response(JSON.stringify({ category, rows, count: rows.length }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const payload = JSON.stringify({ category, rows, count: rows.length });
+      if (canUseFilterCache) {
+        filterResultsCache.set(category, {
+          payload,
+          expiresAt: Date.now() + FILTER_RESULT_TTL_MS,
+        });
+      }
+      return new Response(payload, {
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=30, s-maxage=120" },
       });
     }
 
