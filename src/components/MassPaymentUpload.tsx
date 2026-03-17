@@ -1,5 +1,6 @@
 import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
 import { FileText, Loader2, Download, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,27 +24,32 @@ const TEMPLATE_HEADERS = [
   "fecha_limite_pago",
 ] as const;
 
-const TEMPLATE_SAMPLE = [
-  "ABC123",
-  "12345",
-  "25000000",
-  "1500000",
-  "2025-12-31",
-].join(",");
+const TEMPLATE_SAMPLE = {
+  placa: "ABC123",
+  subasta: "12345",
+  mayor_oferta: 25000000,
+  total_prorrateo_gastos: 1500000,
+  fecha_limite_pago: "2025-12-31",
+};
 
 const normalizeHeader = (value: string) => value.trim().toLowerCase();
 
 const downloadTemplate = () => {
-  const csv = [TEMPLATE_HEADERS.join(","), TEMPLATE_SAMPLE].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "plantilla-cargue-pagos.csv";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet([TEMPLATE_SAMPLE], {
+    header: [...TEMPLATE_HEADERS],
+  });
+
+  worksheet["!cols"] = [
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 18 },
+    { wch: 24 },
+    { wch: 18 },
+  ];
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Pagos");
+  XLSX.writeFile(workbook, "plantilla-cargue-pagos.xlsx");
 };
 
 const parseCsvContent = (content: string): BulkPaymentRow[] => {
@@ -184,13 +190,13 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
       <CardHeader className="pb-4">
         <CardTitle className="text-lg">Cargue masivo de pagos</CardTitle>
         <CardDescription>
-          Descarga la plantilla CSV, diligencia los valores y luego cárgala para actualizar múltiples placas.
+          Descarga la plantilla Excel, diligencia los valores por columnas y luego cárgala para actualizar múltiples placas.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button type="button" variant="secondary" className="gap-2" onClick={downloadTemplate}>
           <Download className="h-4 w-4" />
-          Descargar plantilla
+          Descargar plantilla Excel
         </Button>
 
         <Input
