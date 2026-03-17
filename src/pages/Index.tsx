@@ -133,7 +133,7 @@ const Index = () => {
                 Portal Consolidado de Vehículos
               </h2>
               <p className="text-muted-foreground text-sm">
-                Busca por nombre, cédula/NIT o placa para consultar trámites y retiros
+                Busca por nombre, cédula/NIT, placa o subasta para consultar trámites y retiros
               </p>
             </div>
 
