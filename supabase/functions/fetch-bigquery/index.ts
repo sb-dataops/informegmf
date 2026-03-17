@@ -12,6 +12,12 @@ const TABLES = {
   gestramites: "sbc-data-int.r_retiros_tramitadores.r_tramitadores_gestramites",
 };
 
+const GCP_TOKEN_TTL_MS = 55 * 60 * 1000;
+const DASHBOARD_STATS_TTL_MS = 2 * 60 * 1000;
+
+let gcpTokenCache: { accessToken: string; expiresAt: number } | null = null;
+let dashboardStatsCache: { stats: Record<string, string>; expiresAt: number } | null = null;
+
 async function createGCPToken(sa: { client_email: string; private_key: string }): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
@@ -61,24 +67,37 @@ async function createGCPToken(sa: { client_email: string; private_key: string })
   return tokenData.access_token;
 }
 
+async function getGCPToken(sa: { client_email: string; private_key: string }): Promise<string> {
+  if (gcpTokenCache && gcpTokenCache.expiresAt > Date.now()) {
+    return gcpTokenCache.accessToken;
+  }
+
+  const accessToken = await createGCPToken(sa);
+  gcpTokenCache = {
+    accessToken,
+    expiresAt: Date.now() + GCP_TOKEN_TTL_MS,
+  };
+
+  return accessToken;
+}
+
 async function queryBQ(token: string, projectId: string, sql: string): Promise<Record<string, string | null>[]> {
   const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`;
   const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 5000, timeoutMs: 30000 }),
+    body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 5000, timeoutMs: 30000, useQueryCache: true }),
   });
 
   let data = await res.json();
   if (!res.ok) throw new Error(`BigQuery error: ${JSON.stringify(data)}`);
 
-  // Poll if job is not complete (common with external/Sheets tables)
   const jobId = data.jobReference?.jobId;
   let attempts = 0;
   while (!data.jobComplete && jobId && attempts < 10) {
     attempts++;
     console.log(`[BQ] Job ${jobId} not complete, polling attempt ${attempts}...`);
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 1200));
     const pollUrl = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries/${jobId}?timeoutMs=10000`;
     const pollRes = await fetch(pollUrl, {
       headers: { Authorization: `Bearer ${token}` },
