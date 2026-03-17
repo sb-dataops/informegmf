@@ -61,8 +61,6 @@ const mapSheetRows = (sheetRows: Record<string, unknown>[]): BulkPaymentRow[] =>
     }
 
     const placa = String(normalizedRow.placa || "").trim().toUpperCase();
-    const subasta = String(normalizedRow.subasta || "").trim() || undefined;
-    const mayorOferta = parseCurrencyLikeValue(String(normalizedRow.mayor_oferta || "0"));
     const totalProrrateo = parseCurrencyLikeValue(String(normalizedRow.total_prorrateo_gastos || "0"));
     const fechaLimite = String(normalizedRow.fecha_limite_pago || "").trim() || null;
 
@@ -72,8 +70,6 @@ const mapSheetRows = (sheetRows: Record<string, unknown>[]): BulkPaymentRow[] =>
 
     return {
       placa,
-      subasta,
-      mayor_oferta: mayorOferta,
       total_prorrateo_gastos: totalProrrateo,
       fecha_limite_pago: fechaLimite,
     };
