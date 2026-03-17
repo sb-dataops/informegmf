@@ -136,7 +136,7 @@ serve(async (req) => {
 
     const sa = JSON.parse(saJson);
     const projectId = sa.project_id || "sbc-data-int";
-    const token = await createGCPToken(sa);
+    const token = await getGCPToken(sa);
 
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "search";
