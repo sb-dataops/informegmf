@@ -1,14 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { fetchDashboardStats } from "@/services/bigqueryService";
-import {
-  Car,
-  CheckCircle2,
-  Clock,
-  FileText,
-  Truck,
-  Loader2,
-} from "lucide-react";
+import { Clock, FileText, Loader2, Truck, Wallet } from "lucide-react";
 
 const DashboardStats = () => {
   const navigate = useNavigate();
@@ -20,74 +13,99 @@ const DashboardStats = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8 gap-3">
+      <div className="flex items-center justify-center gap-3 py-8">
         <Loader2 className="h-5 w-5 animate-spin text-primary" />
         <span className="text-sm text-muted-foreground">Cargando estadísticas...</span>
       </div>
     );
   }
 
-  const statCards = [
+  const sections = [
     {
-      label: "Total Lotes",
-      value: stats ? Number(stats.total).toLocaleString("es-CO") : "—",
-      icon: Car,
-      color: "text-primary",
-      bgColor: "bg-accent",
-      category: "total",
+      title: "PAGOS",
+      icon: Wallet,
+      items: [
+        {
+          label: "Lotes con pagos pendientes",
+          value: stats ? Number(stats.pagos_pendientes_revision).toLocaleString("es-CO") : "—",
+          category: "pagos_pendientes_revision",
+          tone: "bg-warning/10 text-warning",
+          icon: Clock,
+        },
+      ],
     },
     {
-      label: "Aprobados",
-      value: stats ? Number(stats.aprobados).toLocaleString("es-CO") : "—",
-      icon: CheckCircle2,
-      color: "text-success",
-      bgColor: "bg-success/10",
-      category: "aprobados",
-    },
-    {
-      label: "Lotes con pagos pendientes",
-      value: stats ? Number(stats.pagos_pendientes_revision).toLocaleString("es-CO") : "—",
-      icon: Clock,
-      color: "text-warning",
-      bgColor: "bg-warning/10",
-      category: "pagos_pendientes_revision",
-    },
-    {
-      label: "Pendientes de Traspaso",
-      value: stats ? Number(stats.pendientes_traspaso).toLocaleString("es-CO") : "—",
-      icon: FileText,
-      color: "text-info",
-      bgColor: "bg-info/10",
-      category: "pendientes_traspaso",
-    },
-    {
-      label: "Pendientes de Retiro",
-      value: stats ? Number(stats.pendientes_retiro).toLocaleString("es-CO") : "—",
+      title: "RETIROS",
       icon: Truck,
-      color: "text-warning",
-      bgColor: "bg-warning/10",
-      category: "pendientes_retiro",
+      items: [
+        {
+          label: "Pendientes de Traspaso",
+          value: stats ? Number(stats.pendientes_traspaso).toLocaleString("es-CO") : "—",
+          category: "pendientes_traspaso",
+          tone: "bg-info/10 text-info",
+          icon: FileText,
+        },
+        {
+          label: "Pendientes de Retiro",
+          value: stats ? Number(stats.pendientes_retiro).toLocaleString("es-CO") : "—",
+          category: "pendientes_retiro",
+          tone: "bg-warning/10 text-warning",
+          icon: Truck,
+        },
+      ],
     },
   ];
 
   return (
     <div className="space-y-5 pt-2">
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        {statCards.map((stat) => (
-          <button
-            key={stat.label}
-            onClick={() => navigate(`/filter/${stat.category}`)}
-            className="bg-card rounded-xl border border-border p-4 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all text-left cursor-pointer"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className={`h-9 w-9 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
-                <stat.icon className={`h-4.5 w-4.5 ${stat.color}`} />
+      <div className="grid gap-4 md:grid-cols-2">
+        {sections.map((section) => {
+          const SectionIcon = section.icon;
+
+          return (
+            <div
+              key={section.title}
+              className="rounded-2xl border border-border bg-card p-4 shadow-card"
+            >
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+                  <SectionIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold tracking-wide text-foreground">{section.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {section.items.length} opción{section.items.length > 1 ? "es" : ""} disponible
+                    {section.items.length > 1 ? "s" : ""}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {section.items.map((item) => {
+                  const ItemIcon = item.icon;
+
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => navigate(`/filter/${item.category}`)}
+                      className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left transition-all hover:border-primary/30 hover:shadow-card-hover"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${item.tone}`}>
+                          <ItemIcon className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                        </div>
+                      </div>
+                      <p className="text-2xl font-bold text-foreground">{item.value}</p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
-          </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
