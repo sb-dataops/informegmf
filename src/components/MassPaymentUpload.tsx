@@ -223,7 +223,7 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
           </div>
           <p className="font-medium text-foreground">Selecciona o arrastra tu archivo Excel aquí</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Columnas requeridas: placa, subasta, mayor_oferta, total_prorrateo_gastos, fecha_limite_pago.
+            Columnas requeridas: placa, total_prorrateo_gastos, fecha_limite_pago.
           </p>
         </label>
 
