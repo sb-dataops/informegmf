@@ -177,6 +177,9 @@ export interface FilteredLotRow {
   lote?: string | null;
   cantidadSoportes?: number | null;
   ultimoSoporteAt?: string | null;
+  hasPendingReview?: boolean;
+  hasPendingPayment?: boolean;
+  reviewPriority?: number | null;
 }
 
 export interface FilteredLotsResult {

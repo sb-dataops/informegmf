@@ -366,6 +366,34 @@ serve(async (req) => {
       });
     }
 
+    if (action === "view") {
+      const gcsPath = url.searchParams.get("path");
+      if (!gcsPath) {
+        return new Response(JSON.stringify({ error: "path requerido" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const objectUrl = `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucketName)}/o/${encodeURIComponent(gcsPath)}?alt=media`;
+      const objectRes = await fetch(objectUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!objectRes.ok) {
+        throw new Error(`GCS view failed (${objectRes.status}): ${await readErrorBody(objectRes)}`);
+      }
+
+      return new Response(objectRes.body, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": objectRes.headers.get("content-type") || "application/octet-stream",
+          "Content-Disposition": "inline",
+          "Cache-Control": "private, max-age=300",
+        },
+      });
+    }
+
     if (action === "signed-url") {
       const gcsPath = url.searchParams.get("path");
       if (!gcsPath) {
@@ -381,7 +409,7 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "action requerido: upload, list, delete, signed-url" }), {
+    return new Response(JSON.stringify({ error: "action requerido: upload, list, delete, view, signed-url" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

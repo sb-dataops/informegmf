@@ -100,6 +100,24 @@ export async function listDocumentos(params: {
   return result.documentos;
 }
 
+export async function fetchDocumentoBlob(gcsPath: string): Promise<Blob> {
+  const res = await fetch(buildUrl("view", { path: gcsPath }), {
+    headers: headers(),
+  });
+
+  if (!res.ok) {
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const err = await res.json();
+      throw new Error(err.error || "Error cargando documento");
+    }
+
+    throw new Error(await res.text() || "Error cargando documento");
+  }
+
+  return res.blob();
+}
+
 export async function deleteDocumento(id: string, gcsPath: string): Promise<void> {
   const res = await fetch(buildUrl("delete"), {
     method: "POST",

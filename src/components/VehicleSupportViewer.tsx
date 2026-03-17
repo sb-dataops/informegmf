@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,9 +10,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { GroupedDocumentoRecord } from "@/services/documentosService";
+import { fetchDocumentoBlob, formatFileSize } from "@/services/documentosService";
 import { formatCurrency } from "@/services/bigqueryService";
-import { formatFileSize } from "@/services/documentosService";
-import { DollarSign, FileText, ExternalLink, Eye } from "lucide-react";
+import { DollarSign, Eye, FileText, Loader2 } from "lucide-react";
 
 interface VehicleSupportViewerProps {
   documents: GroupedDocumentoRecord[];
@@ -30,11 +30,53 @@ const VehicleSupportViewer = ({
   placa,
 }: VehicleSupportViewerProps) => {
   const [activeDocument, setActiveDocument] = useState<GroupedDocumentoRecord | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const documentsForPlate = useMemo(
     () => documents.filter((doc) => doc.soportes.some((item) => item.placa === placa.toUpperCase())),
     [documents, placa],
   );
+
+  useEffect(() => {
+    if (!activeDocument?.gcs_path) {
+      setPreviewUrl(null);
+      setIsPreviewLoading(false);
+      setPreviewError(null);
+      return;
+    }
+
+    let isCancelled = false;
+    let objectUrl: string | null = null;
+
+    setIsPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewUrl(null);
+
+    fetchDocumentoBlob(activeDocument.gcs_path)
+      .then((blob) => {
+        if (isCancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      })
+      .catch((error: Error) => {
+        if (isCancelled) return;
+        setPreviewError(error.message || "No se pudo cargar la vista previa del soporte.");
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsPreviewLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [activeDocument]);
 
   const isImage = (tipo: string | null) => Boolean(tipo?.startsWith("image/"));
   const isPdf = (tipo: string | null) => tipo === "application/pdf";
@@ -101,14 +143,6 @@ const VehicleSupportViewer = ({
                           <Eye className="mr-2 h-4 w-4" />
                           Ver soporte
                         </Button>
-                        {doc.gcs_url ? (
-                          <Button type="button" variant="ghost" asChild>
-                            <a href={doc.gcs_url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="mr-2 h-4 w-4" />
-                              Abrir
-                            </a>
-                          </Button>
-                        ) : null}
                       </div>
                     </div>
                   );
@@ -133,16 +167,26 @@ const VehicleSupportViewer = ({
               </DialogHeader>
 
               <div className="flex-1 overflow-auto bg-muted/20 p-4">
-                {isImage(activeDocument.tipo_archivo) && activeDocument.gcs_url ? (
+                {isPreviewLoading ? (
+                  <div className="flex min-h-[40vh] items-center justify-center gap-3 rounded-lg border border-border bg-background p-6 text-sm text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    Cargando vista previa del soporte...
+                  </div>
+                ) : previewError ? (
+                  <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 rounded-lg border border-border bg-background p-6 text-center">
+                    <FileText className="h-10 w-10 text-primary" />
+                    <p className="text-sm text-muted-foreground">{previewError}</p>
+                  </div>
+                ) : isImage(activeDocument.tipo_archivo) && previewUrl ? (
                   <img
-                    src={activeDocument.gcs_url}
+                    src={previewUrl}
                     alt={`Soporte ${activeDocument.nombre_archivo}`}
                     className="mx-auto h-auto max-h-[70vh] w-auto rounded-lg border border-border bg-background object-contain"
                     loading="lazy"
                   />
-                ) : isPdf(activeDocument.tipo_archivo) && activeDocument.gcs_url ? (
+                ) : isPdf(activeDocument.tipo_archivo) && previewUrl ? (
                   <iframe
-                    src={activeDocument.gcs_url}
+                    src={previewUrl}
                     title={activeDocument.nombre_archivo}
                     className="h-[70vh] w-full rounded-lg border border-border bg-background"
                   />
@@ -152,14 +196,6 @@ const VehicleSupportViewer = ({
                     <p className="text-sm text-muted-foreground">
                       Este tipo de archivo no tiene vista previa embebida.
                     </p>
-                    {activeDocument.gcs_url ? (
-                      <Button type="button" asChild>
-                        <a href={activeDocument.gcs_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Abrir soporte
-                        </a>
-                      </Button>
-                    ) : null}
                   </div>
                 )}
               </div>

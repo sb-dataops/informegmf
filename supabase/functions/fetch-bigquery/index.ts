@@ -148,6 +148,16 @@ type PendingPaymentReviewEntry = {
   documentCount: number;
 };
 
+type PendingPaymentRow = {
+  subasta: string | null;
+  placa: string;
+  comprador: string | null;
+  documento: string | null;
+  descripcion: string | null;
+  estado: string | null;
+  lote: string | null;
+};
+
 async function getPendingPaymentReviewEntries(): Promise<PendingPaymentReviewEntry[]> {
   const supabase = getAdminClient();
 
@@ -214,6 +224,47 @@ async function getPendingPaymentReviewEntries(): Promise<PendingPaymentReviewEnt
       documentCount: entry.documentCount,
     }))
     .sort((a, b) => new Date(b.latestDocumentAt).getTime() - new Date(a.latestDocumentAt).getTime());
+}
+
+async function getPendingPaymentRows(token: string, projectId: string): Promise<PendingPaymentRow[]> {
+  const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
+  const sql = `
+    WITH allowed_relatorio AS (
+      SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
+      FROM \`${TABLES.relatorio}\`
+      WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+        AND ${COMITENTE_FILTER}
+        AND IFNULL(placa,'') != ''
+    )
+    SELECT
+      ANY_VALUE(r.subasta) AS subasta,
+      UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa,
+      ANY_VALUE(r.comprador) AS comprador,
+      ANY_VALUE(r.documento) AS documento,
+      ANY_VALUE(r.descripcion) AS descripcion,
+      ANY_VALUE(r.estado) AS estado,
+      ANY_VALUE(r.lote) AS lote
+    FROM \`${TABLES.retiros}\` r
+    INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+    WHERE IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = ''
+      AND IFNULL(CAST(r.placa AS STRING), '') != ''
+    GROUP BY UPPER(IFNULL(CAST(r.placa AS STRING), ''))
+    ORDER BY subasta, placa
+    LIMIT 5000
+  `;
+
+  const rows = await queryBQ(token, projectId, sql);
+  return rows
+    .map((row) => ({
+      subasta: row.subasta || null,
+      placa: normalizePlaca(row.placa) || "",
+      comprador: row.comprador || null,
+      documento: row.documento || null,
+      descripcion: row.descripcion || null,
+      estado: row.estado || null,
+      lote: row.lote || null,
+    }))
+    .filter((row) => Boolean(row.placa));
 }
 
 
@@ -397,15 +448,24 @@ serve(async (req) => {
       };
 
       try {
-        const [result, pendingPaymentReviewEntries] = await Promise.all([
+        const [result, pendingPaymentReviewEntries, pendingPaymentRows] = await Promise.all([
           queryBQ(token, projectId, statsSQL),
           getPendingPaymentReviewEntries().catch((error) => {
             console.error(`[payment-review-stats] FAILED:`, error instanceof Error ? error.message : error);
             return [] as PendingPaymentReviewEntry[];
           }),
+          getPendingPaymentRows(token, projectId).catch((error) => {
+            console.error(`[pending-payment-stats] FAILED:`, error instanceof Error ? error.message : error);
+            return [] as PendingPaymentRow[];
+          }),
         ]);
 
         console.log(`[stats] result:`, JSON.stringify(result));
+        const combinedPendingPlacas = new Set([
+          ...pendingPaymentReviewEntries.map((entry) => entry.placa),
+          ...pendingPaymentRows.map((row) => row.placa),
+        ]);
+
         stats = {
           total: result[0]?.total || '0',
           aprobados: result[0]?.aprobados || '0',
@@ -414,7 +474,7 @@ serve(async (req) => {
           pendientes_pago: result[0]?.pendientes_pago || '0',
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
-          pagos_pendientes_revision: String(pendingPaymentReviewEntries.length),
+          pagos_pendientes_revision: String(combinedPendingPlacas.size),
         };
       } catch (e) {
         console.error(`[stats] FAILED:`, e instanceof Error ? e.message : e);
@@ -446,16 +506,29 @@ serve(async (req) => {
       `;
 
       if (category === "pagos_pendientes_revision") {
-        const pendingPaymentReviewEntries = await getPendingPaymentReviewEntries();
+        const [pendingPaymentReviewEntries, pendingPaymentRows] = await Promise.all([
+          getPendingPaymentReviewEntries(),
+          getPendingPaymentRows(token, projectId),
+        ]);
 
-        if (pendingPaymentReviewEntries.length === 0) {
+        if (pendingPaymentReviewEntries.length === 0 && pendingPaymentRows.length === 0) {
           return new Response(JSON.stringify({ category, rows: [], count: 0 }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
 
-        const placaList = pendingPaymentReviewEntries
-          .map((entry) => normalizePlaca(entry.placa))
+        const reviewByPlaca = new Map(
+          pendingPaymentReviewEntries.map((entry) => [entry.placa, entry]),
+        );
+        const paymentByPlaca = new Map(
+          pendingPaymentRows.map((row) => [row.placa, row]),
+        );
+
+        const placaList = Array.from(new Set([
+          ...pendingPaymentReviewEntries.map((entry) => entry.placa),
+          ...pendingPaymentRows.map((row) => row.placa),
+        ]))
+          .map((entry) => normalizePlaca(entry))
           .filter((entry): entry is string => Boolean(entry))
           .map((entry) => `'${sanitize(entry)}'`);
 
@@ -481,20 +554,43 @@ serve(async (req) => {
           metadataRows.map((row) => [normalizePlaca(row.placa) || "", row]),
         );
 
-        const rows = pendingPaymentReviewEntries.map((entry) => {
-          const metadata = metadataByPlaca.get(entry.placa);
-          return {
-            subasta: metadata?.subasta || "Sin subasta",
-            placa: entry.placa,
-            comprador: metadata?.comprador || null,
-            documento: metadata?.documento || null,
-            descripcion: metadata?.descripcion || null,
-            estado: metadata?.estado || "Pendiente por revisar",
-            lote: metadata?.lote || null,
-            cantidadSoportes: entry.documentCount,
-            ultimoSoporteAt: entry.latestDocumentAt,
-          };
-        });
+        const rows = Array.from(new Set([...reviewByPlaca.keys(), ...paymentByPlaca.keys()]))
+          .map((placa) => {
+            const reviewEntry = reviewByPlaca.get(placa);
+            const paymentEntry = paymentByPlaca.get(placa);
+            const metadata = metadataByPlaca.get(placa);
+            const hasPendingReview = Boolean(reviewEntry);
+            const hasPendingPayment = Boolean(paymentEntry);
+
+            return {
+              subasta: paymentEntry?.subasta || metadata?.subasta || "Sin subasta",
+              placa,
+              comprador: paymentEntry?.comprador || metadata?.comprador || null,
+              documento: paymentEntry?.documento || metadata?.documento || null,
+              descripcion: paymentEntry?.descripcion || metadata?.descripcion || null,
+              estado: paymentEntry?.estado || metadata?.estado || "Pendiente por revisar",
+              lote: paymentEntry?.lote || metadata?.lote || null,
+              cantidadSoportes: reviewEntry?.documentCount || null,
+              ultimoSoporteAt: reviewEntry?.latestDocumentAt || null,
+              hasPendingReview,
+              hasPendingPayment,
+              reviewPriority: hasPendingReview ? 0 : 1,
+            };
+          })
+          .sort((a, b) => {
+            if ((a.reviewPriority || 0) !== (b.reviewPriority || 0)) {
+              return (a.reviewPriority || 0) - (b.reviewPriority || 0);
+            }
+
+            const subastaCompare = (a.subasta || "Sin subasta").localeCompare(b.subasta || "Sin subasta");
+            if (subastaCompare !== 0) return subastaCompare;
+
+            const latestA = a.ultimoSoporteAt ? new Date(a.ultimoSoporteAt).getTime() : 0;
+            const latestB = b.ultimoSoporteAt ? new Date(b.ultimoSoporteAt).getTime() : 0;
+            if (latestA !== latestB) return latestB - latestA;
+
+            return a.placa.localeCompare(b.placa);
+          });
 
         return new Response(JSON.stringify({ category, rows, count: rows.length }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
