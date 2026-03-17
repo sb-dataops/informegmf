@@ -28,6 +28,54 @@ const TEMPLATE_SAMPLE = {
 
 const normalizeHeader = (value: string) => value.trim().toLowerCase();
 
+const formatDateParts = (year: number, month: number, day: number) => {
+  const safeMonth = String(month).padStart(2, "0");
+  const safeDay = String(day).padStart(2, "0");
+  return `${year}-${safeMonth}-${safeDay}`;
+};
+
+const normalizeExcelDate = (value: unknown): string | null => {
+  if (value === null || value === undefined || value === "") return null;
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatDateParts(value.getFullYear(), value.getMonth() + 1, value.getDate());
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed) {
+      return formatDateParts(parsed.y, parsed.m, parsed.d);
+    }
+  }
+
+  const rawValue = String(value).trim();
+  if (!rawValue) return null;
+
+  if (/^\d+(\.\d+)?$/.test(rawValue)) {
+    const parsed = XLSX.SSF.parse_date_code(Number(rawValue));
+    if (parsed) {
+      return formatDateParts(parsed.y, parsed.m, parsed.d);
+    }
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    return rawValue;
+  }
+
+  const slashDateMatch = rawValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashDateMatch) {
+    const [, day, month, year] = slashDateMatch;
+    return formatDateParts(Number(year), Number(month), Number(day));
+  }
+
+  const parsedDate = new Date(rawValue);
+  if (!Number.isNaN(parsedDate.getTime())) {
+    return formatDateParts(parsedDate.getFullYear(), parsedDate.getMonth() + 1, parsedDate.getDate());
+  }
+
+  return null;
+};
+
 const downloadTemplate = () => {
   const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.json_to_sheet([TEMPLATE_SAMPLE], {
@@ -62,10 +110,15 @@ const mapSheetRows = (sheetRows: Record<string, unknown>[]): BulkPaymentRow[] =>
 
     const placa = String(normalizedRow.placa || "").trim().toUpperCase();
     const totalProrrateo = parseCurrencyLikeValue(String(normalizedRow.total_prorrateo_gastos || "0"));
-    const fechaLimite = String(normalizedRow.fecha_limite_pago || "").trim() || null;
+    const rawFechaLimite = normalizedRow.fecha_limite_pago;
+    const fechaLimite = normalizeExcelDate(rawFechaLimite);
 
     if (!placa) {
       throw new Error(`La fila ${rowIndex + 2} no tiene placa`);
+    }
+
+    if (rawFechaLimite !== null && rawFechaLimite !== undefined && String(rawFechaLimite).trim() !== "" && !fechaLimite) {
+      throw new Error(`La fila ${rowIndex + 2} tiene una fecha_limite_pago inválida`);
     }
 
     return {
