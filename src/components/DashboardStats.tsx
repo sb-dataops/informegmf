@@ -34,7 +34,7 @@ const DashboardStats = () => {
         },
         {
           label: "Pagos pendientes por revisar",
-          value: stats ? Number(stats.soportes_pendientes_revision).toLocaleString("es-CO") : "—",
+          value: stats?.soportes_pendientes_revision ? Number(stats.soportes_pendientes_revision).toLocaleString("es-CO") : "0",
           category: "soportes_pendientes_revision",
           tone: "bg-info/10 text-info",
           icon: FileText,
