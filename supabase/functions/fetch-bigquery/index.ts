@@ -448,15 +448,24 @@ serve(async (req) => {
       };
 
       try {
-        const [result, pendingPaymentReviewEntries] = await Promise.all([
+        const [result, pendingPaymentReviewEntries, pendingPaymentRows] = await Promise.all([
           queryBQ(token, projectId, statsSQL),
           getPendingPaymentReviewEntries().catch((error) => {
             console.error(`[payment-review-stats] FAILED:`, error instanceof Error ? error.message : error);
             return [] as PendingPaymentReviewEntry[];
           }),
+          getPendingPaymentRows(token, projectId).catch((error) => {
+            console.error(`[pending-payment-stats] FAILED:`, error instanceof Error ? error.message : error);
+            return [] as PendingPaymentRow[];
+          }),
         ]);
 
         console.log(`[stats] result:`, JSON.stringify(result));
+        const combinedPendingPlacas = new Set([
+          ...pendingPaymentReviewEntries.map((entry) => entry.placa),
+          ...pendingPaymentRows.map((row) => row.placa),
+        ]);
+
         stats = {
           total: result[0]?.total || '0',
           aprobados: result[0]?.aprobados || '0',
@@ -465,7 +474,7 @@ serve(async (req) => {
           pendientes_pago: result[0]?.pendientes_pago || '0',
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
-          pagos_pendientes_revision: String(pendingPaymentReviewEntries.length),
+          pagos_pendientes_revision: String(combinedPendingPlacas.size),
         };
       } catch (e) {
         console.error(`[stats] FAILED:`, e instanceof Error ? e.message : e);
