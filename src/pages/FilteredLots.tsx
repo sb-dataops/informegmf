@@ -146,7 +146,7 @@ const FilteredLots = () => {
             </div>
           </div>
 
-          {isPendingPaymentsCategory && !isLoading && !isError && rows.length > 0 && (
+          {category === "pagos_pendientes_revision" && !isLoading && !isError && rows.length > 0 && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-border bg-card p-4 shadow-card">
                 <p className="text-xs text-muted-foreground">Con soportes pendientes por revisar</p>
