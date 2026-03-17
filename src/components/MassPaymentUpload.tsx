@@ -189,7 +189,7 @@ const MassPaymentUpload = ({ onCompleted }: MassPaymentUploadProps) => {
       <CardHeader className="pb-4">
         <CardTitle className="text-lg">Cargue masivo de pagos</CardTitle>
         <CardDescription>
-          Descarga la plantilla Excel, diligencia los valores por columnas y luego cárgala para actualizar múltiples placas.
+          Descarga la plantilla Excel y carga solo placa, total_prorrateo_gastos y fecha_limite_pago para actualizar múltiples placas.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
