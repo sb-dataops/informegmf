@@ -209,6 +209,38 @@ export function consolidateVehiculos(result: SearchResult, documento?: string): 
   return Array.from(vehicleMap.values());
 }
 
+export function extractVehiculosBySubasta(result: SearchResult, query: string): VehiculoConsolidado[] {
+  const normalizedQuery = (query || "").trim().toUpperCase();
+  if (!normalizedQuery) return [];
+
+  const matchedPlacas = new Set<string>();
+
+  result.relatorio
+    .filter(
+      (row) =>
+        !isCondicionalRechazado(row.estado) &&
+        ((row.subasta || "").trim().toUpperCase() === normalizedQuery ||
+          (row.codigoSubasta || "").trim().toUpperCase() === normalizedQuery),
+    )
+    .forEach((row) => {
+      const placa = normalizePlaca(row.placa);
+      if (placa) matchedPlacas.add(placa);
+    });
+
+  [result.retiros, result.servitram, result.gestramites].forEach((rows) => {
+    rows
+      .filter((row) => ((row.subasta || "").trim().toUpperCase() === normalizedQuery))
+      .forEach((row) => {
+        const placa = normalizePlaca(row.placa);
+        if (placa) matchedPlacas.add(placa);
+      });
+  });
+
+  if (matchedPlacas.size === 0) return [];
+
+  return consolidateVehiculos(result).filter((vehiculo) => matchedPlacas.has(normalizePlaca(vehiculo.placa) || ""));
+}
+
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("es-CO", {
     style: "currency",

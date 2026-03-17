@@ -286,7 +286,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "search";
 
-    // ── SEARCH by documento, comprador name, or placa ──
+    // ── SEARCH by documento, comprador name, placa, or subasta ──
     if (action === "search") {
       const q = sanitize(url.searchParams.get("q") || "");
       if (!q) {
@@ -305,7 +305,9 @@ serve(async (req) => {
         WHERE UPPER(IFNULL(placa,'')) = UPPER('${q}')
            OR UPPER(IFNULL(documento,'')) = '${q.toUpperCase()}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${q.toUpperCase()}%'
-        LIMIT 200
+           OR UPPER(IFNULL(subasta,'')) = '${q.toUpperCase()}'
+           OR UPPER(IFNULL(codigoSubasta,'')) = '${q.toUpperCase()}'
+        LIMIT 1000
       `;
 
       // 2) Search retiros (process tracking)
@@ -323,7 +325,8 @@ serve(async (req) => {
         WHERE UPPER(IFNULL(CAST(placa AS STRING),'')) = UPPER('${q}')
            OR UPPER(IFNULL(documento,'')) = '${q.toUpperCase()}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${q.toUpperCase()}%'
-        LIMIT 200
+           OR UPPER(IFNULL(subasta,'')) = '${q.toUpperCase()}'
+        LIMIT 1000
       `;
 
       // 3) Search tramitadores servitram
@@ -338,7 +341,8 @@ serve(async (req) => {
         WHERE UPPER(IFNULL(placa,'')) = UPPER('${q}')
            OR UPPER(IFNULL(documento,'')) = '${q.toUpperCase()}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${q.toUpperCase()}%'
-        LIMIT 200
+           OR UPPER(IFNULL(subasta,'')) = '${q.toUpperCase()}'
+        LIMIT 1000
       `;
 
       // 4) Search tramitadores gestramites
@@ -353,7 +357,8 @@ serve(async (req) => {
         WHERE UPPER(IFNULL(placa,'')) = UPPER('${q}')
            OR UPPER(IFNULL(documento,'')) = '${q.toUpperCase()}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${q.toUpperCase()}%'
-        LIMIT 200
+           OR UPPER(IFNULL(subasta,'')) = '${q.toUpperCase()}'
+        LIMIT 1000
       `;
 
       // Run all 4 queries in parallel with fault tolerance

@@ -197,14 +197,31 @@ const Index = () => {
           <div className="space-y-5">
             <Button
               variant="ghost"
-              onClick={compradores.length > 1 ? goBackToResults : goBack}
+              onClick={showingSubastaDetail ? goBack : compradores.length > 1 ? goBackToResults : goBack}
               className="text-muted-foreground hover:text-foreground -ml-2"
             >
               <ArrowLeft className="h-4 w-4 mr-1.5" />
-              {compradores.length > 1 ? "Volver a resultados" : "Volver al inicio"}
+              {showingSubastaDetail ? "Volver al inicio" : compradores.length > 1 ? "Volver a resultados" : "Volver al inicio"}
             </Button>
 
-            <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
+            {showingSubastaDetail ? (
+              <div className="bg-card rounded-xl border border-border shadow-card p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">Subasta {searchTerm}</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {effectiveVehiculos.length} vehículo(s) encontrado(s) con información consolidada
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                    <span>🚗 {effectiveVehiculos.length} placa(s)</span>
+                    <span>👤 {totalCompradoresSubasta} comprador(es)</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
+            )}
 
             <div className="space-y-4">
               {effectiveVehiculos.map((v) => {
