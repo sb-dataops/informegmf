@@ -36,8 +36,6 @@ const downloadTemplate = () => {
 
   worksheet["!cols"] = [
     { wch: 14 },
-    { wch: 14 },
-    { wch: 18 },
     { wch: 24 },
     { wch: 18 },
   ];
