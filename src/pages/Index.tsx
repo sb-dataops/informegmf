@@ -135,11 +135,11 @@ const Index = () => {
 
             {!hasSearched && (
               <div className="flex justify-center gap-3">
-                <Button onClick={() => navigate("/gestion-pagos")} variant="outline" className="gap-2">
+                <Button onClick={() => navigate("/gestion-pagos?tab=pagos")} variant="outline" className="gap-2">
                   <DollarSign className="h-4 w-4" />
                   Gestión de Pagos
                 </Button>
-                <Button onClick={() => navigate("/gestion-pagos")} variant="outline" className="gap-2">
+                <Button onClick={() => navigate("/gestion-pagos?tab=documentos")} variant="outline" className="gap-2">
                   <FileText className="h-4 w-4" />
                   Cargar Documentos
                 </Button>
