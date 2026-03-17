@@ -393,10 +393,18 @@ serve(async (req) => {
         pendientes_pago: '0',
         pendientes_traspaso: '0',
         pendientes_retiro: '0',
+        pagos_pendientes_revision: '0',
       };
 
       try {
-        const result = await queryBQ(token, projectId, statsSQL);
+        const [result, pendingPaymentReviewEntries] = await Promise.all([
+          queryBQ(token, projectId, statsSQL),
+          getPendingPaymentReviewEntries().catch((error) => {
+            console.error(`[payment-review-stats] FAILED:`, error instanceof Error ? error.message : error);
+            return [] as PendingPaymentReviewEntry[];
+          }),
+        ]);
+
         console.log(`[stats] result:`, JSON.stringify(result));
         stats = {
           total: result[0]?.total || '0',
@@ -406,6 +414,7 @@ serve(async (req) => {
           pendientes_pago: result[0]?.pendientes_pago || '0',
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
+          pagos_pendientes_revision: String(pendingPaymentReviewEntries.length),
         };
       } catch (e) {
         console.error(`[stats] FAILED:`, e instanceof Error ? e.message : e);
