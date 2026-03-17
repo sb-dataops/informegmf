@@ -35,6 +35,13 @@ const Index = () => {
   });
 
   const compradores = searchResult ? extractCompradores(searchResult) : [];
+  const hasSearched = !!searchTerm;
+  const vehiculosSubasta = searchResult ? extractVehiculosBySubasta(searchResult, searchTerm) : [];
+  const totalCompradoresSubasta = useMemo(
+    () => new Set(vehiculosSubasta.map((vehiculo) => vehiculo.documento).filter(Boolean)).size,
+    [vehiculosSubasta],
+  );
+  const showingSubastaDetail = hasSearched && !isLoading && vehiculosSubasta.length > 0;
 
   const handleSearch = () => {
     if (!query.trim()) return;
@@ -42,13 +49,17 @@ const Index = () => {
     setSearchTerm(query.trim());
   };
 
-  const effectiveComprador = selectedComprador || (compradores.length === 1 && searchResult ? compradores[0] : null);
-  const effectiveVehiculos =
-    effectiveComprador && searchResult ? consolidateVehiculos(searchResult, effectiveComprador.documento) : [];
+  const effectiveComprador = showingSubastaDetail
+    ? null
+    : selectedComprador || (compradores.length === 1 && searchResult ? compradores[0] : null);
+  const effectiveVehiculos = showingSubastaDetail
+    ? vehiculosSubasta
+    : effectiveComprador && searchResult
+      ? consolidateVehiculos(searchResult, effectiveComprador.documento)
+      : [];
 
-  const hasSearched = !!searchTerm;
-  const showingDetail = !!effectiveComprador && !!searchResult;
-  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador;
+  const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail;
+  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail;
 
   const { data: pagos = [], isLoading: isPagosLoading } = useQuery({
     queryKey: ["pagos-comprador"],
@@ -60,7 +71,14 @@ const Index = () => {
   const { data: documentosComprador = [], isLoading: isDocumentosLoading } = useQuery({
     queryKey: ["documentos-comprador", effectiveComprador?.documento],
     queryFn: () => listDocumentos({ documento_comprador: effectiveComprador?.documento || undefined }),
-    enabled: !!effectiveComprador?.documento && showingDetail,
+    enabled: !!effectiveComprador?.documento && !!searchResult && !showingSubastaDetail,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: documentosSubasta = [], isLoading: isDocumentosSubastaLoading } = useQuery({
+    queryKey: ["documentos-subasta", searchTerm],
+    queryFn: () => listDocumentos({}),
+    enabled: showingSubastaDetail,
     staleTime: 60 * 1000,
   });
 
@@ -69,12 +87,13 @@ const Index = () => {
     [pagos],
   );
 
+  const documentosFuente = showingSubastaDetail ? documentosSubasta : documentosComprador;
   const documentosAgrupados = useMemo(
-    () => groupDocumentosByArchivo(documentosComprador),
-    [documentosComprador],
+    () => groupDocumentosByArchivo(documentosFuente),
+    [documentosFuente],
   );
 
-  const isFinancialDataLoading = isPagosLoading || isDocumentosLoading;
+  const isFinancialDataLoading = isPagosLoading || (showingSubastaDetail ? isDocumentosSubastaLoading : isDocumentosLoading);
 
   const selectComprador = (c: Comprador) => {
     setSelectedComprador(c);
