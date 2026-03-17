@@ -15,7 +15,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   total: "Total Lotes",
   aprobados: "Aprobados",
   pagos_pendientes_revision: "Lotes con pagos pendientes",
-  pendientes_pago: "Pendientes de Pago",
+  soportes_pendientes_revision: "Pagos pendientes por revisar",
+  pendientes_pago: "Lotes con pagos pendientes",
   pendientes_traspaso: "Pendientes de Traspaso",
   pendientes_retiro: "Pendientes de Retiro",
 };

@@ -161,6 +161,7 @@ export interface DashboardStatsData {
   pendientes_traspaso: string;
   pendientes_retiro: string;
   pagos_pendientes_revision: string;
+  soportes_pendientes_revision: string;
 }
 
 export interface FilteredLotRow {
