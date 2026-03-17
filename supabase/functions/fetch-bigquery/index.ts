@@ -148,6 +148,16 @@ type PendingPaymentReviewEntry = {
   documentCount: number;
 };
 
+type PendingPaymentRow = {
+  subasta: string | null;
+  placa: string;
+  comprador: string | null;
+  documento: string | null;
+  descripcion: string | null;
+  estado: string | null;
+  lote: string | null;
+};
+
 async function getPendingPaymentReviewEntries(): Promise<PendingPaymentReviewEntry[]> {
   const supabase = getAdminClient();
 
@@ -214,6 +224,47 @@ async function getPendingPaymentReviewEntries(): Promise<PendingPaymentReviewEnt
       documentCount: entry.documentCount,
     }))
     .sort((a, b) => new Date(b.latestDocumentAt).getTime() - new Date(a.latestDocumentAt).getTime());
+}
+
+async function getPendingPaymentRows(token: string, projectId: string): Promise<PendingPaymentRow[]> {
+  const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
+  const sql = `
+    WITH allowed_relatorio AS (
+      SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
+      FROM \`${TABLES.relatorio}\`
+      WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+        AND ${COMITENTE_FILTER}
+        AND IFNULL(placa,'') != ''
+    )
+    SELECT
+      ANY_VALUE(r.subasta) AS subasta,
+      UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa,
+      ANY_VALUE(r.comprador) AS comprador,
+      ANY_VALUE(r.documento) AS documento,
+      ANY_VALUE(r.descripcion) AS descripcion,
+      ANY_VALUE(r.estado) AS estado,
+      ANY_VALUE(r.lote) AS lote
+    FROM \`${TABLES.retiros}\` r
+    INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+    WHERE IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = ''
+      AND IFNULL(CAST(r.placa AS STRING), '') != ''
+    GROUP BY UPPER(IFNULL(CAST(r.placa AS STRING), ''))
+    ORDER BY subasta, placa
+    LIMIT 5000
+  `;
+
+  const rows = await queryBQ(token, projectId, sql);
+  return rows
+    .map((row) => ({
+      subasta: row.subasta || null,
+      placa: normalizePlaca(row.placa) || "",
+      comprador: row.comprador || null,
+      documento: row.documento || null,
+      descripcion: row.descripcion || null,
+      estado: row.estado || null,
+      lote: row.lote || null,
+    }))
+    .filter((row) => Boolean(row.placa));
 }
 
 
