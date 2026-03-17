@@ -125,6 +125,98 @@ function sanitize(input: string): string {
   return input.replace(/[^a-zA-Z0-9\s\-_.áéíóúñÁÉÍÓÚÑ]/g, '').substring(0, 100);
 }
 
+function normalizePlaca(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim().toUpperCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getAdminClient() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error("Supabase admin credentials not configured");
+  }
+
+  return createClient(supabaseUrl, supabaseServiceRoleKey);
+}
+
+type PendingPaymentReviewEntry = {
+  placa: string;
+  latestDocumentAt: string;
+  documentCount: number;
+};
+
+async function getPendingPaymentReviewEntries(): Promise<PendingPaymentReviewEntry[]> {
+  const supabase = getAdminClient();
+
+  const [{ data: documentos, error: documentosError }, { data: reviewRows, error: reviewError }] = await Promise.all([
+    supabase
+      .from("documentos")
+      .select("placa, created_at")
+      .not("placa", "is", null)
+      .order("created_at", { ascending: false })
+      .range(0, 4999),
+    supabase
+      .from("payment_review_status")
+      .select("placa, last_reviewed_at")
+      .range(0, 4999),
+  ]);
+
+  if (documentosError) {
+    throw new Error(`Error reading documentos: ${documentosError.message}`);
+  }
+
+  if (reviewError) {
+    throw new Error(`Error reading payment review status: ${reviewError.message}`);
+  }
+
+  const latestByPlaca = new Map<string, { latestDocumentAt: string; documentCount: number }>();
+
+  for (const documento of documentos || []) {
+    const placa = normalizePlaca(documento.placa);
+    if (!placa || !documento.created_at) continue;
+
+    const existing = latestByPlaca.get(placa);
+    if (!existing) {
+      latestByPlaca.set(placa, {
+        latestDocumentAt: documento.created_at,
+        documentCount: 1,
+      });
+      continue;
+    }
+
+    latestByPlaca.set(placa, {
+      latestDocumentAt: new Date(documento.created_at).getTime() > new Date(existing.latestDocumentAt).getTime()
+        ? documento.created_at
+        : existing.latestDocumentAt,
+      documentCount: existing.documentCount + 1,
+    });
+  }
+
+  const reviewedAtByPlaca = new Map<string, string>();
+  for (const reviewRow of reviewRows || []) {
+    const placa = normalizePlaca(reviewRow.placa);
+    if (!placa || !reviewRow.last_reviewed_at) continue;
+    reviewedAtByPlaca.set(placa, reviewRow.last_reviewed_at);
+  }
+
+  return Array.from(latestByPlaca.entries())
+    .filter(([placa, entry]) => {
+      const reviewedAt = reviewedAtByPlaca.get(placa);
+      if (!reviewedAt) return true;
+      return new Date(entry.latestDocumentAt).getTime() > new Date(reviewedAt).getTime();
+    })
+    .map(([placa, entry]) => ({
+      placa,
+      latestDocumentAt: entry.latestDocumentAt,
+      documentCount: entry.documentCount,
+    }))
+    .sort((a, b) => new Date(b.latestDocumentAt).getTime() - new Date(a.latestDocumentAt).getTime());
+}
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
