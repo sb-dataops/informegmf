@@ -10,24 +10,18 @@ import { upsertPagosBulk } from "@/services/pagosService";
 
 interface BulkPaymentRow {
   placa: string;
-  subasta?: string;
-  mayor_oferta: number;
   total_prorrateo_gastos: number;
   fecha_limite_pago: string | null;
 }
 
 const TEMPLATE_HEADERS = [
   "placa",
-  "subasta",
-  "mayor_oferta",
   "total_prorrateo_gastos",
   "fecha_limite_pago",
 ] as const;
 
 const TEMPLATE_SAMPLE = {
   placa: "ABC123",
-  subasta: "12345",
-  mayor_oferta: 25000000,
   total_prorrateo_gastos: 1500000,
   fecha_limite_pago: "2025-12-31",
 };

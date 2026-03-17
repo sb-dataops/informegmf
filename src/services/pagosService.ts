@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
-import { calculateTotalPagos } from "@/lib/payment-utils";
+import { calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
+import { searchBigQuery } from "@/services/bigqueryService";
+import { isCondicionalRechazado, normalizePlaca } from "@/lib/vehicle-filters";
 
 export interface PagoRecord {
   id: string;
@@ -22,8 +24,6 @@ interface UpsertPagoInput {
 
 interface BulkPagoInput {
   placa: string;
-  subasta?: string;
-  mayor_oferta: number;
   total_prorrateo_gastos: number;
   fecha_limite_pago: string | null;
 }
