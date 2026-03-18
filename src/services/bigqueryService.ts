@@ -142,8 +142,8 @@ function consolidateVehiculosBase(
     return !!placa && placaFilter.has(placa);
   };
   const matchesAllowedPlaca = (value: string | null | undefined) => {
-    if (allowedPlacas === null) return true;
-    return isAllowedPlaca(value, allowedPlacas);
+    if (effectiveAllowedPlacas === null) return true;
+    return isAllowedPlaca(value, effectiveAllowedPlacas);
   };
 
   const getVehicle = (placa: string): VehiculoConsolidado => {
