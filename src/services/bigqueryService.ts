@@ -221,10 +221,39 @@ function consolidateVehiculosBase(
       v.departamentoComprador = r.departamentoComprador || v.departamentoComprador;
     });
 
-  const allTramitadores = [...result.servitram, ...result.gestramites];
-  allTramitadores
+  const parseSortableDate = (value: string | null | undefined) => {
+    if (!value) return 0;
+
+    const trimmed = value.trim();
+    const parsed = Date.parse(trimmed);
+    if (!Number.isNaN(parsed)) return parsed;
+
+    const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (!match) return 0;
+
+    const [, day, month, year] = match;
+    const fullYear = year.length === 2 ? Number(`20${year}`) : Number(year);
+    return new Date(fullYear, Number(month) - 1, Number(day)).getTime();
+  };
+
+  const getTramitadorSortTime = (row: SearchResult["servitram"][number]) => {
+    return Math.max(
+      parseSortableDate(row.fechaTp),
+      parseSortableDate(row.fechaAprobadoRunt),
+      parseSortableDate(row.fechaRecibidoImprontas),
+      parseSortableDate(row.fechaOkDocsTraspaso),
+      parseSortableDate(row.fechaEnvioFirmasVendedor),
+      parseSortableDate(row.fechasFirmasComprador),
+      parseSortableDate(row.fechaDeAsignacion),
+      parseSortableDate(row.fechaDeSubasta),
+    );
+  };
+
+  const allTramitadores = [...result.servitram, ...result.gestramites]
     .filter((r) => r.placa && matchesDocumento(r.documento) && matchesPlaca(r.placa) && matchesAllowedPlaca(r.placa))
-    .forEach((r) => {
+    .sort((a, b) => getTramitadorSortTime(a) - getTramitadorSortTime(b));
+
+  allTramitadores.forEach((r) => {
       const placa = normalizePlaca(r.placa);
       if (!placa) return;
       const v = getVehicle(placa);
