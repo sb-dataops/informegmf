@@ -88,7 +88,7 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
   const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 5000, timeoutMs: 30000, useQueryCache: true }),
+    body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 5000, timeoutMs: 30000, useQueryCache: false }),
   });
 
   let data = await res.json();
