@@ -73,14 +73,14 @@ const TramiteTimeline = ({ vehiculo }: TramiteTimelineProps) => {
 
       {vehiculo.comentarios && (
         <div className="bg-muted/50 rounded-lg p-3 text-sm">
-          <span className="text-muted-foreground font-medium">Comentarios: </span>
+          <span className="text-muted-foreground font-medium">Comentarios Superbid: </span>
           <span className="text-foreground">{vehiculo.comentarios}</span>
         </div>
       )}
 
       {vehiculo.observacion && (
         <div className="bg-muted/50 rounded-lg p-3 text-sm">
-          <span className="text-muted-foreground font-medium">Observación: </span>
+          <span className="text-muted-foreground font-medium">Observación Tramitador: </span>
           <span className="text-foreground">{vehiculo.observacion}</span>
         </div>
       )}

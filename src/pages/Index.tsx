@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import SearchBar from "@/components/SearchBar";
 import BuyerHeader from "@/components/BuyerHeader";
 import VehicleCard from "@/components/VehicleCard";
@@ -7,12 +7,13 @@ import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import DashboardStats from "@/components/DashboardStats";
 import PaymentDeadlineAlerts from "@/components/PaymentDeadlineAlerts";
 import { searchBigQuery, extractCompradores, consolidateVehiculos, extractVehiculosBySubasta } from "@/services/bigqueryService";
-import { fetchAllPagos } from "@/services/pagosService";
+import { fetchAllPagos, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { Comprador } from "@/types";
 import { Users, Search, ArrowLeft, Loader2, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
@@ -109,6 +110,17 @@ const Index = () => {
   const goBackToResults = () => {
     setSelectedComprador(null);
   };
+
+  const queryClient = useQueryClient();
+  const handleObservacionPagoChange = useCallback(async (placaVal: string, value: string) => {
+    try {
+      await updateObservacionPago(placaVal, value);
+      toast.success("Observación de pago actualizada");
+      queryClient.invalidateQueries({ queryKey: ["pagos-comprador"] });
+    } catch {
+      toast.error("Error al actualizar observación");
+    }
+  }, [queryClient]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -223,6 +235,18 @@ const Index = () => {
               </div>
             ) : effectiveComprador ? (
               <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
+            ) : effectiveVehiculos.length > 0 && effectiveVehiculos[0].documento ? (
+              <BuyerHeader
+                comprador={{
+                  documento: effectiveVehiculos[0].documento!,
+                  nombre: effectiveVehiculos[0].comprador || "Sin nombre",
+                  email: effectiveVehiculos[0].email || undefined,
+                  movil: effectiveVehiculos[0].movil || undefined,
+                  ciudad: effectiveVehiculos[0].ciudadComprador || undefined,
+                  departamento: effectiveVehiculos[0].departamentoComprador || undefined,
+                }}
+                vehicleCount={effectiveVehiculos.length}
+              />
             ) : null}
 
             <div className="space-y-4">
@@ -249,9 +273,14 @@ const Index = () => {
                         <VehicleSupportViewer
                           documents={documentosAgrupados}
                           totalPagos={totalPagos}
+                          mayorOferta={parseCurrencyLikeValue(v.mayor_oferta)}
+                          prorrateoGastos={Number(pagoVehiculo?.total_prorrateo_gastos || 0)}
                           totalSoportes={totalSoportes}
                           saldoPendiente={saldoPendiente}
                           placa={v.placa}
+                          fechaLimitePago={pagoVehiculo?.fecha_limite_pago}
+                          observacionPago={(pagoVehiculo as any)?.observacion_pago}
+                          onObservacionPagoChange={handleObservacionPagoChange}
                         />
                       )
                     }

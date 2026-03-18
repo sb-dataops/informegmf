@@ -1,0 +1,1 @@
+ALTER TABLE public.pagos ADD COLUMN IF NOT EXISTS observacion_pago text DEFAULT NULL;

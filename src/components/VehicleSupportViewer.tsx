@@ -12,22 +12,43 @@ import {
 import type { GroupedDocumentoRecord } from "@/services/documentosService";
 import { fetchDocumentoBlob, formatFileSize } from "@/services/documentosService";
 import { formatCurrency } from "@/services/bigqueryService";
-import { DollarSign, Eye, FileText, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CalendarDays, DollarSign, Eye, FileText, Loader2 } from "lucide-react";
 
 interface VehicleSupportViewerProps {
   documents: GroupedDocumentoRecord[];
   totalPagos: number;
+  mayorOferta: number;
+  prorrateoGastos: number;
   totalSoportes: number;
   saldoPendiente: number;
   placa: string;
+  fechaLimitePago?: string | null;
+  observacionPago?: string | null;
+  onObservacionPagoChange?: (placa: string, value: string) => void;
 }
+
+const OBSERVACION_PAGO_OPTIONS = [
+  "En cobro",
+  "PDT Certificado Origen de recursos",
+  "En Filtros",
+  "Ampliacion de pago",
+  "Completado",
+  "Incumplimiento de pago",
+  "En proceso de giro por parte de Superbid.",
+];
 
 const VehicleSupportViewer = ({
   documents,
   totalPagos,
+  mayorOferta,
+  prorrateoGastos,
   totalSoportes,
   saldoPendiente,
   placa,
+  fechaLimitePago,
+  observacionPago,
+  onObservacionPagoChange,
 }: VehicleSupportViewerProps) => {
   const [activeDocument, setActiveDocument] = useState<GroupedDocumentoRecord | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -91,10 +112,24 @@ const VehicleSupportViewer = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {fechaLimitePago && (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-2 text-sm">
+              <CalendarDays className="h-4 w-4 text-primary shrink-0" />
+              <span className="text-muted-foreground">Fecha límite de pago:</span>
+              <span className="font-semibold text-foreground">
+                {new Date(fechaLimitePago + "T12:00:00").toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg border border-border bg-muted/40 p-4 text-center">
-              <p className="mb-1 text-xs text-muted-foreground">Valor total a pagar</p>
-              <p className="text-lg font-bold text-foreground">{formatCurrency(totalPagos)}</p>
+              <p className="mb-1 text-xs text-muted-foreground">Valor mayor oferta</p>
+              <p className="text-lg font-bold text-foreground">{formatCurrency(mayorOferta)}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/40 p-4 text-center">
+              <p className="mb-1 text-xs text-muted-foreground">Prorrateos + Total gastos</p>
+              <p className="text-lg font-bold text-foreground">{formatCurrency(prorrateoGastos)}</p>
             </div>
             <div className="rounded-lg border border-border bg-muted/40 p-4 text-center">
               <p className="mb-1 text-xs text-muted-foreground">Soportes cargados</p>
@@ -106,6 +141,23 @@ const VehicleSupportViewer = ({
                 {formatCurrency(saldoPendiente)}
               </p>
             </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-muted/40 p-4">
+            <p className="mb-2 text-xs text-muted-foreground">Observación de pagos</p>
+            <Select
+              value={observacionPago || ""}
+              onValueChange={(val) => onObservacionPagoChange?.(placa, val)}
+            >
+              <SelectTrigger className="w-full bg-background">
+                <SelectValue placeholder="Seleccionar observación..." />
+              </SelectTrigger>
+              <SelectContent>
+                {OBSERVACION_PAGO_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">

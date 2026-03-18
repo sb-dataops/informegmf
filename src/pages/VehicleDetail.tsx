@@ -1,22 +1,25 @@
 import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { searchBigQuery, consolidateVehiculos, formatCurrency } from "@/services/bigqueryService";
-import { fetchPagoByPlaca } from "@/services/pagosService";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { searchBigQuery, consolidateVehiculos, extractCompradores, formatCurrency } from "@/services/bigqueryService";
+import { fetchPagoByPlaca, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import VehicleCard from "@/components/VehicleCard";
+import BuyerHeader from "@/components/BuyerHeader";
 import PaymentForm from "@/components/PaymentForm";
 import DocumentUpload from "@/components/DocumentUpload";
 import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import { ArrowLeft, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
 const VehicleDetail = () => {
   const { placa } = useParams<{ placa: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["vehicle-detail", placa],
@@ -50,6 +53,21 @@ const VehicleDetail = () => {
     return sumValorSoportesByPlaca(documentos, vehiculo.placa);
   }, [documentos, vehiculo?.placa]);
   const saldoPendiente = calculateSaldoPendiente(totalPagosCalculado, totalSoportes);
+
+  const compradores = data ? extractCompradores(data) : [];
+  const comprador = vehiculo?.documento
+    ? compradores.find((c) => c.documento === vehiculo.documento) || null
+    : null;
+
+  const handleObservacionPagoChange = async (placaVal: string, value: string) => {
+    try {
+      await updateObservacionPago(placaVal, value);
+      toast.success("Observación de pago actualizada");
+      refetchPago();
+    } catch {
+      toast.error("Error al actualizar observación");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -107,15 +125,24 @@ const VehicleDetail = () => {
             </div>
           )}
 
+          {comprador && vehiculo && (
+            <BuyerHeader comprador={comprador} vehicleCount={vehiculos.length} />
+          )}
+
           {vehiculo && <VehicleCard vehiculo={vehiculo} />}
 
           {vehiculo && (
             <VehicleSupportViewer
               documents={documentosAgrupados}
               totalPagos={totalPagosCalculado}
+              mayorOferta={mayorOferta}
+              prorrateoGastos={Number(pagoData?.total_prorrateo_gastos || 0)}
               totalSoportes={totalSoportes}
               saldoPendiente={saldoPendiente}
               placa={vehiculo.placa}
+              fechaLimitePago={pagoData?.fecha_limite_pago}
+              observacionPago={(pagoData as any)?.observacion_pago}
+              onObservacionPagoChange={handleObservacionPagoChange}
             />
           )}
 
