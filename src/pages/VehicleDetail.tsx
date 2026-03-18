@@ -125,6 +125,10 @@ const VehicleDetail = () => {
             </div>
           )}
 
+          {comprador && vehiculo && (
+            <BuyerHeader comprador={comprador} vehicleCount={vehiculos.length} />
+          )}
+
           {vehiculo && <VehicleCard vehiculo={vehiculo} />}
 
           {vehiculo && (
