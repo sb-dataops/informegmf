@@ -46,23 +46,49 @@ const PaymentForm = ({ initialPlaca, initialSubasta, initialMayorOferta = 0, onS
     setSearching(true);
     try {
       const result = await searchBigQuery(searchQuery.trim());
-      const records = result.relatorio.filter((r) => r.placa && !isCondicionalRechazado(r.estado));
-      if (records.length > 0) {
-        const first = records[0];
-        setPlaca(first.placa || "");
-        setSubasta(first.subasta || "");
-        setMayorOferta(parseCurrencyLikeValue(first.mayor_oferta));
-        setVehicleInfo(`${first.descripcion || ""} — ${first.comprador || ""}`);
+      // Try relatorio first, then fallback to retiros/servitram/gestramites
+      const relatorioRecords = result.relatorio.filter((r) => r.placa && !isCondicionalRechazado(r.estado));
+      let foundPlaca: string | null = null;
+      let foundSubasta: string | null = null;
+      let foundMayorOferta: string | null = null;
+      let foundInfo = "";
 
-        if (first.placa) {
-          const pago = await fetchPagoByPlaca(first.placa);
-          if (pago) {
-            setTotalProrrateo(formatNumericInput(pago.total_prorrateo_gastos || ""));
-            setFechaLimite(pago.fecha_limite_pago || "");
-          } else {
-            setTotalProrrateo("");
-            setFechaLimite("");
-          }
+      if (relatorioRecords.length > 0) {
+        const first = relatorioRecords[0];
+        foundPlaca = first.placa || null;
+        foundSubasta = first.subasta || null;
+        foundMayorOferta = first.mayor_oferta;
+        foundInfo = `${first.descripcion || ""} — ${first.comprador || ""}`;
+      } else if (result.retiros.length > 0) {
+        const first = result.retiros[0];
+        foundPlaca = first.placa || null;
+        foundSubasta = first.subasta || null;
+        foundMayorOferta = first.mayoroferta;
+        foundInfo = `${first.descripcion || ""} — ${first.comprador || ""}`;
+      } else {
+        const allTram = [...result.servitram, ...result.gestramites];
+        if (allTram.length > 0) {
+          const first = allTram[0];
+          foundPlaca = first.placa || null;
+          foundSubasta = first.subasta || null;
+          foundMayorOferta = null;
+          foundInfo = `${first.descripcion || ""} — ${first.comprador || ""}`;
+        }
+      }
+
+      if (foundPlaca) {
+        setPlaca(foundPlaca);
+        setSubasta(foundSubasta || "");
+        setMayorOferta(parseCurrencyLikeValue(foundMayorOferta));
+        setVehicleInfo(foundInfo);
+
+        const pago = await fetchPagoByPlaca(foundPlaca);
+        if (pago) {
+          setTotalProrrateo(formatNumericInput(pago.total_prorrateo_gastos || ""));
+          setFechaLimite(pago.fecha_limite_pago || "");
+        } else {
+          setTotalProrrateo("");
+          setFechaLimite("");
         }
       } else {
         toast({ title: "Sin resultados", description: "No se encontraron vehículos disponibles", variant: "destructive" });
