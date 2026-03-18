@@ -259,10 +259,23 @@ const Index = () => {
                 const totalSoportes = sumValorSoportesByPlaca(documentosFuente, v.placa);
                 const saldoPendiente = calculateSaldoPendiente(totalPagos, totalSoportes);
 
+                const vehicleBuyer = v.documento ? compradores.find((c) => c.documento === v.documento) : null;
+                const buyerForCard = vehicleBuyer || (v.documento ? {
+                  documento: v.documento,
+                  nombre: v.comprador || "Sin nombre",
+                  email: v.email || undefined,
+                  movil: v.movil || undefined,
+                  ciudad: v.ciudadComprador || undefined,
+                  departamento: v.departamentoComprador || undefined,
+                } : null);
+
                 return (
-                  <VehicleCard
-                    key={v.placa}
-                    vehiculo={v}
+                  <div key={v.placa} className="space-y-2">
+                    {showingSubastaDetail && buyerForCard && (
+                      <BuyerHeader comprador={buyerForCard} vehicleCount={1} />
+                    )}
+                    <VehicleCard
+                      vehiculo={v}
                     extraContent={
                       isFinancialDataLoading ? (
                         <div className="flex items-center justify-center gap-3 rounded-lg border border-border bg-muted/20 px-4 py-8 text-sm text-muted-foreground">
