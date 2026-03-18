@@ -249,9 +249,14 @@ const Index = () => {
                         <VehicleSupportViewer
                           documents={documentosAgrupados}
                           totalPagos={totalPagos}
+                          mayorOferta={parseCurrencyLikeValue(v.mayor_oferta)}
+                          prorrateoGastos={Number(pagoVehiculo?.total_prorrateo_gastos || 0)}
                           totalSoportes={totalSoportes}
                           saldoPendiente={saldoPendiente}
                           placa={v.placa}
+                          fechaLimitePago={pagoVehiculo?.fecha_limite_pago}
+                          observacionPago={(pagoVehiculo as any)?.observacion_pago}
+                          onObservacionPagoChange={handleObservacionPagoChange}
                         />
                       )
                     }

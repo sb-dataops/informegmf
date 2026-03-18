@@ -113,9 +113,14 @@ const VehicleDetail = () => {
             <VehicleSupportViewer
               documents={documentosAgrupados}
               totalPagos={totalPagosCalculado}
+              mayorOferta={mayorOferta}
+              prorrateoGastos={Number(pagoData?.total_prorrateo_gastos || 0)}
               totalSoportes={totalSoportes}
               saldoPendiente={saldoPendiente}
               placa={vehiculo.placa}
+              fechaLimitePago={pagoData?.fecha_limite_pago}
+              observacionPago={(pagoData as any)?.observacion_pago}
+              onObservacionPagoChange={handleObservacionPagoChange}
             />
           )}
 
