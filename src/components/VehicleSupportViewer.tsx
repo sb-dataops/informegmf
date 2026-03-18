@@ -27,12 +27,27 @@ interface VehicleSupportViewerProps {
   onObservacionPagoChange?: (placa: string, value: string) => void;
 }
 
+const OBSERVACION_PAGO_OPTIONS = [
+  "En cobro",
+  "PDT Certificado Origen de recursos",
+  "En Filtros",
+  "Ampliacion de pago",
+  "Completado",
+  "Incumplimiento de pago",
+  "En proceso de giro por parte de Superbid.",
+];
+
 const VehicleSupportViewer = ({
   documents,
   totalPagos,
+  mayorOferta,
+  prorrateoGastos,
   totalSoportes,
   saldoPendiente,
   placa,
+  fechaLimitePago,
+  observacionPago,
+  onObservacionPagoChange,
 }: VehicleSupportViewerProps) => {
   const [activeDocument, setActiveDocument] = useState<GroupedDocumentoRecord | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
