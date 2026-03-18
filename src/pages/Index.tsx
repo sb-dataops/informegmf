@@ -13,6 +13,7 @@ import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } 
 import { Comprador } from "@/types";
 import { Users, Search, ArrowLeft, Loader2, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
