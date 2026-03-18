@@ -79,6 +79,7 @@ const GestionPagos = () => {
 
   const pagosVisibles = useMemo(() => {
     if (!searchResult) return pagos;
+    if (allowedSearchPlacas.size === 0) return pagos;
     return pagos.filter((pago) => allowedSearchPlacas.has(normalizePlaca(pago.placa)));
   }, [allowedSearchPlacas, pagos, searchResult]);
 
