@@ -54,6 +54,21 @@ const VehicleDetail = () => {
   }, [documentos, vehiculo?.placa]);
   const saldoPendiente = calculateSaldoPendiente(totalPagosCalculado, totalSoportes);
 
+  const compradores = data ? extractCompradores(data) : [];
+  const comprador = vehiculo?.documento
+    ? compradores.find((c) => c.documento === vehiculo.documento) || null
+    : null;
+
+  const handleObservacionPagoChange = async (placaVal: string, value: string) => {
+    try {
+      await updateObservacionPago(placaVal, value);
+      toast.success("Observación de pago actualizada");
+      refetchPago();
+    } catch {
+      toast.error("Error al actualizar observación");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="gradient-header border-b border-sidebar-border sticky top-0 z-50">
