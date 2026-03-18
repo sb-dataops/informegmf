@@ -317,6 +317,7 @@ serve(async (req) => {
                gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
         FROM \`${TABLES.relatorio}\`
          WHERE ${normalizedPlacaEquals("placa")}
+           OR ${normalizedContains("descripcion")}
            OR UPPER(IFNULL(documento,'')) = '${qUpper}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
            OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
