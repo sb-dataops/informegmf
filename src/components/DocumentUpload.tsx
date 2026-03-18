@@ -58,25 +58,34 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
 
   const placasDisponibles = useMemo(() => {
     const placas = new Set<string>();
-    const allowedPlacas = buildAllowedPlacasFromRelatorio(vehiculosResult?.relatorio || []);
+    if (!vehiculosResult) return [];
 
-    vehiculosResult?.relatorio.forEach((item) => {
-      if (item.documento === documentoComprador && item.placa && allowedPlacas.has(normalizePlaca(item.placa))) {
+    const allowedPlacas = buildAllowedPlacasFromRelatorio(vehiculosResult.relatorio);
+    const hasRelatorioFilter = allowedPlacas.size > 0;
+
+    const isAllowed = (placa: string | null) => {
+      if (!placa) return false;
+      if (!hasRelatorioFilter) return true; // No relatorio data: allow all plates
+      return allowedPlacas.has(normalizePlaca(placa));
+    };
+
+    vehiculosResult.relatorio.forEach((item) => {
+      if (item.documento === documentoComprador && item.placa && isAllowed(item.placa)) {
         placas.add(item.placa.toUpperCase());
       }
     });
-    vehiculosResult?.retiros.forEach((item) => {
-      if (item.documento === documentoComprador && item.placa && allowedPlacas.has(normalizePlaca(item.placa))) {
+    vehiculosResult.retiros.forEach((item) => {
+      if (item.documento === documentoComprador && item.placa && isAllowed(item.placa)) {
         placas.add(item.placa.toUpperCase());
       }
     });
-    vehiculosResult?.servitram.forEach((item) => {
-      if (item.documento === documentoComprador && item.placa && allowedPlacas.has(normalizePlaca(item.placa))) {
+    vehiculosResult.servitram.forEach((item) => {
+      if (item.documento === documentoComprador && item.placa && isAllowed(item.placa)) {
         placas.add(item.placa.toUpperCase());
       }
     });
-    vehiculosResult?.gestramites.forEach((item) => {
-      if (item.documento === documentoComprador && item.placa && allowedPlacas.has(normalizePlaca(item.placa))) {
+    vehiculosResult.gestramites.forEach((item) => {
+      if (item.documento === documentoComprador && item.placa && isAllowed(item.placa)) {
         placas.add(item.placa.toUpperCase());
       }
     });
