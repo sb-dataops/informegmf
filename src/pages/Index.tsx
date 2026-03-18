@@ -235,6 +235,18 @@ const Index = () => {
               </div>
             ) : effectiveComprador ? (
               <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
+            ) : effectiveVehiculos.length > 0 && effectiveVehiculos[0].documento ? (
+              <BuyerHeader
+                comprador={{
+                  documento: effectiveVehiculos[0].documento!,
+                  nombre: effectiveVehiculos[0].comprador || "Sin nombre",
+                  email: effectiveVehiculos[0].email || undefined,
+                  movil: effectiveVehiculos[0].movil || undefined,
+                  ciudad: effectiveVehiculos[0].ciudadComprador || undefined,
+                  departamento: effectiveVehiculos[0].departamentoComprador || undefined,
+                }}
+                vehicleCount={effectiveVehiculos.length}
+              />
             ) : null}
 
             <div className="space-y-4">
