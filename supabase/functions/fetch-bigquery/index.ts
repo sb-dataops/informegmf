@@ -315,7 +315,7 @@ serve(async (req) => {
                comprador, email, documento, ciudad_comprador, departamento_comprador,
                gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
         FROM \`${TABLES.relatorio}\`
-        WHERE UPPER(IFNULL(placa,'')) = UPPER('${q}')
+         WHERE UPPER(IFNULL(CAST(placa AS STRING),'')) = UPPER('${q}')
            OR UPPER(IFNULL(documento,'')) = '${qUpper}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
            OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
