@@ -1,16 +1,18 @@
 import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { searchBigQuery, consolidateVehiculos, formatCurrency } from "@/services/bigqueryService";
-import { fetchPagoByPlaca } from "@/services/pagosService";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { searchBigQuery, consolidateVehiculos, extractCompradores, formatCurrency } from "@/services/bigqueryService";
+import { fetchPagoByPlaca, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import VehicleCard from "@/components/VehicleCard";
+import BuyerHeader from "@/components/BuyerHeader";
 import PaymentForm from "@/components/PaymentForm";
 import DocumentUpload from "@/components/DocumentUpload";
 import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import { ArrowLeft, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
