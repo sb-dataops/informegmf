@@ -76,6 +76,7 @@ export async function fetchFilteredLots(category: string): Promise<FilteredLotsR
 export function extractCompradores(result: SearchResult): Comprador[] {
   const map = new Map<string, Comprador>();
   const allowedPlacas = buildAllowedPlacasFromRelatorio(result.relatorio);
+  const hasRelatorioFilter = allowedPlacas.size > 0;
 
   const addBuyer = (doc: string | null, name: string | null, email?: string | null, movil?: string | null, dir?: string | null, ciudad?: string | null, depto?: string | null) => {
     if (!doc) return;
@@ -92,6 +93,11 @@ export function extractCompradores(result: SearchResult): Comprador[] {
     }
   };
 
+  const isAllowed = (placa: string | null | undefined) => {
+    if (!hasRelatorioFilter) return true;
+    return isAllowedPlaca(placa, allowedPlacas);
+  };
+
   result.relatorio
     .filter((r) => !isCondicionalRechazado(r.estado))
     .forEach((r) =>
@@ -99,17 +105,17 @@ export function extractCompradores(result: SearchResult): Comprador[] {
     );
 
   result.retiros
-    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .filter((r) => isAllowed(r.placa))
     .forEach((r) =>
       addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudadComprador, r.departamentoComprador)
     );
 
   result.servitram
-    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .filter((r) => isAllowed(r.placa))
     .forEach((r) => addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion));
 
   result.gestramites
-    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .filter((r) => isAllowed(r.placa))
     .forEach((r) => addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion));
 
   return Array.from(map.values());
@@ -124,7 +130,10 @@ function consolidateVehiculosBase(
   },
 ): VehiculoConsolidado[] {
   const vehicleMap = new Map<string, VehiculoConsolidado>();
-  const { documento, placaFilter, allowedPlacas = buildAllowedPlacasFromRelatorio(result.relatorio) } = options || {};
+  const { documento, placaFilter, allowedPlacas: explicitAllowedPlacas } = options || {};
+  const allowedPlacas = explicitAllowedPlacas !== undefined ? explicitAllowedPlacas : buildAllowedPlacasFromRelatorio(result.relatorio);
+  // When allowedPlacas is an empty set (no relatorio data), skip the filter
+  const effectiveAllowedPlacas = (allowedPlacas && allowedPlacas.size === 0) ? null : allowedPlacas;
 
   const matchesDocumento = (value: string | null | undefined) => !documento || value === documento;
   const matchesPlaca = (value: string | null | undefined) => {
@@ -133,8 +142,8 @@ function consolidateVehiculosBase(
     return !!placa && placaFilter.has(placa);
   };
   const matchesAllowedPlaca = (value: string | null | undefined) => {
-    if (allowedPlacas === null) return true;
-    return isAllowedPlaca(value, allowedPlacas);
+    if (effectiveAllowedPlacas === null) return true;
+    return isAllowedPlaca(value, effectiveAllowedPlacas);
   };
 
   const getVehicle = (placa: string): VehiculoConsolidado => {
