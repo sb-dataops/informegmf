@@ -111,6 +111,17 @@ const Index = () => {
     setSelectedComprador(null);
   };
 
+  const queryClient = useQueryClient();
+  const handleObservacionPagoChange = useCallback(async (placaVal: string, value: string) => {
+    try {
+      await updateObservacionPago(placaVal, value);
+      toast.success("Observación de pago actualizada");
+      queryClient.invalidateQueries({ queryKey: ["pagos-comprador"] });
+    } catch {
+      toast.error("Error al actualizar observación");
+    }
+  }, [queryClient]);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="gradient-header border-b border-sidebar-border sticky top-0 z-50">
