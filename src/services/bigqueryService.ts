@@ -76,6 +76,7 @@ export async function fetchFilteredLots(category: string): Promise<FilteredLotsR
 export function extractCompradores(result: SearchResult): Comprador[] {
   const map = new Map<string, Comprador>();
   const allowedPlacas = buildAllowedPlacasFromRelatorio(result.relatorio);
+  const hasRelatorioFilter = allowedPlacas.size > 0;
 
   const addBuyer = (doc: string | null, name: string | null, email?: string | null, movil?: string | null, dir?: string | null, ciudad?: string | null, depto?: string | null) => {
     if (!doc) return;
@@ -92,6 +93,11 @@ export function extractCompradores(result: SearchResult): Comprador[] {
     }
   };
 
+  const isAllowed = (placa: string | null | undefined) => {
+    if (!hasRelatorioFilter) return true;
+    return isAllowedPlaca(placa, allowedPlacas);
+  };
+
   result.relatorio
     .filter((r) => !isCondicionalRechazado(r.estado))
     .forEach((r) =>
@@ -99,17 +105,17 @@ export function extractCompradores(result: SearchResult): Comprador[] {
     );
 
   result.retiros
-    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .filter((r) => isAllowed(r.placa))
     .forEach((r) =>
       addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudadComprador, r.departamentoComprador)
     );
 
   result.servitram
-    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .filter((r) => isAllowed(r.placa))
     .forEach((r) => addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion));
 
   result.gestramites
-    .filter((r) => isAllowedPlaca(r.placa, allowedPlacas))
+    .filter((r) => isAllowed(r.placa))
     .forEach((r) => addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion));
 
   return Array.from(map.values());
