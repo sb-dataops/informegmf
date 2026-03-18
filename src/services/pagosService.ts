@@ -10,8 +10,30 @@ export interface PagoRecord {
   total_prorrateo_gastos: number;
   total_pagos: number;
   fecha_limite_pago: string | null;
+  observacion_pago: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export async function updateObservacionPago(placa: string, observacion: string): Promise<void> {
+  const { data: existing } = await supabase
+    .from("pagos")
+    .select("id")
+    .eq("placa", placa.toUpperCase())
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("pagos")
+      .update({ observacion_pago: observacion, updated_at: new Date().toISOString() } as any)
+      .eq("id", existing.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("pagos")
+      .insert({ placa: placa.toUpperCase(), total_prorrateo_gastos: 0, total_pagos: 0, observacion_pago: observacion } as any);
+    if (error) throw new Error(error.message);
+  }
 }
 
 interface UpsertPagoInput {

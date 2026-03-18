@@ -19,6 +19,7 @@ import logoGmf from "@/assets/logo-gmf.png";
 const VehicleDetail = () => {
   const { placa } = useParams<{ placa: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["vehicle-detail", placa],
