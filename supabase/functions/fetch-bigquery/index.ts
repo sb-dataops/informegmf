@@ -371,7 +371,7 @@ serve(async (req) => {
                fechaOkDocsTraspaso, transito, estadoTraspaso, fechaAprobadoRunt,
                fechaTp, fechaEnvioTpComprador, ans, observacion, fechaVencimientoRtm
         FROM \`${TABLES.gestramites}\`
-        WHERE UPPER(IFNULL(placa,'')) = UPPER('${q}')
+        WHERE UPPER(IFNULL(CAST(placa AS STRING),'')) = UPPER('${q}')
            OR UPPER(IFNULL(documento,'')) = '${qUpper}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
            OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
