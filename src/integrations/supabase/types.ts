@@ -61,6 +61,7 @@ export type Database = {
           created_at: string
           fecha_limite_pago: string | null
           id: string
+          observacion_pago: string | null
           placa: string
           subasta: string | null
           total_pagos: number | null
@@ -71,6 +72,7 @@ export type Database = {
           created_at?: string
           fecha_limite_pago?: string | null
           id?: string
+          observacion_pago?: string | null
           placa: string
           subasta?: string | null
           total_pagos?: number | null
@@ -81,6 +83,7 @@ export type Database = {
           created_at?: string
           fecha_limite_pago?: string | null
           id?: string
+          observacion_pago?: string | null
           placa?: string
           subasta?: string | null
           total_pagos?: number | null
