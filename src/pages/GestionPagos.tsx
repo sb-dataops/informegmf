@@ -57,9 +57,17 @@ const GestionPagos = () => {
 
   const compradores = searchResult
     ? [...new Map(
-        searchResult.relatorio
-          .filter((r) => r.documento && !isCondicionalRechazado(r.estado))
-          .map((r) => [r.documento, { documento: r.documento!, nombre: r.comprador || "Sin nombre" }]),
+        [
+          ...searchResult.relatorio
+            .filter((r) => r.documento && !isCondicionalRechazado(r.estado))
+            .map((r) => [r.documento, { documento: r.documento!, nombre: r.comprador || "Sin nombre" }] as const),
+          ...searchResult.retiros
+            .filter((r) => r.documento)
+            .map((r) => [r.documento, { documento: r.documento!, nombre: r.comprador || "Sin nombre" }] as const),
+          ...[...searchResult.servitram, ...searchResult.gestramites]
+            .filter((r) => r.documento)
+            .map((r) => [r.documento, { documento: r.documento!, nombre: r.comprador || "Sin nombre" }] as const),
+        ],
       ).values()]
     : [];
 
