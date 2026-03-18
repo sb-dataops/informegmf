@@ -307,6 +307,7 @@ serve(async (req) => {
       }
 
       const normalizedContains = (fieldSql: string) => `REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(${fieldSql},''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'`;
+      const normalizedPlacaEquals = (fieldSql: string) => `REGEXP_REPLACE(UPPER(IFNULL(CAST(${fieldSql} AS STRING), '')), r'[^A-Z0-9]', '') = '${qNormalized}'`;
 
       // 1) Search relatorio_actual (main sales data)
       const relatorioSQL = `
@@ -315,7 +316,7 @@ serve(async (req) => {
                comprador, email, documento, ciudad_comprador, departamento_comprador,
                gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
         FROM \`${TABLES.relatorio}\`
-         WHERE UPPER(IFNULL(CAST(placa AS STRING),'')) = UPPER('${q}')
+         WHERE ${normalizedPlacaEquals("placa")}
            OR UPPER(IFNULL(documento,'')) = '${qUpper}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
            OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
@@ -337,7 +338,7 @@ serve(async (req) => {
                ubicacionVehiculo, ciudadUbicacionVehiculo, direccionUbicacionVehiculo,
                quienRetira, estadoRetiro, fechaEstadoRetiro
         FROM \`${TABLES.retiros}\`
-        WHERE UPPER(IFNULL(CAST(placa AS STRING),'')) = UPPER('${q}')
+        WHERE ${normalizedPlacaEquals("placa")}
            OR UPPER(IFNULL(documento,'')) = '${qUpper}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
            OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
@@ -354,7 +355,7 @@ serve(async (req) => {
                fechaOkDocsTraspaso, transito, estadoTraspaso, fechaAprobadoRunt,
                fechaTp, fechaEnvioTpComprador, ans, observacion
         FROM \`${TABLES.servitram}\`
-         WHERE UPPER(IFNULL(CAST(placa AS STRING),'')) = UPPER('${q}')
+         WHERE ${normalizedPlacaEquals("placa")}
            OR UPPER(IFNULL(documento,'')) = '${qUpper}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
            OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
@@ -371,7 +372,7 @@ serve(async (req) => {
                fechaOkDocsTraspaso, transito, estadoTraspaso, fechaAprobadoRunt,
                fechaTp, fechaEnvioTpComprador, ans, observacion, fechaVencimientoRtm
         FROM \`${TABLES.gestramites}\`
-        WHERE UPPER(IFNULL(CAST(placa AS STRING),'')) = UPPER('${q}')
+        WHERE ${normalizedPlacaEquals("placa")}
            OR UPPER(IFNULL(documento,'')) = '${qUpper}'
            OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
            OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
