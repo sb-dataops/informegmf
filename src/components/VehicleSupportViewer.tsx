@@ -17,9 +17,14 @@ import { DollarSign, Eye, FileText, Loader2 } from "lucide-react";
 interface VehicleSupportViewerProps {
   documents: GroupedDocumentoRecord[];
   totalPagos: number;
+  mayorOferta: number;
+  prorrateoGastos: number;
   totalSoportes: number;
   saldoPendiente: number;
   placa: string;
+  fechaLimitePago?: string | null;
+  observacionPago?: string | null;
+  onObservacionPagoChange?: (placa: string, value: string) => void;
 }
 
 const VehicleSupportViewer = ({
