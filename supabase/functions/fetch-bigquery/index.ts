@@ -306,7 +306,7 @@ serve(async (req) => {
         });
       }
 
-      const normalizedContains = (fieldSql: string) => `REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(${fieldSql},''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'`;
+      const normalizedContains = (fieldSql: string) => `REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(${fieldSql} AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'`;
       const normalizedPlacaEquals = (fieldSql: string) => `REGEXP_REPLACE(UPPER(IFNULL(CAST(${fieldSql} AS STRING), '')), r'[^A-Z0-9]', '') = '${qNormalized}'`;
 
       // 1) Search relatorio_actual (main sales data)
