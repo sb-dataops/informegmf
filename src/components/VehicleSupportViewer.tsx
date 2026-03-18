@@ -12,7 +12,8 @@ import {
 import type { GroupedDocumentoRecord } from "@/services/documentosService";
 import { fetchDocumentoBlob, formatFileSize } from "@/services/documentosService";
 import { formatCurrency } from "@/services/bigqueryService";
-import { DollarSign, Eye, FileText, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CalendarDays, DollarSign, Eye, FileText, Loader2 } from "lucide-react";
 
 interface VehicleSupportViewerProps {
   documents: GroupedDocumentoRecord[];
