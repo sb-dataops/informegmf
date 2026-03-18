@@ -387,12 +387,36 @@ serve(async (req) => {
         catch (e) { console.warn("Query failed:", e); return []; }
       };
 
-      const [relatorio, retiros, servitram, gestramites] = await Promise.all([
+      let [relatorio, retiros, servitram, gestramites] = await Promise.all([
         safeQuery(relatorioSQL),
         safeQuery(retirosSQL),
         safeQuery(servitramSQL),
         safeQuery(gestramitesSQL),
       ]);
+
+      if (relatorio.length === 0) {
+        const placasFallback = Array.from(new Set([
+          ...retiros.map((row) => normalizePlaca(row.placa)).filter(Boolean),
+          ...servitram.map((row) => normalizePlaca(row.placa)).filter(Boolean),
+          ...gestramites.map((row) => normalizePlaca(row.placa)).filter(Boolean),
+        ]));
+
+        if (placasFallback.length > 0) {
+          const placasList = placasFallback.map((placa) => `'${placa}'`).join(", ");
+          const relatorioByPlacasSQL = `
+            SELECT codigo_k, codigo_, fecha, subasta, lote, comitente, categoria,
+                   estado, fecha_aprobacion_vendedor, placa, mayor_oferta, valor_inicial,
+                   comprador, email, documento, ciudad_comprador, departamento_comprador,
+                   gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
+            FROM \`${TABLES.relatorio}\`
+            WHERE REGEXP_REPLACE(UPPER(IFNULL(CAST(placa AS STRING), '')), r'[^A-Z0-9]', '') IN (${placasList})
+               OR REGEXP_EXTRACT(UPPER(IFNULL(descripcion, '')), r'PLACA\s*:\s*([A-Z0-9]+)') IN (${placasList})
+            LIMIT 5000
+          `;
+
+          relatorio = await safeQuery(relatorioByPlacasSQL);
+        }
+      }
 
       return new Response(JSON.stringify({ relatorio, retiros, servitram, gestramites }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
