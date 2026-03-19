@@ -572,6 +572,11 @@ serve(async (req) => {
       }
 
       const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
+      const EXCLUDED_ESTADOS_RETIROS = `
+        AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
+        AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+        AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+      `;
       const allowedRelatorioCte = `
         WITH allowed_relatorio AS (
           SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
