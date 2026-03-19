@@ -463,7 +463,8 @@ serve(async (req) => {
         retiros_stats AS (
           SELECT
             COUNTIF(IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = '') AS pendientes_pago,
-            COUNTIF(UPPER(IFNULL(CAST(r.estadoRetiro AS STRING), '')) = 'ABIERTO') AS pendientes_retiro
+            COUNTIF(IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = '') AS pendientes_retiro,
+            COUNTIF(IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = '') AS pendientes_traspaso
           FROM \`${TABLES.retiros}\` r
           INNER JOIN (
             SELECT DISTINCT placa
@@ -472,24 +473,6 @@ serve(async (req) => {
           ) ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           LEFT JOIN excluded_retiros er ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = er.placa
           WHERE er.placa IS NULL
-        ),
-        traspaso_stats AS (
-          SELECT COUNT(*) AS pendientes_traspaso
-          FROM (
-            SELECT placa, estadoTraspaso FROM \`${TABLES.servitram}\`
-            UNION ALL
-            SELECT placa, estadoTraspaso FROM \`${TABLES.gestramites}\`
-          ) t
-          INNER JOIN (
-            SELECT DISTINCT placa
-            FROM allowed_relatorio
-            WHERE placa != ''
-          ) ar ON UPPER(IFNULL(t.placa,'')) = ar.placa
-          LEFT JOIN excluded_retiros er ON UPPER(IFNULL(t.placa,'')) = er.placa
-          WHERE t.placa IS NOT NULL AND t.placa != ''
-            AND er.placa IS NULL
-            AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%'
-            AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%MATRICULADO%'
         )
         SELECT
           CAST(relatorio_stats.total AS STRING) AS total,
