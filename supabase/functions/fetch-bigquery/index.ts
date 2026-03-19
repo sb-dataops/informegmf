@@ -739,27 +739,13 @@ serve(async (req) => {
       let sql = "";
       if (category === "pendientes_traspaso") {
         sql = `
-          ${allowedRelatorioCte},
-          excluded_retiros AS (
-            SELECT DISTINCT UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa
-            FROM \`${TABLES.retiros}\`
-            WHERE UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA RESCINDIDA%'
-               OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%INCUMPLIMIENTO DE PAGO%'
-               OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
-          )
-          SELECT t.subasta, t.placa, t.comprador, t.documento, t.descripcion, t.estadoTraspaso, t.tramitador, t.transito
-          FROM (
-            SELECT subasta, placa, comprador, documento, descripcion, estadoTraspaso, tramitador, transito FROM \`${TABLES.servitram}\`
-            UNION ALL
-            SELECT subasta, placa, comprador, documento, descripcion, estadoTraspaso, tramitador, transito FROM \`${TABLES.gestramites}\`
-          ) t
-          INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(t.placa,'')) = ar.placa
-          LEFT JOIN excluded_retiros er ON UPPER(IFNULL(t.placa,'')) = er.placa
-          WHERE t.placa IS NOT NULL AND t.placa != ''
-            AND er.placa IS NULL
-            AND (UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%'
-                 AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
-          ORDER BY t.subasta, t.placa
+          ${allowedRelatorioCte}
+          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.fechaAprobacionTramite, r.lote
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+          WHERE IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = ''
+            ${EXCLUDED_ESTADOS_RETIROS}
+          ORDER BY r.subasta, r.placa
           LIMIT 2000
         `;
       } else if (category === "pendientes_pago") {
@@ -776,10 +762,10 @@ serve(async (req) => {
       } else if (category === "pendientes_retiro") {
         sql = `
           ${allowedRelatorioCte}
-          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.lote
+          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.fechaEntregaVehiculo, r.lote
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
-          WHERE UPPER(IFNULL(CAST(r.estadoRetiro AS STRING), '')) = 'ABIERTO'
+          WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
             ${EXCLUDED_ESTADOS_RETIROS}
           ORDER BY r.subasta, r.placa
           LIMIT 2000
