@@ -863,6 +863,8 @@ serve(async (req) => {
       let rows;
       if (customSQL === "distinct_estados") {
         rows = await queryBQ(token, projectId, `SELECT IFNULL(estadoRetiro,'(null)') as val, COUNT(*) as cnt FROM \`${tableName}\` GROUP BY val ORDER BY cnt DESC LIMIT 20`);
+      } else if (customSQL === "distinct_estado") {
+        rows = await queryBQ(token, projectId, `SELECT IFNULL(CAST(estado AS STRING),'(null)') as val, COUNT(*) as cnt FROM \`${tableName}\` GROUP BY val ORDER BY cnt DESC LIMIT 50`);
       } else if (customSQL === "count") {
         rows = await queryBQ(token, projectId, `SELECT COUNT(*) as total FROM \`${tableName}\``);
       } else if (customSQL === "retiro_stats") {
