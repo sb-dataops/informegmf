@@ -840,35 +840,8 @@ serve(async (req) => {
       let rows;
       if (customSQL === "distinct_estados") {
         rows = await queryBQ(token, projectId, `SELECT IFNULL(estadoRetiro,'(null)') as val, COUNT(*) as cnt FROM \`${tableName}\` GROUP BY val ORDER BY cnt DESC LIMIT 20`);
-      } else if (customSQL === "distinct_estado") {
-        rows = await queryBQ(token, projectId, `SELECT IFNULL(CAST(estado AS STRING),'(null)') as val, COUNT(*) as cnt FROM \`${tableName}\` GROUP BY val ORDER BY cnt DESC LIMIT 50`);
       } else if (customSQL === "count") {
         rows = await queryBQ(token, projectId, `SELECT COUNT(*) as total FROM \`${tableName}\``);
-      } else if (customSQL === "retiro_debug") {
-        rows = await queryBQ(token, projectId, `
-          WITH excluded AS (
-            SELECT DISTINCT UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa
-            FROM \`${tableName}\`
-            WHERE UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA RESCINDIDA%'
-               OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%INCUMPLIMIENTO DE PAGO%'
-               OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
-          ),
-          filtered AS (
-            SELECT 
-              UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa,
-              MAX(IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '')) AS aprobacion,
-              MAX(IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '')) AS entrega
-            FROM \`${tableName}\` r
-            LEFT JOIN excluded e ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = e.placa
-            WHERE e.placa IS NULL AND IFNULL(CAST(r.placa AS STRING), '') != ''
-            GROUP BY UPPER(IFNULL(CAST(r.placa AS STRING), ''))
-          )
-          SELECT
-            COUNT(*) as total_placas,
-            COUNTIF(aprobacion = '') as pendientes_traspaso,
-            COUNTIF(entrega = '') as pendientes_retiro
-          FROM filtered
-        `);
       } else if (customSQL === "retiro_stats") {
         rows = await queryBQ(token, projectId, `
           SELECT 
