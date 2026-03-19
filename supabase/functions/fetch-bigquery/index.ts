@@ -244,6 +244,9 @@ async function getPendingPaymentRows(token: string, projectId: string): Promise<
       SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
       FROM \`${TABLES.relatorio}\`
       WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+        AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA RESCINDIDA%'
+        AND UPPER(IFNULL(estado,'')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+        AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
         AND ${COMITENTE_FILTER}
         AND IFNULL(placa,'') != ''
     )
@@ -437,6 +440,9 @@ serve(async (req) => {
           SELECT UPPER(IFNULL(placa,'')) AS placa, UPPER(IFNULL(estado,'')) AS estado
           FROM \`${TABLES.relatorio}\`
           WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA RESCINDIDA%'
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
             AND ${COMITENTE_FILTER}
         ),
         relatorio_stats AS (
@@ -446,6 +452,13 @@ serve(async (req) => {
             COUNTIF((estado LIKE '%PROCESO%' OR estado LIKE '%CONDICIONAL%') AND estado NOT LIKE '%CONDICIONAL RECHAZADO%') AS en_proceso,
             COUNTIF(estado LIKE '%PENDIENTE%') AS pendientes
           FROM allowed_relatorio
+        ),
+        excluded_retiros AS (
+          SELECT DISTINCT UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa
+          FROM \`${TABLES.retiros}\`
+          WHERE UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA RESCINDIDA%'
+             OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%INCUMPLIMIENTO DE PAGO%'
+             OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
         ),
         retiros_stats AS (
           SELECT
@@ -457,6 +470,8 @@ serve(async (req) => {
             FROM allowed_relatorio
             WHERE placa != ''
           ) ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+          LEFT JOIN excluded_retiros er ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = er.placa
+          WHERE er.placa IS NULL
         ),
         traspaso_stats AS (
           SELECT COUNT(*) AS pendientes_traspaso
@@ -470,7 +485,9 @@ serve(async (req) => {
             FROM allowed_relatorio
             WHERE placa != ''
           ) ar ON UPPER(IFNULL(t.placa,'')) = ar.placa
+          LEFT JOIN excluded_retiros er ON UPPER(IFNULL(t.placa,'')) = er.placa
           WHERE t.placa IS NOT NULL AND t.placa != ''
+            AND er.placa IS NULL
             AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%'
             AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%MATRICULADO%'
         )
@@ -555,11 +572,19 @@ serve(async (req) => {
       }
 
       const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
+      const EXCLUDED_ESTADOS_RETIROS = `
+        AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
+        AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+        AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+      `;
       const allowedRelatorioCte = `
         WITH allowed_relatorio AS (
           SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
           FROM \`${TABLES.relatorio}\`
           WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA RESCINDIDA%'
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
             AND ${COMITENTE_FILTER}
             AND IFNULL(placa,'') != ''
         )
@@ -732,7 +757,14 @@ serve(async (req) => {
       let sql = "";
       if (category === "pendientes_traspaso") {
         sql = `
-          ${allowedRelatorioCte}
+          ${allowedRelatorioCte},
+          excluded_retiros AS (
+            SELECT DISTINCT UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa
+            FROM \`${TABLES.retiros}\`
+            WHERE UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA RESCINDIDA%'
+               OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%INCUMPLIMIENTO DE PAGO%'
+               OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+          )
           SELECT t.subasta, t.placa, t.comprador, t.documento, t.descripcion, t.estadoTraspaso, t.tramitador, t.transito
           FROM (
             SELECT subasta, placa, comprador, documento, descripcion, estadoTraspaso, tramitador, transito FROM \`${TABLES.servitram}\`
@@ -740,7 +772,9 @@ serve(async (req) => {
             SELECT subasta, placa, comprador, documento, descripcion, estadoTraspaso, tramitador, transito FROM \`${TABLES.gestramites}\`
           ) t
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(t.placa,'')) = ar.placa
+          LEFT JOIN excluded_retiros er ON UPPER(IFNULL(t.placa,'')) = er.placa
           WHERE t.placa IS NOT NULL AND t.placa != ''
+            AND er.placa IS NULL
             AND (UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%'
                  AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%MATRICULADO%')
           ORDER BY t.subasta, t.placa
@@ -753,6 +787,7 @@ serve(async (req) => {
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           WHERE IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = ''
+            ${EXCLUDED_ESTADOS_RETIROS}
           ORDER BY r.subasta, r.placa
           LIMIT 2000
         `;
@@ -763,6 +798,7 @@ serve(async (req) => {
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           WHERE UPPER(IFNULL(CAST(r.estadoRetiro AS STRING), '')) = 'ABIERTO'
+            ${EXCLUDED_ESTADOS_RETIROS}
           ORDER BY r.subasta, r.placa
           LIMIT 2000
         `;
@@ -827,6 +863,8 @@ serve(async (req) => {
       let rows;
       if (customSQL === "distinct_estados") {
         rows = await queryBQ(token, projectId, `SELECT IFNULL(estadoRetiro,'(null)') as val, COUNT(*) as cnt FROM \`${tableName}\` GROUP BY val ORDER BY cnt DESC LIMIT 20`);
+      } else if (customSQL === "distinct_estado") {
+        rows = await queryBQ(token, projectId, `SELECT IFNULL(CAST(estado AS STRING),'(null)') as val, COUNT(*) as cnt FROM \`${tableName}\` GROUP BY val ORDER BY cnt DESC LIMIT 50`);
       } else if (customSQL === "count") {
         rows = await queryBQ(token, projectId, `SELECT COUNT(*) as total FROM \`${tableName}\``);
       } else if (customSQL === "retiro_stats") {
