@@ -437,6 +437,9 @@ serve(async (req) => {
           SELECT UPPER(IFNULL(placa,'')) AS placa, UPPER(IFNULL(estado,'')) AS estado
           FROM \`${TABLES.relatorio}\`
           WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA RESCINDIDA%'
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
             AND ${COMITENTE_FILTER}
         ),
         relatorio_stats AS (
