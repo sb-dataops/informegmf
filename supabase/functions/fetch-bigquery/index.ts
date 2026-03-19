@@ -453,6 +453,13 @@ serve(async (req) => {
             COUNTIF(estado LIKE '%PENDIENTE%') AS pendientes
           FROM allowed_relatorio
         ),
+        excluded_retiros AS (
+          SELECT DISTINCT UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa
+          FROM \`${TABLES.retiros}\`
+          WHERE UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA RESCINDIDA%'
+             OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%INCUMPLIMIENTO DE PAGO%'
+             OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+        ),
         retiros_stats AS (
           SELECT
             COUNTIF(IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = '') AS pendientes_pago,
@@ -463,6 +470,8 @@ serve(async (req) => {
             FROM allowed_relatorio
             WHERE placa != ''
           ) ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+          LEFT JOIN excluded_retiros er ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = er.placa
+          WHERE er.placa IS NULL
         ),
         traspaso_stats AS (
           SELECT COUNT(*) AS pendientes_traspaso
@@ -476,7 +485,9 @@ serve(async (req) => {
             FROM allowed_relatorio
             WHERE placa != ''
           ) ar ON UPPER(IFNULL(t.placa,'')) = ar.placa
+          LEFT JOIN excluded_retiros er ON UPPER(IFNULL(t.placa,'')) = er.placa
           WHERE t.placa IS NOT NULL AND t.placa != ''
+            AND er.placa IS NULL
             AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%APROBADO%'
             AND UPPER(IFNULL(t.estadoTraspaso,'')) NOT LIKE '%MATRICULADO%'
         )
