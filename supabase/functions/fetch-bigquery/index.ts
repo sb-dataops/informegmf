@@ -460,11 +460,12 @@ serve(async (req) => {
              OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%INCUMPLIMIENTO DE PAGO%'
              OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
         ),
-        retiros_stats AS (
+        retiros_filtered AS (
           SELECT
-            COUNTIF(IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = '') AS pendientes_pago,
-            COUNTIF(IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = '') AS pendientes_retiro,
-            COUNTIF(IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = '') AS pendientes_traspaso
+            UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa,
+            MAX(IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '')) AS cierre,
+            MAX(IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '')) AS entrega,
+            MAX(IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '')) AS aprobacion
           FROM \`${TABLES.retiros}\` r
           INNER JOIN (
             SELECT DISTINCT placa
@@ -473,6 +474,14 @@ serve(async (req) => {
           ) ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           LEFT JOIN excluded_retiros er ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = er.placa
           WHERE er.placa IS NULL
+          GROUP BY UPPER(IFNULL(CAST(r.placa AS STRING), ''))
+        ),
+        retiros_stats AS (
+          SELECT
+            COUNTIF(cierre = '') AS pendientes_pago,
+            COUNTIF(entrega = '') AS pendientes_retiro,
+            COUNTIF(aprobacion = '') AS pendientes_traspaso
+          FROM retiros_filtered
         )
         SELECT
           CAST(relatorio_stats.total AS STRING) AS total,
@@ -835,6 +844,31 @@ serve(async (req) => {
         rows = await queryBQ(token, projectId, `SELECT IFNULL(CAST(estado AS STRING),'(null)') as val, COUNT(*) as cnt FROM \`${tableName}\` GROUP BY val ORDER BY cnt DESC LIMIT 50`);
       } else if (customSQL === "count") {
         rows = await queryBQ(token, projectId, `SELECT COUNT(*) as total FROM \`${tableName}\``);
+      } else if (customSQL === "retiro_debug") {
+        rows = await queryBQ(token, projectId, `
+          WITH excluded AS (
+            SELECT DISTINCT UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa
+            FROM \`${tableName}\`
+            WHERE UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA RESCINDIDA%'
+               OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%INCUMPLIMIENTO DE PAGO%'
+               OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+          ),
+          filtered AS (
+            SELECT 
+              UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa,
+              MAX(IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '')) AS aprobacion,
+              MAX(IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '')) AS entrega
+            FROM \`${tableName}\` r
+            LEFT JOIN excluded e ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = e.placa
+            WHERE e.placa IS NULL AND IFNULL(CAST(r.placa AS STRING), '') != ''
+            GROUP BY UPPER(IFNULL(CAST(r.placa AS STRING), ''))
+          )
+          SELECT
+            COUNT(*) as total_placas,
+            COUNTIF(aprobacion = '') as pendientes_traspaso,
+            COUNTIF(entrega = '') as pendientes_retiro
+          FROM filtered
+        `);
       } else if (customSQL === "retiro_stats") {
         rows = await queryBQ(token, projectId, `
           SELECT 
