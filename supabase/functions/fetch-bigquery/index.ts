@@ -460,11 +460,12 @@ serve(async (req) => {
              OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%INCUMPLIMIENTO DE PAGO%'
              OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
         ),
-        retiros_stats AS (
-          SELECT
-            COUNTIF(IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = '') AS pendientes_pago,
-            COUNTIF(IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = '') AS pendientes_retiro,
-            COUNTIF(IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = '') AS pendientes_traspaso
+        retiros_filtered AS (
+          SELECT DISTINCT
+            UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa,
+            IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') AS cierre,
+            IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') AS entrega,
+            IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') AS aprobacion
           FROM \`${TABLES.retiros}\` r
           INNER JOIN (
             SELECT DISTINCT placa
@@ -473,6 +474,13 @@ serve(async (req) => {
           ) ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           LEFT JOIN excluded_retiros er ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = er.placa
           WHERE er.placa IS NULL
+        ),
+        retiros_stats AS (
+          SELECT
+            COUNT(DISTINCT CASE WHEN cierre = '' THEN placa END) AS pendientes_pago,
+            COUNT(DISTINCT CASE WHEN entrega = '' THEN placa END) AS pendientes_retiro,
+            COUNT(DISTINCT CASE WHEN aprobacion = '' THEN placa END) AS pendientes_traspaso
+          FROM retiros_filtered
         )
         SELECT
           CAST(relatorio_stats.total AS STRING) AS total,
