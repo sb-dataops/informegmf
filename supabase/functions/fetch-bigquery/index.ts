@@ -480,11 +480,10 @@ serve(async (req) => {
           CAST(relatorio_stats.en_proceso AS STRING) AS en_proceso,
           CAST(relatorio_stats.pendientes AS STRING) AS pendientes,
           CAST(retiros_stats.pendientes_pago AS STRING) AS pendientes_pago,
-          CAST(traspaso_stats.pendientes_traspaso AS STRING) AS pendientes_traspaso,
+          CAST(retiros_stats.pendientes_traspaso AS STRING) AS pendientes_traspaso,
           CAST(retiros_stats.pendientes_retiro AS STRING) AS pendientes_retiro
         FROM relatorio_stats
         CROSS JOIN retiros_stats
-        CROSS JOIN traspaso_stats
       `;
 
       let stats = {
