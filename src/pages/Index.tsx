@@ -57,7 +57,7 @@ const Index = () => {
     [vehiculosSubasta],
   );
   const showingSubastaDetail = hasSearched && !isLoading && vehiculosSubasta.length > 0 && !!activeSubastaQuery;
-  const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta && compradores.length === 0;
+  const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta;
 
   const handleSearch = () => {
     if (!query.trim()) return;
