@@ -13,7 +13,7 @@ import { fetchAllPagos, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { Comprador } from "@/types";
-import { Users, Search, ArrowLeft, Loader2, DollarSign } from "lucide-react";
+import { Users, Search, ArrowLeft, Loader2, DollarSign, Gavel } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
