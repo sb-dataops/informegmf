@@ -227,7 +227,29 @@ const Index = () => {
               </div>
             )}
 
-            {hasSearched && !isLoading && compradores.length === 0 && vehiculosSubasta.length === 0 && !isError && (
+            {showingSubastaList && (
+              <div className="max-w-2xl mx-auto space-y-2">
+                <p className="text-sm text-muted-foreground">{matchingSubastas.length} subasta(s) encontrada(s)</p>
+                {matchingSubastas.map((s) => (
+                  <button
+                    key={s.nombre}
+                    onClick={() => setSelectedSubasta(s.nombre)}
+                    className="w-full text-left bg-card rounded-xl border border-border shadow-card hover:shadow-card-hover transition-all p-4 flex items-center gap-3"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center">
+                      <Gavel className="h-5 w-5 text-accent-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-foreground">{s.nombre}</p>
+                      {s.codigo && <p className="text-xs text-muted-foreground">Código: {s.codigo}</p>}
+                    </div>
+                    <span className="text-sm text-muted-foreground">{s.vehiculoCount} vehículo(s)</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {hasSearched && !isLoading && compradores.length === 0 && matchingSubastas.length === 0 && !isError && (
               <div className="text-center py-12">
                 <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-muted-foreground">No se encontraron resultados para "{searchTerm}"</p>
