@@ -262,11 +262,11 @@ const Index = () => {
           <div className="space-y-5">
             <Button
               variant="ghost"
-              onClick={showingSubastaDetail ? goBack : compradores.length > 1 ? goBackToResults : goBack}
+              onClick={showingSubastaDetail && matchingSubastas.length > 1 ? goBackToResults : showingSubastaDetail ? goBack : compradores.length > 1 ? goBackToResults : goBack}
               className="text-muted-foreground hover:text-foreground -ml-2"
             >
               <ArrowLeft className="h-4 w-4 mr-1.5" />
-              {showingSubastaDetail ? "Volver al inicio" : compradores.length > 1 ? "Volver a resultados" : "Volver al inicio"}
+              {showingSubastaDetail && matchingSubastas.length > 1 ? "Volver a subastas" : showingSubastaDetail ? "Volver al inicio" : compradores.length > 1 ? "Volver a resultados" : "Volver al inicio"}
             </Button>
 
             {showingSubastaDetail ? (
