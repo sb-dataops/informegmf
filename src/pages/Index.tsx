@@ -52,6 +52,8 @@ const Index = () => {
   const handleSearch = () => {
     if (!query.trim()) return;
     setSelectedComprador(null);
+    setFilterPlacas(new Set());
+    setFilterCompradores(new Set());
     setSearchTerm(query.trim());
   };
 
