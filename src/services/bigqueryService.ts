@@ -162,6 +162,7 @@ function consolidateVehiculosBase(
         observacion: null, fechaAprobadoRunt: null, fechaTp: null,
         comprador: null, documento: null, email: null, movil: null,
         ciudadComprador: null, departamentoComprador: null,
+        fechaAprobacionVendedor: null,
       });
     }
     return vehicleMap.get(placa)!;
