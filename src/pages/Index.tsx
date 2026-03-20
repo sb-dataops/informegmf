@@ -27,6 +27,7 @@ const Index = () => {
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
   const [filterPlacas, setFilterPlacas] = useState<Set<string>>(new Set());
   const [filterCompradores, setFilterCompradores] = useState<Set<string>>(new Set());
+  const [selectedSubasta, setSelectedSubasta] = useState<string | null>(null);
 
   const {
     data: searchResult,
