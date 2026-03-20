@@ -7,6 +7,7 @@ import VehicleCard from "@/components/VehicleCard";
 import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import DashboardStats from "@/components/DashboardStats";
 import PaymentDeadlineAlerts from "@/components/PaymentDeadlineAlerts";
+import SubastaFilters from "@/components/SubastaFilters";
 import { searchBigQuery, extractCompradores, consolidateVehiculos, extractVehiculosBySubasta } from "@/services/bigqueryService";
 import { fetchAllPagos, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
