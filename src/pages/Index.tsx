@@ -233,19 +233,30 @@ const Index = () => {
             </Button>
 
             {showingSubastaDetail ? (
-              <div className="bg-card rounded-xl border border-border shadow-card p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold text-foreground">Subasta {searchTerm}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {effectiveVehiculos.length} vehículo(s) encontrado(s) con información consolidada
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                    <span>🚗 {effectiveVehiculos.length} placa(s)</span>
-                    <span>👤 {totalCompradoresSubasta} comprador(es)</span>
+              <div className="space-y-3">
+                <div className="bg-card rounded-xl border border-border shadow-card p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground">Subasta {searchTerm}</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {filteredVehiculos.length === effectiveVehiculos.length
+                          ? `${effectiveVehiculos.length} vehículo(s) encontrado(s) con información consolidada`
+                          : `Mostrando ${filteredVehiculos.length} de ${effectiveVehiculos.length} vehículo(s)`}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                      <span>🚗 {filteredVehiculos.length} placa(s)</span>
+                      <span>👤 {totalCompradoresSubasta} comprador(es)</span>
+                    </div>
                   </div>
                 </div>
+                <SubastaFilters
+                  vehiculos={effectiveVehiculos}
+                  selectedPlacas={filterPlacas}
+                  selectedCompradores={filterCompradores}
+                  onPlacasChange={setFilterPlacas}
+                  onCompradoresChange={setFilterCompradores}
+                />
               </div>
             ) : effectiveComprador ? (
               <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
