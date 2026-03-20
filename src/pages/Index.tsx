@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import SearchBar from "@/components/SearchBar";
 import BuyerHeader from "@/components/BuyerHeader";
@@ -6,6 +7,7 @@ import VehicleCard from "@/components/VehicleCard";
 import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import DashboardStats from "@/components/DashboardStats";
 import PaymentDeadlineAlerts from "@/components/PaymentDeadlineAlerts";
+import SubastaFilters from "@/components/SubastaFilters";
 import { searchBigQuery, extractCompradores, consolidateVehiculos, extractVehiculosBySubasta } from "@/services/bigqueryService";
 import { fetchAllPagos, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
@@ -23,6 +25,8 @@ const Index = () => {
   const [query, setQuery] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
+  const [filterPlacas, setFilterPlacas] = useState<Set<string>>(new Set());
+  const [filterCompradores, setFilterCompradores] = useState<Set<string>>(new Set());
 
   const {
     data: searchResult,
@@ -48,6 +52,8 @@ const Index = () => {
   const handleSearch = () => {
     if (!query.trim()) return;
     setSelectedComprador(null);
+    setFilterPlacas(new Set());
+    setFilterCompradores(new Set());
     setSearchTerm(query.trim());
   };
 
@@ -62,6 +68,16 @@ const Index = () => {
 
   const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail;
   const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail;
+
+  const filteredVehiculos = useMemo(() => {
+    if (!showingSubastaDetail) return effectiveVehiculos;
+    if (filterPlacas.size === 0 && filterCompradores.size === 0) return effectiveVehiculos;
+    return effectiveVehiculos.filter((v) => {
+      const placaMatch = filterPlacas.size === 0 || filterPlacas.has(v.placa.toUpperCase());
+      const compradorMatch = filterCompradores.size === 0 || (v.documento && filterCompradores.has(v.documento));
+      return placaMatch && compradorMatch;
+    });
+  }, [effectiveVehiculos, filterPlacas, filterCompradores, showingSubastaDetail]);
 
   const { data: pagos = [], isLoading: isPagosLoading } = useQuery({
     queryKey: ["pagos-comprador"],
@@ -219,19 +235,30 @@ const Index = () => {
             </Button>
 
             {showingSubastaDetail ? (
-              <div className="bg-card rounded-xl border border-border shadow-card p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold text-foreground">Subasta {searchTerm}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {effectiveVehiculos.length} vehículo(s) encontrado(s) con información consolidada
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                    <span>🚗 {effectiveVehiculos.length} placa(s)</span>
-                    <span>👤 {totalCompradoresSubasta} comprador(es)</span>
+              <div className="space-y-3">
+                <div className="bg-card rounded-xl border border-border shadow-card p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground">Subasta {searchTerm}</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {filteredVehiculos.length === effectiveVehiculos.length
+                          ? `${effectiveVehiculos.length} vehículo(s) encontrado(s) con información consolidada`
+                          : `Mostrando ${filteredVehiculos.length} de ${effectiveVehiculos.length} vehículo(s)`}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                      <span>🚗 {filteredVehiculos.length} placa(s)</span>
+                      <span>👤 {totalCompradoresSubasta} comprador(es)</span>
+                    </div>
                   </div>
                 </div>
+                <SubastaFilters
+                  vehiculos={effectiveVehiculos}
+                  selectedPlacas={filterPlacas}
+                  selectedCompradores={filterCompradores}
+                  onPlacasChange={setFilterPlacas}
+                  onCompradoresChange={setFilterCompradores}
+                />
               </div>
             ) : effectiveComprador ? (
               <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
@@ -250,7 +277,7 @@ const Index = () => {
             ) : null}
 
             <div className="space-y-4">
-              {effectiveVehiculos.map((v) => {
+              {filteredVehiculos.map((v) => {
                 const pagoVehiculo = pagosPorPlaca.get(v.placa.toUpperCase());
                 const totalPagos = calculateTotalPagos(
                   parseCurrencyLikeValue(v.mayor_oferta),
@@ -301,7 +328,7 @@ const Index = () => {
                   </div>
                 );
               })}
-              {effectiveVehiculos.length === 0 && (
+              {filteredVehiculos.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">
                     {showingSubastaDetail ? "No se encontraron vehículos para esta subasta" : "No se encontraron vehículos con placa para este comprador"}
