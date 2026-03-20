@@ -67,6 +67,16 @@ const Index = () => {
   const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail;
   const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail;
 
+  const filteredVehiculos = useMemo(() => {
+    if (!showingSubastaDetail) return effectiveVehiculos;
+    if (filterPlacas.size === 0 && filterCompradores.size === 0) return effectiveVehiculos;
+    return effectiveVehiculos.filter((v) => {
+      const placaMatch = filterPlacas.size === 0 || filterPlacas.has(v.placa.toUpperCase());
+      const compradorMatch = filterCompradores.size === 0 || (v.documento && filterCompradores.has(v.documento));
+      return placaMatch && compradorMatch;
+    });
+  }, [effectiveVehiculos, filterPlacas, filterCompradores, showingSubastaDetail]);
+
   const { data: pagos = [], isLoading: isPagosLoading } = useQuery({
     queryKey: ["pagos-comprador"],
     queryFn: fetchAllPagos,
