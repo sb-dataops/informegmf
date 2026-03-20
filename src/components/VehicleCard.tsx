@@ -46,7 +46,7 @@ const VehicleCard = ({ vehiculo, extraContent }: VehicleCardProps) => {
                   </span>
                 )}
                 {vehiculo.fechaAprobacionVendedor && (
-                  <span className="text-emerald-600 font-medium">
+                  <span className="text-primary font-medium">
                     Aprobación: {formatDate(vehiculo.fechaAprobacionVendedor)}
                   </span>
                 )}
