@@ -5,7 +5,7 @@ import {
   Comprador,
   VehiculoConsolidado,
 } from "@/types";
-import { buildAllowedPlacasFromRelatorio, isAllowedPlaca, isCondicionalRechazado, matchesNormalizedSearch, normalizePlaca } from "@/lib/vehicle-filters";
+import { buildAllowedPlacasFromRelatorio, isAllowedPlaca, isCondicionalRechazado, matchesNormalizedSearch, normalizePlaca, normalizeSearchText } from "@/lib/vehicle-filters";
 
 const FUNCTION_NAME = "fetch-bigquery";
 
