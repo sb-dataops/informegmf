@@ -57,7 +57,7 @@ const Index = () => {
     [vehiculosSubasta],
   );
   const showingSubastaDetail = hasSearched && !isLoading && vehiculosSubasta.length > 0 && !!activeSubastaQuery;
-  const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta && compradores.length === 0;
+  const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta;
 
   const handleSearch = () => {
     if (!query.trim()) return;
@@ -68,9 +68,9 @@ const Index = () => {
     setSearchTerm(query.trim());
   };
 
-  const effectiveComprador = showingSubastaDetail
+  const effectiveComprador = showingSubastaDetail || showingSubastaList
     ? null
-    : selectedComprador || (compradores.length === 1 && searchResult ? compradores[0] : null);
+    : selectedComprador || (compradores.length === 1 && searchResult && matchingSubastas.length === 0 ? compradores[0] : null);
   const effectiveVehiculos = showingSubastaDetail
     ? vehiculosSubasta
     : effectiveComprador && searchResult
@@ -78,7 +78,7 @@ const Index = () => {
       : [];
 
   const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail;
-  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail && !showingSubastaList;
+  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail && !showingSubastaList && matchingSubastas.length === 0;
 
   const filteredVehiculos = useMemo(() => {
     if (!showingSubastaDetail) return effectiveVehiculos;
