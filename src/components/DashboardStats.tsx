@@ -2,6 +2,36 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { fetchDashboardStats } from "@/services/bigqueryService";
 import { Clock, FileText, Loader2, Truck, Wallet } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const DashboardStatsSkeleton = () => (
+  <div className="space-y-5 pt-2">
+    <div className="grid gap-4 md:grid-cols-2">
+      {[0, 1].map((i) => (
+        <div key={i} className="rounded-2xl border border-border bg-card p-4 shadow-card">
+          <div className="mb-4 flex items-center justify-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-xl" />
+            <div className="text-center space-y-1.5">
+              <Skeleton className="h-5 w-20 mx-auto" />
+              <Skeleton className="h-3 w-28 mx-auto" />
+            </div>
+          </div>
+          <div className="space-y-3">
+            {[0, 1].map((j) => (
+              <div key={j} className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                  <Skeleton className="h-4 w-36" />
+                </div>
+                <Skeleton className="h-7 w-12" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 const DashboardStats = () => {
   const navigate = useNavigate();
@@ -12,12 +42,7 @@ const DashboardStats = () => {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center gap-3 py-8">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        <span className="text-sm text-muted-foreground">Cargando estadísticas...</span>
-      </div>
-    );
+    return <DashboardStatsSkeleton />;
   }
 
   const sections = [

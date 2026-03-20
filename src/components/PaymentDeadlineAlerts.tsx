@@ -21,7 +21,19 @@ const PaymentDeadlineAlerts = () => {
 
   const isLoading = isPagosLoading || isFilterLoading;
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <div className="flex w-full items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 animate-pulse">
+          <div className="h-9 w-9 shrink-0 rounded-lg bg-muted" />
+          <div className="flex-1 space-y-1.5">
+            <div className="h-4 w-48 rounded bg-muted" />
+            <div className="h-3 w-32 rounded bg-muted" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Get plates that are still pending (not closed)
   const pendingPlacas = new Set(
