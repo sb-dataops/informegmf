@@ -130,12 +130,14 @@ const Index = () => {
 
   const goBack = () => {
     setSelectedComprador(null);
+    setSelectedSubasta(null);
     setSearchTerm("");
     setQuery("");
   };
 
   const goBackToResults = () => {
     setSelectedComprador(null);
+    setSelectedSubasta(null);
   };
 
   const queryClient = useQueryClient();
