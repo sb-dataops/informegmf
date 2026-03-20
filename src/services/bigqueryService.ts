@@ -190,6 +190,7 @@ function consolidateVehiculosBase(
       v.movil = r.movil || v.movil;
       v.ciudadComprador = r.ciudad_comprador || v.ciudadComprador;
       v.departamentoComprador = r.departamento_comprador || v.departamentoComprador;
+      v.fechaAprobacionVendedor = r.fecha_aprobacion_vendedor || v.fechaAprobacionVendedor;
     });
 
   result.retiros

@@ -45,6 +45,11 @@ const VehicleCard = ({ vehiculo, extraContent }: VehicleCardProps) => {
                     Oferta: {formatCurrency(parseCurrencyLikeValue(vehiculo.mayor_oferta))}
                   </span>
                 )}
+                {vehiculo.fechaAprobacionVendedor && (
+                  <span className="text-emerald-600 font-medium">
+                    Aprobación: {formatDate(vehiculo.fechaAprobacionVendedor)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
