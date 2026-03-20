@@ -43,16 +43,26 @@ const Index = () => {
 
   const compradores = searchResult ? extractCompradores(searchResult) : [];
   const hasSearched = !!searchTerm;
-  const vehiculosSubasta = searchResult ? extractVehiculosBySubasta(searchResult, searchTerm) : [];
+  const matchingSubastas = useMemo(
+    () => (searchResult ? extractUniqueSubastas(searchResult, searchTerm) : []),
+    [searchResult, searchTerm],
+  );
+  const activeSubastaQuery = selectedSubasta || (matchingSubastas.length === 1 ? matchingSubastas[0].nombre : null);
+  const vehiculosSubasta = useMemo(
+    () => (searchResult && activeSubastaQuery ? extractVehiculosBySubasta(searchResult, activeSubastaQuery) : []),
+    [searchResult, activeSubastaQuery],
+  );
   const totalCompradoresSubasta = useMemo(
     () => new Set(vehiculosSubasta.map((vehiculo) => vehiculo.documento).filter(Boolean)).size,
     [vehiculosSubasta],
   );
-  const showingSubastaDetail = hasSearched && !isLoading && vehiculosSubasta.length > 0;
+  const showingSubastaDetail = hasSearched && !isLoading && vehiculosSubasta.length > 0 && !!activeSubastaQuery;
+  const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta && compradores.length === 0;
 
   const handleSearch = () => {
     if (!query.trim()) return;
     setSelectedComprador(null);
+    setSelectedSubasta(null);
     setFilterPlacas(new Set());
     setFilterCompradores(new Set());
     setSearchTerm(query.trim());
@@ -68,7 +78,7 @@ const Index = () => {
       : [];
 
   const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail;
-  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail;
+  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail && !showingSubastaList;
 
   const filteredVehiculos = useMemo(() => {
     if (!showingSubastaDetail) return effectiveVehiculos;
