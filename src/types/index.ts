@@ -143,6 +143,7 @@ export interface VehiculoConsolidado {
   movil: string | null;
   ciudadComprador: string | null;
   departamentoComprador: string | null;
+  fechaAprobacionVendedor: string | null;
 }
 
 export interface SearchResult {

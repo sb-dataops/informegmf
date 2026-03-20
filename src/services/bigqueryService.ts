@@ -162,6 +162,7 @@ function consolidateVehiculosBase(
         observacion: null, fechaAprobadoRunt: null, fechaTp: null,
         comprador: null, documento: null, email: null, movil: null,
         ciudadComprador: null, departamentoComprador: null,
+        fechaAprobacionVendedor: null,
       });
     }
     return vehicleMap.get(placa)!;
@@ -189,6 +190,7 @@ function consolidateVehiculosBase(
       v.movil = r.movil || v.movil;
       v.ciudadComprador = r.ciudad_comprador || v.ciudadComprador;
       v.departamentoComprador = r.departamento_comprador || v.departamentoComprador;
+      v.fechaAprobacionVendedor = r.fecha_aprobacion_vendedor || v.fechaAprobacionVendedor;
     });
 
   result.retiros
