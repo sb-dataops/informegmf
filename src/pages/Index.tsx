@@ -274,7 +274,7 @@ const Index = () => {
                 <div className="bg-card rounded-xl border border-border shadow-card p-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h2 className="text-xl font-bold text-foreground">Subasta {searchTerm}</h2>
+                      <h2 className="text-xl font-bold text-foreground">Subasta {activeSubastaQuery}</h2>
                       <p className="text-sm text-muted-foreground">
                         {filteredVehiculos.length === effectiveVehiculos.length
                           ? `${effectiveVehiculos.length} vehículo(s) encontrado(s) con información consolidada`
