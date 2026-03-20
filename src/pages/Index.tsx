@@ -8,12 +8,12 @@ import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import DashboardStats from "@/components/DashboardStats";
 import PaymentDeadlineAlerts from "@/components/PaymentDeadlineAlerts";
 import SubastaFilters from "@/components/SubastaFilters";
-import { searchBigQuery, extractCompradores, consolidateVehiculos, extractVehiculosBySubasta } from "@/services/bigqueryService";
+import { searchBigQuery, extractCompradores, consolidateVehiculos, extractVehiculosBySubasta, extractUniqueSubastas, type SubastaMatch } from "@/services/bigqueryService";
 import { fetchAllPagos, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { Comprador } from "@/types";
-import { Users, Search, ArrowLeft, Loader2, DollarSign } from "lucide-react";
+import { Users, Search, ArrowLeft, Loader2, DollarSign, Gavel } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ const Index = () => {
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
   const [filterPlacas, setFilterPlacas] = useState<Set<string>>(new Set());
   const [filterCompradores, setFilterCompradores] = useState<Set<string>>(new Set());
+  const [selectedSubasta, setSelectedSubasta] = useState<string | null>(null);
 
   const {
     data: searchResult,
@@ -42,16 +43,26 @@ const Index = () => {
 
   const compradores = searchResult ? extractCompradores(searchResult) : [];
   const hasSearched = !!searchTerm;
-  const vehiculosSubasta = searchResult ? extractVehiculosBySubasta(searchResult, searchTerm) : [];
+  const matchingSubastas = useMemo(
+    () => (searchResult ? extractUniqueSubastas(searchResult, searchTerm) : []),
+    [searchResult, searchTerm],
+  );
+  const activeSubastaQuery = selectedSubasta || (matchingSubastas.length === 1 ? matchingSubastas[0].nombre : null);
+  const vehiculosSubasta = useMemo(
+    () => (searchResult && activeSubastaQuery ? extractVehiculosBySubasta(searchResult, activeSubastaQuery) : []),
+    [searchResult, activeSubastaQuery],
+  );
   const totalCompradoresSubasta = useMemo(
     () => new Set(vehiculosSubasta.map((vehiculo) => vehiculo.documento).filter(Boolean)).size,
     [vehiculosSubasta],
   );
-  const showingSubastaDetail = hasSearched && !isLoading && vehiculosSubasta.length > 0;
+  const showingSubastaDetail = hasSearched && !isLoading && vehiculosSubasta.length > 0 && !!activeSubastaQuery;
+  const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta && compradores.length === 0;
 
   const handleSearch = () => {
     if (!query.trim()) return;
     setSelectedComprador(null);
+    setSelectedSubasta(null);
     setFilterPlacas(new Set());
     setFilterCompradores(new Set());
     setSearchTerm(query.trim());
@@ -67,7 +78,7 @@ const Index = () => {
       : [];
 
   const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail;
-  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail;
+  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail && !showingSubastaList;
 
   const filteredVehiculos = useMemo(() => {
     if (!showingSubastaDetail) return effectiveVehiculos;
@@ -119,12 +130,14 @@ const Index = () => {
 
   const goBack = () => {
     setSelectedComprador(null);
+    setSelectedSubasta(null);
     setSearchTerm("");
     setQuery("");
   };
 
   const goBackToResults = () => {
     setSelectedComprador(null);
+    setSelectedSubasta(null);
   };
 
   const queryClient = useQueryClient();
@@ -214,7 +227,29 @@ const Index = () => {
               </div>
             )}
 
-            {hasSearched && !isLoading && compradores.length === 0 && vehiculosSubasta.length === 0 && !isError && (
+            {showingSubastaList && (
+              <div className="max-w-2xl mx-auto space-y-2">
+                <p className="text-sm text-muted-foreground">{matchingSubastas.length} subasta(s) encontrada(s)</p>
+                {matchingSubastas.map((s) => (
+                  <button
+                    key={s.nombre}
+                    onClick={() => setSelectedSubasta(s.nombre)}
+                    className="w-full text-left bg-card rounded-xl border border-border shadow-card hover:shadow-card-hover transition-all p-4 flex items-center gap-3"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center">
+                      <Gavel className="h-5 w-5 text-accent-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-foreground">{s.nombre}</p>
+                      {s.codigo && <p className="text-xs text-muted-foreground">Código: {s.codigo}</p>}
+                    </div>
+                    <span className="text-sm text-muted-foreground">{s.vehiculoCount} vehículo(s)</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {hasSearched && !isLoading && compradores.length === 0 && matchingSubastas.length === 0 && !isError && (
               <div className="text-center py-12">
                 <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-muted-foreground">No se encontraron resultados para "{searchTerm}"</p>
@@ -227,11 +262,11 @@ const Index = () => {
           <div className="space-y-5">
             <Button
               variant="ghost"
-              onClick={showingSubastaDetail ? goBack : compradores.length > 1 ? goBackToResults : goBack}
+              onClick={showingSubastaDetail && matchingSubastas.length > 1 ? goBackToResults : showingSubastaDetail ? goBack : compradores.length > 1 ? goBackToResults : goBack}
               className="text-muted-foreground hover:text-foreground -ml-2"
             >
               <ArrowLeft className="h-4 w-4 mr-1.5" />
-              {showingSubastaDetail ? "Volver al inicio" : compradores.length > 1 ? "Volver a resultados" : "Volver al inicio"}
+              {showingSubastaDetail && matchingSubastas.length > 1 ? "Volver a subastas" : showingSubastaDetail ? "Volver al inicio" : compradores.length > 1 ? "Volver a resultados" : "Volver al inicio"}
             </Button>
 
             {showingSubastaDetail ? (
@@ -239,7 +274,7 @@ const Index = () => {
                 <div className="bg-card rounded-xl border border-border shadow-card p-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h2 className="text-xl font-bold text-foreground">Subasta {searchTerm}</h2>
+                      <h2 className="text-xl font-bold text-foreground">Subasta {activeSubastaQuery}</h2>
                       <p className="text-sm text-muted-foreground">
                         {filteredVehiculos.length === effectiveVehiculos.length
                           ? `${effectiveVehiculos.length} vehículo(s) encontrado(s) con información consolidada`

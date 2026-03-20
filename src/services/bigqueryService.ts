@@ -5,7 +5,7 @@ import {
   Comprador,
   VehiculoConsolidado,
 } from "@/types";
-import { buildAllowedPlacasFromRelatorio, isAllowedPlaca, isCondicionalRechazado, matchesNormalizedSearch, normalizePlaca } from "@/lib/vehicle-filters";
+import { buildAllowedPlacasFromRelatorio, isAllowedPlaca, isCondicionalRechazado, matchesNormalizedSearch, normalizePlaca, normalizeSearchText } from "@/lib/vehicle-filters";
 
 const FUNCTION_NAME = "fetch-bigquery";
 
@@ -283,6 +283,56 @@ function consolidateVehiculosBase(
 // Consolidate vehicle data from all 4 tables for a specific buyer
 export function consolidateVehiculos(result: SearchResult, documento?: string, skipAllowedFilter?: boolean): VehiculoConsolidado[] {
   return consolidateVehiculosBase(result, { documento, allowedPlacas: skipAllowedFilter ? null : undefined });
+}
+
+export interface SubastaMatch {
+  nombre: string;
+  codigo: string | null;
+  vehiculoCount: number;
+}
+
+export function extractUniqueSubastas(result: SearchResult, query: string): SubastaMatch[] {
+  if (!query?.trim()) return [];
+
+  const subastaMap = new Map<string, { nombre: string; codigo: string | null; placas: Set<string> }>();
+
+  result.relatorio
+    .filter(
+      (row) =>
+        !isCondicionalRechazado(row.estado) &&
+        (matchesNormalizedSearch(row.subasta, query) || matchesNormalizedSearch(row.codigoSubasta, query)),
+    )
+    .forEach((row) => {
+      const key = normalizeSearchText(row.subasta);
+      if (!key) return;
+      if (!subastaMap.has(key)) {
+        subastaMap.set(key, { nombre: row.subasta || key, codigo: row.codigoSubasta || null, placas: new Set() });
+      }
+      const entry = subastaMap.get(key)!;
+      const placa = normalizePlaca(row.placa);
+      if (placa) entry.placas.add(placa);
+      if (!entry.codigo && row.codigoSubasta) entry.codigo = row.codigoSubasta;
+    });
+
+  [result.retiros, result.servitram, result.gestramites].forEach((rows) => {
+    rows
+      .filter((row) => matchesNormalizedSearch(row.subasta, query))
+      .forEach((row) => {
+        const key = normalizeSearchText(row.subasta);
+        if (!key) return;
+        if (!subastaMap.has(key)) {
+          subastaMap.set(key, { nombre: row.subasta || key, codigo: null, placas: new Set() });
+        }
+        const placa = normalizePlaca(row.placa);
+        if (placa) subastaMap.get(key)!.placas.add(placa);
+      });
+  });
+
+  return Array.from(subastaMap.values()).map((s) => ({
+    nombre: s.nombre,
+    codigo: s.codigo,
+    vehiculoCount: s.placas.size,
+  }));
 }
 
 export function extractVehiculosBySubasta(result: SearchResult, query: string): VehiculoConsolidado[] {
