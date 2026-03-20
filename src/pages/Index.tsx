@@ -275,7 +275,7 @@ const Index = () => {
             ) : null}
 
             <div className="space-y-4">
-              {effectiveVehiculos.map((v) => {
+              {filteredVehiculos.map((v) => {
                 const pagoVehiculo = pagosPorPlaca.get(v.placa.toUpperCase());
                 const totalPagos = calculateTotalPagos(
                   parseCurrencyLikeValue(v.mayor_oferta),
