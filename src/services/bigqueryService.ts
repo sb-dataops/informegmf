@@ -225,15 +225,19 @@ function consolidateVehiculosBase(
     if (!value) return 0;
 
     const trimmed = value.trim();
+
+    // Try dd/mm/yyyy FIRST to avoid Date.parse interpreting as mm/dd/yyyy
+    const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (match) {
+      const [, day, month, year] = match;
+      const fullYear = year.length === 2 ? Number(`20${year}`) : Number(year);
+      return new Date(fullYear, Number(month) - 1, Number(day)).getTime();
+    }
+
     const parsed = Date.parse(trimmed);
     if (!Number.isNaN(parsed)) return parsed;
 
-    const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-    if (!match) return 0;
-
-    const [, day, month, year] = match;
-    const fullYear = year.length === 2 ? Number(`20${year}`) : Number(year);
-    return new Date(fullYear, Number(month) - 1, Number(day)).getTime();
+    return 0;
   };
 
   const getTramitadorSortTime = (row: SearchResult["servitram"][number]) => {
