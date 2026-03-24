@@ -1023,6 +1023,7 @@ serve(async (req) => {
                    gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
             FROM \`${TABLES.relatorio}\`
             WHERE REGEXP_REPLACE(UPPER(IFNULL(CAST(placa AS STRING), '')), r'[^A-Z0-9]', '') IN (${placasList})
+              AND UPPER(IFNULL(CAST(estado AS STRING),'')) IN ('VENTA', 'CONDICIONAL APROBADO', 'POST-OFERTA APROBADA')
             LIMIT 5000
           `;
           relatorio = await safeQuery(relatorioByPlacasSQL);
