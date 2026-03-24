@@ -10,6 +10,7 @@ const TABLES = {
   retiros: "sbc-data-int.r_retiros.r_retiros_gmf_2025",
   servitram: "sbc-data-int.r_retiros_tramitadores.r_tramitadores_servitram_gmf",
   gestramites: "sbc-data-int.r_retiros_tramitadores.r_tramitadores_gestramites",
+  consolidadoChan: "sbc-data-int.HubSpot_uploads.consolidadoChan",
 };
 
 const COMITENTE_FILTER = `UPPER(IFNULL(CAST(comitente AS STRING),'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
@@ -484,6 +485,18 @@ serve(async (req) => {
             COUNTIF(aprobacion = '') AS pendientes_traspaso
           FROM retiros_filtered
         )
+        ,
+        consolidado_filtros AS (
+          SELECT COUNT(DISTINCT UPPER(IFNULL(CAST(c.placa AS STRING), ''))) AS pendientes_filtros
+          FROM \`${TABLES.consolidadoChan}\` c
+          INNER JOIN (
+            SELECT DISTINCT placa
+            FROM allowed_relatorio
+            WHERE placa != ''
+          ) ar ON UPPER(IFNULL(CAST(c.placa AS STRING), '')) = ar.placa
+          WHERE IFNULL(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = ''
+            AND UPPER(IFNULL(CAST(c.placa AS STRING), '')) != ''
+        )
         SELECT
           CAST(relatorio_stats.total AS STRING) AS total,
           CAST(relatorio_stats.aprobados AS STRING) AS aprobados,
@@ -491,9 +504,11 @@ serve(async (req) => {
           CAST(relatorio_stats.pendientes AS STRING) AS pendientes,
           CAST(retiros_stats.pendientes_pago AS STRING) AS pendientes_pago,
           CAST(retiros_stats.pendientes_traspaso AS STRING) AS pendientes_traspaso,
-          CAST(retiros_stats.pendientes_retiro AS STRING) AS pendientes_retiro
+          CAST(retiros_stats.pendientes_retiro AS STRING) AS pendientes_retiro,
+          CAST(consolidado_filtros.pendientes_filtros AS STRING) AS pendientes_filtros
         FROM relatorio_stats
         CROSS JOIN retiros_stats
+        CROSS JOIN consolidado_filtros
       `;
 
       let stats = {
@@ -504,6 +519,7 @@ serve(async (req) => {
         pendientes_pago: '0',
         pendientes_traspaso: '0',
         pendientes_retiro: '0',
+        pendientes_filtros: '0',
         pagos_pendientes_revision: '0',
         soportes_pendientes_revision: '0',
       };
@@ -535,6 +551,7 @@ serve(async (req) => {
           pendientes_pago: result[0]?.pendientes_pago || '0',
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
+          pendientes_filtros: result[0]?.pendientes_filtros || '0',
           pagos_pendientes_revision: String(combinedPendingPlacas.size),
           soportes_pendientes_revision: String(pendingPaymentReviewEntries.length),
         };

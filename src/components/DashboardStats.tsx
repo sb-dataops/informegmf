@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { fetchDashboardStats } from "@/services/bigqueryService";
-import { Clock, FileText, Loader2, Truck, Wallet } from "lucide-react";
+import { Clock, FileText, Filter, Loader2, Truck, Wallet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const DashboardStatsSkeleton = () => (
@@ -83,6 +83,13 @@ const DashboardStats = () => {
           category: "pendientes_retiro",
           tone: "bg-warning/10 text-warning",
           icon: Truck,
+        },
+        {
+          label: "Pendientes por aprobación de filtros",
+          value: stats ? Number(stats.pendientes_filtros).toLocaleString("es-CO") : "—",
+          category: "pendientes_filtros",
+          tone: "bg-orange-500/10 text-orange-600",
+          icon: Filter,
         },
       ],
     },
