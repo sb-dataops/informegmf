@@ -519,6 +519,7 @@ serve(async (req) => {
         pendientes_pago: '0',
         pendientes_traspaso: '0',
         pendientes_retiro: '0',
+        pendientes_filtros: '0',
         pagos_pendientes_revision: '0',
         soportes_pendientes_revision: '0',
       };
