@@ -103,7 +103,7 @@ const DashboardStats = () => {
 
   return (
     <div className="space-y-5 pt-2">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         {sections.map((section) => {
           const SectionIcon = section.icon;
 
