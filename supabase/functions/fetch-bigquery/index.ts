@@ -874,7 +874,7 @@ serve(async (req) => {
             WHERE ${ESTADO_ALLOWED_FILTER}
               AND ${COMITENTE_FILTER}
               AND IFNULL(CAST(subasta AS STRING), '') != ''
-              AND SAFE_CAST(REGEXP_EXTRACT(IFNULL(CAST(subasta AS STRING), ''), r'(20\\d{2})') AS INT64) >= 2026
+              AND SAFE_CAST(IFNULL(CAST(fecha AS STRING), '') AS DATE) >= DATE('2026-01-01')
           )
           SELECT
             c.subasta,
