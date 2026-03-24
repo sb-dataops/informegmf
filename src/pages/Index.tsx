@@ -38,17 +38,18 @@ const Index = () => {
     isError,
     error,
   } = useQuery({
-    queryKey: ["bigquery-search", searchTerm],
-    queryFn: () => searchBigQuery(searchTerm),
-    enabled: !!searchTerm,
+    queryKey: ["bigquery-multi-search", activeFilters],
+    queryFn: () => multiSearch(activeFilters!),
+    enabled: !!activeFilters,
     staleTime: 5 * 60 * 1000,
   });
 
   const compradores = searchResult ? extractCompradores(searchResult) : [];
-  const hasSearched = !!searchTerm;
+  const hasSearched = !!activeFilters;
+  const subastaSearchTerm = activeFilters?.subasta || "";
   const matchingSubastas = useMemo(
-    () => (searchResult ? extractUniqueSubastas(searchResult, searchTerm) : []),
-    [searchResult, searchTerm],
+    () => (searchResult && subastaSearchTerm ? extractUniqueSubastas(searchResult, subastaSearchTerm) : []),
+    [searchResult, subastaSearchTerm],
   );
   const activeSubastaQuery = selectedSubasta || (matchingSubastas.length === 1 ? matchingSubastas[0].nombre : null);
   const vehiculosSubasta = useMemo(
@@ -63,12 +64,13 @@ const Index = () => {
   const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta;
 
   const handleSearch = () => {
-    if (!query.trim()) return;
+    const hasFilter = filterValues.subasta || filterValues.comprador || filterValues.documento || filterValues.placa;
+    if (!hasFilter) return;
     setSelectedComprador(null);
     setSelectedSubasta(null);
     setFilterPlacas(new Set());
     setFilterCompradores(new Set());
-    setSearchTerm(query.trim());
+    setActiveFilters({ ...filterValues });
   };
 
   const effectiveComprador = showingSubastaDetail || showingSubastaList
