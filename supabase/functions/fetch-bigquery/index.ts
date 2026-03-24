@@ -827,6 +827,211 @@ serve(async (req) => {
       });
     }
 
+    // ── AUTOCOMPLETE: get distinct values for a field ──
+    if (action === "autocomplete") {
+      const field = url.searchParams.get("field") || "";
+      const q = sanitize(url.searchParams.get("q") || "");
+      const qUpper = q.toUpperCase();
+      const qNormalized = normalizeSearchText(q);
+
+      if (!q || q.length < 2) {
+        return new Response(JSON.stringify({ field, options: [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
+      let sql = "";
+
+      if (field === "subasta") {
+        sql = `
+          SELECT DISTINCT subasta AS value, codigoSubasta AS extra
+          FROM \`${TABLES.relatorio}\`
+          WHERE ${COMITENTE_FILTER}
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND IFNULL(subasta,'') != ''
+            AND (
+              UPPER(IFNULL(subasta,'')) LIKE '%${qUpper}%'
+              OR UPPER(IFNULL(codigoSubasta,'')) LIKE '%${qUpper}%'
+              OR ${`REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(subasta AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'`}
+            )
+          ORDER BY subasta
+          LIMIT 20
+        `;
+      } else if (field === "comprador") {
+        sql = `
+          SELECT DISTINCT comprador AS value, documento AS extra
+          FROM \`${TABLES.relatorio}\`
+          WHERE ${COMITENTE_FILTER}
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND IFNULL(comprador,'') != ''
+            AND (
+              UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
+              OR ${`REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(comprador AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'`}
+            )
+          ORDER BY comprador
+          LIMIT 20
+        `;
+      } else if (field === "documento") {
+        sql = `
+          SELECT DISTINCT documento AS value, comprador AS extra
+          FROM \`${TABLES.relatorio}\`
+          WHERE ${COMITENTE_FILTER}
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND IFNULL(documento,'') != ''
+            AND UPPER(IFNULL(documento,'')) LIKE '%${qUpper}%'
+          ORDER BY documento
+          LIMIT 20
+        `;
+      } else if (field === "placa") {
+        sql = `
+          SELECT DISTINCT UPPER(IFNULL(placa,'')) AS value, descripcion AS extra
+          FROM \`${TABLES.relatorio}\`
+          WHERE ${COMITENTE_FILTER}
+            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND IFNULL(placa,'') != ''
+            AND UPPER(IFNULL(placa,'')) LIKE '%${qUpper}%'
+          ORDER BY value
+          LIMIT 20
+        `;
+      } else {
+        return new Response(JSON.stringify({ error: "Campo no válido. Use: subasta, comprador, documento, placa" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const rows = await queryBQ(token, projectId, sql);
+      const options = rows.map((row) => ({
+        value: row.value || "",
+        extra: row.extra || null,
+      })).filter((o) => o.value);
+
+      return new Response(JSON.stringify({ field, options }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
+      });
+    }
+
+    // ── MULTI-FILTER SEARCH: combined AND search ──
+    if (action === "multi-search") {
+      const subasta = sanitize(url.searchParams.get("subasta") || "");
+      const comprador = sanitize(url.searchParams.get("comprador") || "");
+      const documento = sanitize(url.searchParams.get("documento") || "");
+      const placa = sanitize(url.searchParams.get("placa") || "");
+
+      if (!subasta && !comprador && !documento && !placa) {
+        return new Response(JSON.stringify({ error: "Al menos un filtro es requerido" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const buildWhereConditions = (prefix: string = "") => {
+        const conditions: string[] = [];
+        const p = prefix ? `${prefix}.` : "";
+        if (subasta) {
+          const subNorm = normalizeSearchText(subasta);
+          conditions.push(`(UPPER(IFNULL(${p}subasta,'')) = '${subasta.toUpperCase()}' OR REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(${p}subasta AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${subNorm.toLowerCase()}%')`);
+        }
+        if (comprador) {
+          conditions.push(`UPPER(IFNULL(${p}comprador,'')) LIKE '%${comprador.toUpperCase()}%'`);
+        }
+        if (documento) {
+          conditions.push(`UPPER(IFNULL(${p}documento,'')) = '${documento.toUpperCase()}'`);
+        }
+        if (placa) {
+          const placaNorm = normalizeSearchText(placa);
+          conditions.push(`REGEXP_REPLACE(UPPER(IFNULL(CAST(${p}placa AS STRING), '')), r'[^A-Z0-9]', '') = '${placaNorm}'`);
+        }
+        return conditions.length > 0 ? conditions.join(" AND ") : "TRUE";
+      };
+
+      const relatorioSQL = `
+        SELECT codigo_k, codigo_, fecha, subasta, lote, comitente, categoria,
+               estado, fecha_aprobacion_vendedor, placa, mayor_oferta, valor_inicial,
+               comprador, email, documento, ciudad_comprador, departamento_comprador,
+               gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
+        FROM \`${TABLES.relatorio}\`
+        WHERE ${buildWhereConditions()}
+        LIMIT 1000
+      `;
+
+      const retirosSQL = `
+        SELECT codigo, fecha, subasta, estado, lote, descripcion, placa, transito,
+               tramitador, incioServitramFecha, cierrecontableTraspasoComision,
+               procesoPazySalvoaTramitador, estadoDocuemntosComprador,
+               enviodoFirmarGmFinancial, estadoGmFinancialFirmas,
+               documentosConTramitador, fechaAprobacionTramite, fechaEntregaVehiculo,
+               comentarios, mayoroferta, comprador, email, documento, movil,
+               direccion, ciudadComprador, departamentoComprador,
+               ubicacionVehiculo, ciudadUbicacionVehiculo, direccionUbicacionVehiculo,
+               quienRetira, estadoRetiro, fechaEstadoRetiro
+        FROM \`${TABLES.retiros}\`
+        WHERE ${buildWhereConditions()}
+        LIMIT 1000
+      `;
+
+      const servitramSQL = `
+        SELECT tramitador, codigo, fechaDeAsignacion, fechaDeSubasta, subasta,
+               descripcion, placa, lote, comprador, documento, email, movil,
+               direccion, ciudadYDepartamento, pazYSalvoContabilidad,
+               fechaRecibidoImprontas, fechasFirmasComprador, fechaEnvioFirmasVendedor,
+               fechaOkDocsTraspaso, transito, estadoTraspaso, fechaAprobadoRunt,
+               fechaTp, fechaEnvioTpComprador, ans, observacion
+        FROM \`${TABLES.servitram}\`
+        WHERE ${buildWhereConditions()}
+        LIMIT 1000
+      `;
+
+      const gestramitesSQL = `
+        SELECT tramitador, codigo, fechaDeAsignacion, fechaDeSubasta, subasta,
+               descripcion, placa, lote, comprador, documento, email, movil,
+               direccion, ciudadYDepartamento, pazYSalvoContabilidad,
+               fechaRecibidoImprontas, fechasFirmasComprador, fechaEnvioFirmasVendedor,
+               fechaOkDocsTraspaso, transito, estadoTraspaso, fechaAprobadoRunt,
+               fechaTp, fechaEnvioTpComprador, ans, observacion, fechaVencimientoRtm
+        FROM \`${TABLES.gestramites}\`
+        WHERE ${buildWhereConditions()}
+        LIMIT 1000
+      `;
+
+      const safeQuery = async (sql: string) => {
+        try { return await queryBQ(token, projectId, sql); }
+        catch (e) { console.warn("Query failed:", e); return []; }
+      };
+
+      let [relatorio, retiros, servitram, gestramites] = await Promise.all([
+        safeQuery(relatorioSQL),
+        safeQuery(retirosSQL),
+        safeQuery(servitramSQL),
+        safeQuery(gestramitesSQL),
+      ]);
+
+      if (relatorio.length === 0) {
+        const placasFallback = Array.from(new Set([
+          ...retiros.map((row) => normalizePlaca(row.placa)).filter(Boolean),
+          ...servitram.map((row) => normalizePlaca(row.placa)).filter(Boolean),
+          ...gestramites.map((row) => normalizePlaca(row.placa)).filter(Boolean),
+        ]));
+
+        if (placasFallback.length > 0) {
+          const placasList = placasFallback.map((p) => `'${p}'`).join(", ");
+          const relatorioByPlacasSQL = `
+            SELECT codigo_k, codigo_, fecha, subasta, lote, comitente, categoria,
+                   estado, fecha_aprobacion_vendedor, placa, mayor_oferta, valor_inicial,
+                   comprador, email, documento, ciudad_comprador, departamento_comprador,
+                   gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
+            FROM \`${TABLES.relatorio}\`
+            WHERE REGEXP_REPLACE(UPPER(IFNULL(CAST(placa AS STRING), '')), r'[^A-Z0-9]', '') IN (${placasList})
+            LIMIT 5000
+          `;
+          relatorio = await safeQuery(relatorioByPlacasSQL);
+        }
+      }
+
+      return new Response(JSON.stringify({ relatorio, retiros, servitram, gestramites }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── SAMPLE: get first rows from any table ──
     if (action === "sample") {
       const table = url.searchParams.get("table") || "retiros";

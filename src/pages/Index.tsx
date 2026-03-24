@@ -1,14 +1,15 @@
 import { useMemo, useState, useCallback } from "react";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import SearchBar from "@/components/SearchBar";
+import SearchFilters, { type SearchFiltersValues } from "@/components/SearchFilters";
 import BuyerHeader from "@/components/BuyerHeader";
 import VehicleCard from "@/components/VehicleCard";
 import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import DashboardStats from "@/components/DashboardStats";
 import PaymentDeadlineAlerts from "@/components/PaymentDeadlineAlerts";
 import SubastaFilters from "@/components/SubastaFilters";
-import { searchBigQuery, extractCompradores, consolidateVehiculos, extractVehiculosBySubasta, extractUniqueSubastas, type SubastaMatch } from "@/services/bigqueryService";
+import { extractCompradores, consolidateVehiculos, extractVehiculosBySubasta, extractUniqueSubastas, type SubastaMatch } from "@/services/bigqueryService";
+import { multiSearch, type MultiSearchFilters } from "@/services/autocompleteService";
 import { fetchAllPagos, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
@@ -22,8 +23,10 @@ import logoGmf from "@/assets/logo-gmf.png";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [filterValues, setFilterValues] = useState<SearchFiltersValues>({
+    subasta: "", comprador: "", documento: "", placa: "",
+  });
+  const [activeFilters, setActiveFilters] = useState<MultiSearchFilters | null>(null);
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
   const [filterPlacas, setFilterPlacas] = useState<Set<string>>(new Set());
   const [filterCompradores, setFilterCompradores] = useState<Set<string>>(new Set());
@@ -35,17 +38,18 @@ const Index = () => {
     isError,
     error,
   } = useQuery({
-    queryKey: ["bigquery-search", searchTerm],
-    queryFn: () => searchBigQuery(searchTerm),
-    enabled: !!searchTerm,
+    queryKey: ["bigquery-multi-search", activeFilters],
+    queryFn: () => multiSearch(activeFilters!),
+    enabled: !!activeFilters,
     staleTime: 5 * 60 * 1000,
   });
 
   const compradores = searchResult ? extractCompradores(searchResult) : [];
-  const hasSearched = !!searchTerm;
+  const hasSearched = !!activeFilters;
+  const subastaSearchTerm = activeFilters?.subasta || "";
   const matchingSubastas = useMemo(
-    () => (searchResult ? extractUniqueSubastas(searchResult, searchTerm) : []),
-    [searchResult, searchTerm],
+    () => (searchResult && subastaSearchTerm ? extractUniqueSubastas(searchResult, subastaSearchTerm) : []),
+    [searchResult, subastaSearchTerm],
   );
   const activeSubastaQuery = selectedSubasta || (matchingSubastas.length === 1 ? matchingSubastas[0].nombre : null);
   const vehiculosSubasta = useMemo(
@@ -60,12 +64,13 @@ const Index = () => {
   const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta;
 
   const handleSearch = () => {
-    if (!query.trim()) return;
+    const hasFilter = filterValues.subasta || filterValues.comprador || filterValues.documento || filterValues.placa;
+    if (!hasFilter) return;
     setSelectedComprador(null);
     setSelectedSubasta(null);
     setFilterPlacas(new Set());
     setFilterCompradores(new Set());
-    setSearchTerm(query.trim());
+    setActiveFilters({ ...filterValues });
   };
 
   const effectiveComprador = showingSubastaDetail || showingSubastaList
@@ -105,7 +110,7 @@ const Index = () => {
   });
 
   const { data: documentosSubasta = [], isLoading: isDocumentosSubastaLoading } = useQuery({
-    queryKey: ["documentos-subasta", searchTerm],
+    queryKey: ["documentos-subasta", activeFilters],
     queryFn: () => listDocumentos({}),
     enabled: showingSubastaDetail,
     staleTime: 60 * 1000,
@@ -131,8 +136,8 @@ const Index = () => {
   const goBack = () => {
     setSelectedComprador(null);
     setSelectedSubasta(null);
-    setSearchTerm("");
-    setQuery("");
+    setActiveFilters(null);
+    setFilterValues({ subasta: "", comprador: "", documento: "", placa: "" });
   };
 
   const goBackToResults = () => {
@@ -179,7 +184,7 @@ const Index = () => {
               </p>
             </div>
 
-            <SearchBar value={query} onChange={setQuery} onSearch={handleSearch} />
+            <SearchFilters values={filterValues} onChange={setFilterValues} onSearch={handleSearch} />
 
             {isLoading && (
               <div className="flex items-center justify-center py-12 gap-3">
@@ -252,7 +257,7 @@ const Index = () => {
             {hasSearched && !isLoading && compradores.length === 0 && matchingSubastas.length === 0 && !isError && (
               <div className="text-center py-12">
                 <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground">No se encontraron resultados para "{searchTerm}"</p>
+                <p className="text-muted-foreground">No se encontraron resultados</p>
               </div>
             )}
           </div>
