@@ -822,6 +822,38 @@ serve(async (req) => {
           ORDER BY subasta, placa
           LIMIT 2000
         `;
+      } else if (category === "pendientes_filtros") {
+        sql = `
+          WITH allowed_subastas_filtros AS (
+            SELECT DISTINCT UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta
+            FROM \`${TABLES.relatorio}\`
+            WHERE ${ESTADO_ALLOWED_FILTER}
+              AND ${COMITENTE_FILTER}
+              AND IFNULL(CAST(subasta AS STRING), '') != ''
+              AND SAFE_CAST(REGEXP_EXTRACT(IFNULL(CAST(subasta AS STRING), ''), r'(20\\d{2})') AS INT64) >= 2026
+          )
+          SELECT
+            c.subasta,
+            c.placa,
+            CAST(c.comprador AS STRING) AS comprador,
+            CAST(c.documento AS STRING) AS documento,
+            CAST(c.descripcion AS STRING) AS descripcion,
+            '' AS estado,
+            CAST(c.lote AS STRING) AS lote
+          FROM \`${TABLES.consolidadoChan}\` c
+          INNER JOIN (
+            SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
+            FROM \`${TABLES.relatorio}\`
+            WHERE ${ESTADO_ALLOWED_FILTER}
+              AND ${COMITENTE_FILTER}
+              AND IFNULL(placa,'') != ''
+          ) ar ON UPPER(IFNULL(CAST(c.placa AS STRING), '')) = ar.placa
+          INNER JOIN allowed_subastas_filtros asub ON UPPER(IFNULL(CAST(c.subasta AS STRING), '')) = asub.subasta
+          WHERE IFNULL(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = ''
+            AND UPPER(IFNULL(CAST(c.placa AS STRING), '')) != ''
+          ORDER BY c.subasta, c.placa
+          LIMIT 2000
+        `;
       } else if (category === "total") {
         sql = `
           SELECT subasta, placa, comprador, documento, descripcion, estado, lote

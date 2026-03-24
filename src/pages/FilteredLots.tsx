@@ -19,6 +19,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   pendientes_pago: "Lotes con pagos pendientes",
   pendientes_traspaso: "Pendientes de Traspaso",
   pendientes_retiro: "Pendientes de Retiro",
+  pendientes_filtros: "Pendientes por aprobación de filtros",
 };
 
 const FilteredLots = () => {
