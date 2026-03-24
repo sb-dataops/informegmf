@@ -840,7 +840,7 @@ serve(async (req) => {
         });
       }
 
-      const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
+      const COMITENTE_FILTER = `UPPER(IFNULL(CAST(comitente AS STRING),'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
       let sql = "";
 
       if (field === "subasta") {
