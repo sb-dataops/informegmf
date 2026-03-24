@@ -1,5 +1,15 @@
+const ALLOWED_ESTADOS = new Set([
+  "VENTA",
+  "CONDICIONAL APROBADO",
+  "POST-OFERTA APROBADA",
+]);
+
+export function isAllowedEstado(estado: string | null | undefined): boolean {
+  return ALLOWED_ESTADOS.has((estado || "").trim().toUpperCase());
+}
+
 export function isCondicionalRechazado(estado: string | null | undefined): boolean {
-  return (estado || "").toUpperCase().includes("CONDICIONAL RECHAZADO");
+  return !isAllowedEstado(estado);
 }
 
 export function normalizePlaca(placa: string | null | undefined): string {
@@ -26,7 +36,7 @@ export function matchesNormalizedSearch(value: string | null | undefined, query:
 export function buildAllowedPlacasFromRelatorio<T extends { placa: string | null; estado: string | null }>(rows: T[]): Set<string> {
   return new Set(
     rows
-      .filter((row) => !!row.placa && !isCondicionalRechazado(row.estado))
+      .filter((row) => !!row.placa && isAllowedEstado(row.estado))
       .map((row) => normalizePlaca(row.placa)),
   );
 }
