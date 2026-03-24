@@ -272,6 +272,11 @@ const FilteredLots = () => {
                               <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[260px] truncate align-top">
                                 {item.descripcion || "—"}
                               </td>
+                              {!isPendingPaymentsCategory && (
+                                <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell align-top">
+                                  {item.tramitador || "—"}
+                                </td>
+                              )}
                               <td className="px-4 py-2.5 hidden md:table-cell align-top">
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                                   {item.estadoTraspaso || item.estadoRetiro || item.estado || "—"}
