@@ -944,13 +944,15 @@ serve(async (req) => {
         return conditions.length > 0 ? conditions.join(" AND ") : "TRUE";
       };
 
+      const ESTADO_ALLOWED = `UPPER(IFNULL(CAST(estado AS STRING),'')) IN ('VENTA', 'CONDICIONAL APROBADO', 'POST-OFERTA APROBADA')`;
+
       const relatorioSQL = `
         SELECT codigo_k, codigo_, fecha, subasta, lote, comitente, categoria,
                estado, fecha_aprobacion_vendedor, placa, mayor_oferta, valor_inicial,
                comprador, email, documento, ciudad_comprador, departamento_comprador,
                gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
         FROM \`${TABLES.relatorio}\`
-        WHERE ${buildWhereConditions()}
+        WHERE ${buildWhereConditions()} AND ${ESTADO_ALLOWED}
         LIMIT 1000
       `;
 
