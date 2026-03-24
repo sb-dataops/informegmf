@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { fetchDashboardStats } from "@/services/bigqueryService";
-import { Clock, FileText, Loader2, Truck, Wallet } from "lucide-react";
+import { Clock, FileText, Filter, Loader2, Truck, Wallet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const DashboardStatsSkeleton = () => (
