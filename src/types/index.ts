@@ -161,6 +161,7 @@ export interface DashboardStatsData {
   pendientes_pago: string;
   pendientes_traspaso: string;
   pendientes_retiro: string;
+  pendientes_filtros: string;
   pagos_pendientes_revision: string;
   soportes_pendientes_revision: string;
 }
