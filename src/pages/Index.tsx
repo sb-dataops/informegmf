@@ -110,7 +110,7 @@ const Index = () => {
   });
 
   const { data: documentosSubasta = [], isLoading: isDocumentosSubastaLoading } = useQuery({
-    queryKey: ["documentos-subasta", searchTerm],
+    queryKey: ["documentos-subasta", activeFilters],
     queryFn: () => listDocumentos({}),
     enabled: showingSubastaDetail,
     staleTime: 60 * 1000,
