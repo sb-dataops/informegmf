@@ -845,14 +845,13 @@ serve(async (req) => {
 
       if (field === "subasta") {
         sql = `
-          SELECT DISTINCT CAST(subasta AS STRING) AS value, CAST(codigoSubasta AS STRING) AS extra
+          SELECT DISTINCT CAST(subasta AS STRING) AS value, NULL AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
             AND UPPER(IFNULL(CAST(estado AS STRING),'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
             AND IFNULL(CAST(subasta AS STRING),'') != ''
             AND (
               UPPER(IFNULL(CAST(subasta AS STRING),'')) LIKE '%${qUpper}%'
-              OR UPPER(IFNULL(CAST(codigoSubasta AS STRING),'')) LIKE '%${qUpper}%'
               OR REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(subasta AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'
             )
           ORDER BY value
