@@ -12,6 +12,9 @@ const TABLES = {
   gestramites: "sbc-data-int.r_retiros_tramitadores.r_tramitadores_gestramites",
 };
 
+const COMITENTE_FILTER = `UPPER(IFNULL(CAST(comitente AS STRING),'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
+const ESTADO_ALLOWED_FILTER = `UPPER(IFNULL(CAST(estado AS STRING),'')) IN ('VENTA', 'CONDICIONAL APROBADO', 'POST-OFERTA APROBADA')`;
+
 const GCP_TOKEN_TTL_MS = 55 * 60 * 1000;
 const DASHBOARD_STATS_TTL_MS = 2 * 60 * 1000;
 const FILTER_RESULT_TTL_MS = 2 * 60 * 1000;
@@ -238,15 +241,11 @@ async function getPendingPaymentReviewEntries(): Promise<PendingPaymentReviewEnt
 }
 
 async function getPendingPaymentRows(token: string, projectId: string): Promise<PendingPaymentRow[]> {
-  const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
   const sql = `
     WITH allowed_relatorio AS (
       SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
       FROM \`${TABLES.relatorio}\`
-      WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
-        AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA RESCINDIDA%'
-        AND UPPER(IFNULL(estado,'')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
-        AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+      WHERE ${ESTADO_ALLOWED_FILTER}
         AND ${COMITENTE_FILTER}
         AND IFNULL(placa,'') != ''
     )
@@ -319,14 +318,16 @@ serve(async (req) => {
                comprador, email, documento, ciudad_comprador, departamento_comprador,
                gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
         FROM \`${TABLES.relatorio}\`
-         WHERE ${normalizedPlacaEquals("placa")}
-           OR ${normalizedContains("descripcion")}
-           OR UPPER(IFNULL(documento,'')) = '${qUpper}'
-           OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
-           OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
-           OR UPPER(IFNULL(codigoSubasta,'')) = '${qUpper}'
-           OR ${normalizedContains("subasta")}
-           OR ${normalizedContains("codigoSubasta")}
+         WHERE ${COMITENTE_FILTER}
+           AND ${ESTADO_ALLOWED_FILTER}
+           AND (
+             ${normalizedPlacaEquals("placa")}
+             OR ${normalizedContains("descripcion")}
+             OR UPPER(IFNULL(documento,'')) = '${qUpper}'
+             OR UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
+             OR UPPER(IFNULL(subasta,'')) = '${qUpper}'
+             OR ${normalizedContains("subasta")}
+           )
         LIMIT 1000
       `;
 
@@ -412,8 +413,12 @@ serve(async (req) => {
                    comprador, email, documento, ciudad_comprador, departamento_comprador,
                    gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
             FROM \`${TABLES.relatorio}\`
-            WHERE REGEXP_REPLACE(UPPER(IFNULL(CAST(placa AS STRING), '')), r'[^A-Z0-9]', '') IN (${placasList})
-               OR REGEXP_EXTRACT(UPPER(IFNULL(descripcion, '')), r'PLACA\s*:\s*([A-Z0-9]+)') IN (${placasList})
+            WHERE ${COMITENTE_FILTER}
+              AND ${ESTADO_ALLOWED_FILTER}
+              AND (
+                REGEXP_REPLACE(UPPER(IFNULL(CAST(placa AS STRING), '')), r'[^A-Z0-9]', '') IN (${placasList})
+                OR REGEXP_EXTRACT(UPPER(IFNULL(descripcion, '')), r'PLACA\s*:\s*([A-Z0-9]+)') IN (${placasList})
+              )
             LIMIT 5000
           `;
 
@@ -434,15 +439,11 @@ serve(async (req) => {
         });
       }
 
-      const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
       const statsSQL = `
         WITH allowed_relatorio AS (
           SELECT UPPER(IFNULL(placa,'')) AS placa, UPPER(IFNULL(estado,'')) AS estado
           FROM \`${TABLES.relatorio}\`
-          WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA RESCINDIDA%'
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+          WHERE ${ESTADO_ALLOWED_FILTER}
             AND ${COMITENTE_FILTER}
         ),
         relatorio_stats AS (
@@ -562,7 +563,6 @@ serve(async (req) => {
         });
       }
 
-      const COMITENTE_FILTER = `UPPER(IFNULL(comitente,'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
       const EXCLUDED_ESTADOS_RETIROS = `
         AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
         AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
@@ -572,10 +572,7 @@ serve(async (req) => {
         WITH allowed_relatorio AS (
           SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
           FROM \`${TABLES.relatorio}\`
-          WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA RESCINDIDA%'
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+          WHERE ${ESTADO_ALLOWED_FILTER}
             AND ${COMITENTE_FILTER}
             AND IFNULL(placa,'') != ''
         )
@@ -619,7 +616,7 @@ serve(async (req) => {
                 ANY_VALUE(estado) AS estado,
                 ANY_VALUE(lote) AS lote
               FROM \`${TABLES.relatorio}\`
-              WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+              WHERE ${ESTADO_ALLOWED_FILTER}
                 AND ${COMITENTE_FILTER}
                 AND UPPER(IFNULL(placa,'')) IN (${placaList.join(",")})
               GROUP BY UPPER(IFNULL(placa,''))
@@ -702,7 +699,7 @@ serve(async (req) => {
                 ANY_VALUE(estado) AS estado,
                 ANY_VALUE(lote) AS lote
               FROM \`${TABLES.relatorio}\`
-              WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+              WHERE ${ESTADO_ALLOWED_FILTER}
                 AND ${COMITENTE_FILTER}
                 AND UPPER(IFNULL(placa,'')) IN (${placaList.join(",")})
               GROUP BY UPPER(IFNULL(placa,''))
@@ -783,8 +780,8 @@ serve(async (req) => {
         sql = `
           SELECT subasta, placa, comprador, documento, descripcion, estado, lote
           FROM \`${TABLES.relatorio}\`
-          WHERE UPPER(IFNULL(estado,'')) LIKE '%APROBADO%'
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+          WHERE ${ESTADO_ALLOWED_FILTER}
+            AND UPPER(IFNULL(estado,'')) LIKE '%APROBADO%'
             AND ${COMITENTE_FILTER}
           ORDER BY subasta, placa
           LIMIT 2000
@@ -793,8 +790,8 @@ serve(async (req) => {
         sql = `
           SELECT subasta, placa, comprador, documento, descripcion, estado, lote
           FROM \`${TABLES.relatorio}\`
-          WHERE (UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%')
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+          WHERE ${ESTADO_ALLOWED_FILTER}
+            AND (UPPER(IFNULL(estado,'')) LIKE '%PROCESO%' OR UPPER(IFNULL(estado,'')) LIKE '%CONDICIONAL%')
             AND ${COMITENTE_FILTER}
           ORDER BY subasta, placa
           LIMIT 2000
@@ -803,7 +800,7 @@ serve(async (req) => {
         sql = `
           SELECT subasta, placa, comprador, documento, descripcion, estado, lote
           FROM \`${TABLES.relatorio}\`
-          WHERE UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+          WHERE ${ESTADO_ALLOWED_FILTER}
             AND ${COMITENTE_FILTER}
           ORDER BY subasta, placa
           LIMIT 2000
@@ -840,8 +837,6 @@ serve(async (req) => {
         });
       }
 
-      const COMITENTE_FILTER = `UPPER(IFNULL(CAST(comitente AS STRING),'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
-      const ESTADO_FILTER = `UPPER(IFNULL(CAST(estado AS STRING),'')) IN ('VENTA', 'CONDICIONAL APROBADO', 'POST-OFERTA APROBADA')`;
       let sql = "";
 
       if (field === "subasta") {
@@ -849,7 +844,7 @@ serve(async (req) => {
           SELECT DISTINCT CAST(subasta AS STRING) AS value, NULL AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND ${ESTADO_FILTER}
+            AND ${ESTADO_ALLOWED_FILTER}
             AND IFNULL(CAST(subasta AS STRING),'') != ''
             AND (
               UPPER(IFNULL(CAST(subasta AS STRING),'')) LIKE '%${qUpper}%'
@@ -863,7 +858,7 @@ serve(async (req) => {
           SELECT DISTINCT CAST(comprador AS STRING) AS value, CAST(documento AS STRING) AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND ${ESTADO_FILTER}
+            AND ${ESTADO_ALLOWED_FILTER}
             AND IFNULL(CAST(comprador AS STRING),'') != ''
             AND (
               UPPER(IFNULL(CAST(comprador AS STRING),'')) LIKE '%${qUpper}%'
@@ -877,7 +872,7 @@ serve(async (req) => {
           SELECT DISTINCT CAST(documento AS STRING) AS value, CAST(comprador AS STRING) AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND ${ESTADO_FILTER}
+            AND ${ESTADO_ALLOWED_FILTER}
             AND IFNULL(CAST(documento AS STRING),'') != ''
             AND UPPER(IFNULL(CAST(documento AS STRING),'')) LIKE '%${qUpper}%'
           ORDER BY value
@@ -888,7 +883,7 @@ serve(async (req) => {
           SELECT DISTINCT UPPER(IFNULL(CAST(placa AS STRING),'')) AS value, CAST(descripcion AS STRING) AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND ${ESTADO_FILTER}
+            AND ${ESTADO_ALLOWED_FILTER}
             AND IFNULL(CAST(placa AS STRING),'') != ''
             AND UPPER(IFNULL(CAST(placa AS STRING),'')) LIKE '%${qUpper}%'
           ORDER BY value
@@ -944,15 +939,13 @@ serve(async (req) => {
         return conditions.length > 0 ? conditions.join(" AND ") : "TRUE";
       };
 
-      const ESTADO_ALLOWED = `UPPER(IFNULL(CAST(estado AS STRING),'')) IN ('VENTA', 'CONDICIONAL APROBADO', 'POST-OFERTA APROBADA')`;
-
       const relatorioSQL = `
         SELECT codigo_k, codigo_, fecha, subasta, lote, comitente, categoria,
                estado, fecha_aprobacion_vendedor, placa, mayor_oferta, valor_inicial,
                comprador, email, documento, ciudad_comprador, departamento_comprador,
                gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
         FROM \`${TABLES.relatorio}\`
-        WHERE ${buildWhereConditions()} AND ${ESTADO_ALLOWED}
+        WHERE ${COMITENTE_FILTER} AND ${buildWhereConditions()} AND ${ESTADO_ALLOWED_FILTER}
         LIMIT 1000
       `;
 
@@ -1022,8 +1015,9 @@ serve(async (req) => {
                    comprador, email, documento, ciudad_comprador, departamento_comprador,
                    gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
             FROM \`${TABLES.relatorio}\`
-            WHERE REGEXP_REPLACE(UPPER(IFNULL(CAST(placa AS STRING), '')), r'[^A-Z0-9]', '') IN (${placasList})
-              AND UPPER(IFNULL(CAST(estado AS STRING),'')) IN ('VENTA', 'CONDICIONAL APROBADO', 'POST-OFERTA APROBADA')
+            WHERE ${COMITENTE_FILTER}
+              AND REGEXP_REPLACE(UPPER(IFNULL(CAST(placa AS STRING), '')), r'[^A-Z0-9]', '') IN (${placasList})
+              AND ${ESTADO_ALLOWED_FILTER}
             LIMIT 5000
           `;
           relatorio = await safeQuery(relatorioByPlacasSQL);
