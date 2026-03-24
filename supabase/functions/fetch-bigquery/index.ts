@@ -771,7 +771,7 @@ serve(async (req) => {
       } else if (category === "pendientes_retiro") {
         sql = `
           ${allowedRelatorioCte}
-          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.fechaEntregaVehiculo, r.lote
+          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.fechaEntregaVehiculo, r.lote, r.tramitador
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
