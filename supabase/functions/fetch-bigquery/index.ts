@@ -551,6 +551,7 @@ serve(async (req) => {
           pendientes_pago: result[0]?.pendientes_pago || '0',
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
+          pendientes_filtros: result[0]?.pendientes_filtros || '0',
           pagos_pendientes_revision: String(combinedPendingPlacas.size),
           soportes_pendientes_revision: String(pendingPaymentReviewEntries.length),
         };
