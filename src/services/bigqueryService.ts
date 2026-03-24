@@ -382,9 +382,11 @@ export function formatDate(date: string | null): string {
   // Handle various date formats from BigQuery
   const parsed = new Date(date);
   if (isNaN(parsed.getTime())) return date; // Return as-is if can't parse
+  // Use UTC to avoid timezone shifts (dates from BigQuery are date-only, not datetime)
   return new Intl.DateTimeFormat("es-CO", {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "UTC",
   }).format(parsed);
 }
