@@ -298,6 +298,50 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "search";
 
+    // ── DEBUG: diagnose filtros count ──
+    if (action === "debug_filtros") {
+      const debugSQL = `
+        SELECT 
+          'subastas_in_consolidado' AS source,
+          UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
+          IFNULL(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') AS fecha_aprobacion,
+          UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa
+        FROM \`${TABLES.consolidadoChan}\`
+        WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+          AND IFNULL(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = ''
+          AND UPPER(IFNULL(CAST(placa AS STRING), '')) != ''
+        LIMIT 50
+      `;
+      const debugSQL2 = `
+        SELECT DISTINCT UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
+          SAFE_CAST(REGEXP_EXTRACT(IFNULL(CAST(subasta AS STRING), ''), r'(20\\d{2})') AS INT64) AS extracted_year
+        FROM \`${TABLES.consolidadoChan}\`
+        WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+        LIMIT 50
+      `;
+      const debugSQL3 = `
+        SELECT DISTINCT UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta
+        FROM \`${TABLES.relatorio}\`
+        WHERE ${ESTADO_ALLOWED_FILTER}
+          AND ${COMITENTE_FILTER}
+          AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+          AND SAFE_CAST(REGEXP_EXTRACT(IFNULL(CAST(subasta AS STRING), ''), r'(20\\d{2})') AS INT64) >= 2026
+        LIMIT 50
+      `;
+      const [r1, r2, r3] = await Promise.all([
+        queryBQ(token, projectId, debugSQL),
+        queryBQ(token, projectId, debugSQL2),
+        queryBQ(token, projectId, debugSQL3),
+      ]);
+      return new Response(JSON.stringify({
+        pending_in_consolidado: r1,
+        subastas_years_in_consolidado: r2,
+        allowed_subastas_from_relatorio: r3,
+      }, null, 2), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── SEARCH by documento, comprador name, placa, or subasta ──
     if (action === "search") {
       const q = sanitize(url.searchParams.get("q") || "");
