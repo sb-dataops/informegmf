@@ -486,6 +486,13 @@ serve(async (req) => {
           FROM retiros_filtered
         )
         ,
+        allowed_subastas AS (
+          SELECT DISTINCT UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta
+          FROM \`${TABLES.relatorio}\`
+          WHERE ${ESTADO_ALLOWED_FILTER}
+            AND ${COMITENTE_FILTER}
+            AND IFNULL(CAST(subasta AS STRING), '') != ''
+        ),
         consolidado_filtros AS (
           SELECT COUNT(DISTINCT UPPER(IFNULL(CAST(c.placa AS STRING), ''))) AS pendientes_filtros
           FROM \`${TABLES.consolidadoChan}\` c
@@ -494,6 +501,7 @@ serve(async (req) => {
             FROM allowed_relatorio
             WHERE placa != ''
           ) ar ON UPPER(IFNULL(CAST(c.placa AS STRING), '')) = ar.placa
+          INNER JOIN allowed_subastas asub ON UPPER(IFNULL(CAST(c.subasta AS STRING), '')) = asub.subasta
           WHERE IFNULL(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = ''
             AND UPPER(IFNULL(CAST(c.placa AS STRING), '')) != ''
         )

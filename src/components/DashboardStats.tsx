@@ -84,6 +84,12 @@ const DashboardStats = () => {
           tone: "bg-warning/10 text-warning",
           icon: Truck,
         },
+      ],
+    },
+    {
+      title: "FILTROS",
+      icon: Filter,
+      items: [
         {
           label: "Pendientes por aprobación de filtros",
           value: stats ? Number(stats.pendientes_filtros).toLocaleString("es-CO") : "—",
