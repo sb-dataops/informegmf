@@ -136,8 +136,8 @@ const Index = () => {
   const goBack = () => {
     setSelectedComprador(null);
     setSelectedSubasta(null);
-    setSearchTerm("");
-    setQuery("");
+    setActiveFilters(null);
+    setFilterValues({ subasta: "", comprador: "", documento: "", placa: "" });
   };
 
   const goBackToResults = () => {
