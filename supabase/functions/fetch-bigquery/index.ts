@@ -849,7 +849,7 @@ serve(async (req) => {
           SELECT DISTINCT CAST(subasta AS STRING) AS value, NULL AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND UPPER(IFNULL(CAST(estado AS STRING),'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND ${ESTADO_FILTER}
             AND IFNULL(CAST(subasta AS STRING),'') != ''
             AND (
               UPPER(IFNULL(CAST(subasta AS STRING),'')) LIKE '%${qUpper}%'
@@ -863,7 +863,7 @@ serve(async (req) => {
           SELECT DISTINCT CAST(comprador AS STRING) AS value, CAST(documento AS STRING) AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND UPPER(IFNULL(CAST(estado AS STRING),'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND ${ESTADO_FILTER}
             AND IFNULL(CAST(comprador AS STRING),'') != ''
             AND (
               UPPER(IFNULL(CAST(comprador AS STRING),'')) LIKE '%${qUpper}%'
@@ -877,7 +877,7 @@ serve(async (req) => {
           SELECT DISTINCT CAST(documento AS STRING) AS value, CAST(comprador AS STRING) AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND UPPER(IFNULL(CAST(estado AS STRING),'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND ${ESTADO_FILTER}
             AND IFNULL(CAST(documento AS STRING),'') != ''
             AND UPPER(IFNULL(CAST(documento AS STRING),'')) LIKE '%${qUpper}%'
           ORDER BY value
@@ -888,7 +888,7 @@ serve(async (req) => {
           SELECT DISTINCT UPPER(IFNULL(CAST(placa AS STRING),'')) AS value, CAST(descripcion AS STRING) AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND UPPER(IFNULL(CAST(estado AS STRING),'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND ${ESTADO_FILTER}
             AND IFNULL(CAST(placa AS STRING),'') != ''
             AND UPPER(IFNULL(CAST(placa AS STRING),'')) LIKE '%${qUpper}%'
           ORDER BY value
