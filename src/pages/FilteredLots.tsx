@@ -54,7 +54,7 @@ const FilteredLots = () => {
   const filteredRows = useMemo(() => {
     const baseRows = normalizedSearch
       ? rows.filter((r) =>
-          [r.placa, r.comprador, r.subasta, r.descripcion]
+          [r.placa, r.comprador, r.subasta, r.descripcion, r.tramitador]
             .filter(Boolean)
             .some((val) => val!.toLowerCase().includes(normalizedSearch)),
         )
