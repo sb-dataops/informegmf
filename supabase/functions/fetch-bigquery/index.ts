@@ -841,6 +841,7 @@ serve(async (req) => {
       }
 
       const COMITENTE_FILTER = `UPPER(IFNULL(CAST(comitente AS STRING),'')) = UPPER('Gm Financial Colombia Sa Compañia De Financiamiento')`;
+      const ESTADO_FILTER = `UPPER(IFNULL(CAST(estado AS STRING),'')) IN ('VENTA', 'CONDICIONAL APROBADO', 'POST-OFERTA APROBADA')`;
       let sql = "";
 
       if (field === "subasta") {
