@@ -9,6 +9,33 @@ import { buildAllowedPlacasFromRelatorio, isAllowedPlaca, isCondicionalRechazado
 
 const FUNCTION_NAME = "fetch-bigquery";
 
+function normalizeDocumento(value: string | null | undefined): string | null {
+  const normalized = (value || "").trim();
+  return normalized || null;
+}
+
+function getAllowedRelatorioRows(result: SearchResult) {
+  return result.relatorio.filter((row) => !isCondicionalRechazado(row.estado));
+}
+
+function buildAllowedDocumentosByPlaca(result: SearchResult): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+
+  getAllowedRelatorioRows(result).forEach((row) => {
+    const placa = normalizePlaca(row.placa);
+    const documento = normalizeDocumento(row.documento);
+    if (!placa || !documento) return;
+
+    if (!map.has(placa)) {
+      map.set(placa, new Set());
+    }
+
+    map.get(placa)!.add(documento);
+  });
+
+  return map;
+}
+
 export async function searchBigQuery(query: string): Promise<SearchResult> {
   // supabase.functions.invoke doesn't support query params well for GET,
   // so let's use fetch directly
@@ -75,8 +102,6 @@ export async function fetchFilteredLots(category: string): Promise<FilteredLotsR
 // Extract unique buyers from search results
 export function extractCompradores(result: SearchResult): Comprador[] {
   const map = new Map<string, Comprador>();
-  const allowedPlacas = buildAllowedPlacasFromRelatorio(result.relatorio);
-  const hasRelatorioFilter = allowedPlacas.size > 0;
 
   const addBuyer = (doc: string | null, name: string | null, email?: string | null, movil?: string | null, dir?: string | null, ciudad?: string | null, depto?: string | null) => {
     if (!doc) return;
@@ -93,30 +118,11 @@ export function extractCompradores(result: SearchResult): Comprador[] {
     }
   };
 
-  const isAllowed = (placa: string | null | undefined) => {
-    if (!hasRelatorioFilter) return true;
-    return isAllowedPlaca(placa, allowedPlacas);
-  };
-
-  result.relatorio
+  getAllowedRelatorioRows(result)
     .filter((r) => !isCondicionalRechazado(r.estado))
     .forEach((r) =>
       addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudad_comprador, r.departamento_comprador)
     );
-
-  result.retiros
-    .filter((r) => isAllowed(r.placa))
-    .forEach((r) =>
-      addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion, r.ciudadComprador, r.departamentoComprador)
-    );
-
-  result.servitram
-    .filter((r) => isAllowed(r.placa))
-    .forEach((r) => addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion));
-
-  result.gestramites
-    .filter((r) => isAllowed(r.placa))
-    .forEach((r) => addBuyer(r.documento, r.comprador, r.email, r.movil, r.direccion));
 
   return Array.from(map.values());
 }
@@ -132,6 +138,7 @@ function consolidateVehiculosBase(
   const vehicleMap = new Map<string, VehiculoConsolidado>();
   const { documento, placaFilter, allowedPlacas: explicitAllowedPlacas } = options || {};
   const allowedPlacas = explicitAllowedPlacas !== undefined ? explicitAllowedPlacas : buildAllowedPlacasFromRelatorio(result.relatorio);
+  const allowedDocumentosByPlaca = buildAllowedDocumentosByPlaca(result);
   // When allowedPlacas is an empty set (no relatorio data), skip the filter
   const effectiveAllowedPlacas = (allowedPlacas && allowedPlacas.size === 0) ? null : allowedPlacas;
 
@@ -144,6 +151,26 @@ function consolidateVehiculosBase(
   const matchesAllowedPlaca = (value: string | null | undefined) => {
     if (effectiveAllowedPlacas === null) return true;
     return isAllowedPlaca(value, effectiveAllowedPlacas);
+  };
+  const matchesAllowedRelacion = (placa: string | null | undefined, rowDocumento: string | null | undefined) => {
+    if (effectiveAllowedPlacas === null) return true;
+
+    const normalizedPlaca = normalizePlaca(placa);
+    if (!normalizedPlaca || !isAllowedPlaca(normalizedPlaca, effectiveAllowedPlacas)) {
+      return false;
+    }
+
+    const allowedDocs = allowedDocumentosByPlaca.get(normalizedPlaca);
+    if (!allowedDocs || allowedDocs.size === 0) {
+      return true;
+    }
+
+    const normalizedDocumento = normalizeDocumento(rowDocumento);
+    if (!normalizedDocumento) {
+      return true;
+    }
+
+    return allowedDocs.has(normalizedDocumento);
   };
 
   const getVehicle = (placa: string): VehiculoConsolidado => {
@@ -194,7 +221,7 @@ function consolidateVehiculosBase(
     });
 
   result.retiros
-    .filter((r) => r.placa && matchesDocumento(r.documento) && matchesPlaca(r.placa) && matchesAllowedPlaca(r.placa))
+    .filter((r) => r.placa && matchesDocumento(r.documento) && matchesPlaca(r.placa) && matchesAllowedRelacion(r.placa, r.documento))
     .forEach((r) => {
       const placa = normalizePlaca(r.placa);
       if (!placa) return;
@@ -255,7 +282,7 @@ function consolidateVehiculosBase(
   };
 
   const allTramitadores = [...result.servitram, ...result.gestramites]
-    .filter((r) => r.placa && matchesDocumento(r.documento) && matchesPlaca(r.placa) && matchesAllowedPlaca(r.placa))
+    .filter((r) => r.placa && matchesDocumento(r.documento) && matchesPlaca(r.placa) && matchesAllowedRelacion(r.placa, r.documento))
     .sort((a, b) => getTramitadorSortTime(a) - getTramitadorSortTime(b));
 
   allTramitadores.forEach((r) => {
@@ -297,36 +324,20 @@ export function extractUniqueSubastas(result: SearchResult, query: string): Suba
 
   const subastaMap = new Map<string, { nombre: string; codigo: string | null; placas: Set<string> }>();
 
-  result.relatorio
+  getAllowedRelatorioRows(result)
     .filter(
       (row) =>
-        !isCondicionalRechazado(row.estado) &&
-        (matchesNormalizedSearch(row.subasta, query) || matchesNormalizedSearch(row.codigoSubasta, query)),
+        matchesNormalizedSearch(row.subasta, query),
     )
     .forEach((row) => {
       const key = normalizeSearchText(row.subasta);
       if (!key) return;
       if (!subastaMap.has(key)) {
-        subastaMap.set(key, { nombre: row.subasta || key, codigo: row.codigoSubasta || null, placas: new Set() });
+        subastaMap.set(key, { nombre: row.subasta || key, codigo: null, placas: new Set() });
       }
       const entry = subastaMap.get(key)!;
       const placa = normalizePlaca(row.placa);
       if (placa) entry.placas.add(placa);
-      if (!entry.codigo && row.codigoSubasta) entry.codigo = row.codigoSubasta;
-    });
-
-  [result.retiros, result.servitram, result.gestramites].forEach((rows) => {
-    rows
-      .filter((row) => matchesNormalizedSearch(row.subasta, query))
-      .forEach((row) => {
-        const key = normalizeSearchText(row.subasta);
-        if (!key) return;
-        if (!subastaMap.has(key)) {
-          subastaMap.set(key, { nombre: row.subasta || key, codigo: null, placas: new Set() });
-        }
-        const placa = normalizePlaca(row.placa);
-        if (placa) subastaMap.get(key)!.placas.add(placa);
-      });
   });
 
   return Array.from(subastaMap.values()).map((s) => ({
@@ -341,31 +352,20 @@ export function extractVehiculosBySubasta(result: SearchResult, query: string): 
 
   const matchedPlacas = new Set<string>();
 
-  result.relatorio
+  getAllowedRelatorioRows(result)
     .filter(
       (row) =>
-        !isCondicionalRechazado(row.estado) &&
-        (matchesNormalizedSearch(row.subasta, query) || matchesNormalizedSearch(row.codigoSubasta, query)),
+        matchesNormalizedSearch(row.subasta, query),
     )
     .forEach((row) => {
       const placa = normalizePlaca(row.placa);
       if (placa) matchedPlacas.add(placa);
     });
 
-  [result.retiros, result.servitram, result.gestramites].forEach((rows) => {
-    rows
-      .filter((row) => matchesNormalizedSearch(row.subasta, query))
-      .forEach((row) => {
-        const placa = normalizePlaca(row.placa);
-        if (placa) matchedPlacas.add(placa);
-      });
-  });
-
   if (matchedPlacas.size === 0) return [];
 
   return consolidateVehiculosBase(result, {
     placaFilter: matchedPlacas,
-    allowedPlacas: null,
   });
 }
 
