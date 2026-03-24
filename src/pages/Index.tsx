@@ -184,7 +184,7 @@ const Index = () => {
               </p>
             </div>
 
-            <SearchBar value={query} onChange={setQuery} onSearch={handleSearch} />
+            <SearchFilters values={filterValues} onChange={setFilterValues} onSearch={handleSearch} />
 
             {isLoading && (
               <div className="flex items-center justify-center py-12 gap-3">
