@@ -845,52 +845,52 @@ serve(async (req) => {
 
       if (field === "subasta") {
         sql = `
-          SELECT DISTINCT subasta AS value, codigoSubasta AS extra
+          SELECT DISTINCT CAST(subasta AS STRING) AS value, CAST(codigoSubasta AS STRING) AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
-            AND IFNULL(subasta,'') != ''
+            AND UPPER(IFNULL(CAST(estado AS STRING),'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND IFNULL(CAST(subasta AS STRING),'') != ''
             AND (
-              UPPER(IFNULL(subasta,'')) LIKE '%${qUpper}%'
-              OR UPPER(IFNULL(codigoSubasta,'')) LIKE '%${qUpper}%'
-              OR ${`REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(subasta AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'`}
+              UPPER(IFNULL(CAST(subasta AS STRING),'')) LIKE '%${qUpper}%'
+              OR UPPER(IFNULL(CAST(codigoSubasta AS STRING),'')) LIKE '%${qUpper}%'
+              OR REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(subasta AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'
             )
-          ORDER BY subasta
+          ORDER BY value
           LIMIT 20
         `;
       } else if (field === "comprador") {
         sql = `
-          SELECT DISTINCT comprador AS value, documento AS extra
+          SELECT DISTINCT CAST(comprador AS STRING) AS value, CAST(documento AS STRING) AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
-            AND IFNULL(comprador,'') != ''
+            AND UPPER(IFNULL(CAST(estado AS STRING),'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND IFNULL(CAST(comprador AS STRING),'') != ''
             AND (
-              UPPER(IFNULL(comprador,'')) LIKE '%${qUpper}%'
-              OR ${`REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(comprador AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'`}
+              UPPER(IFNULL(CAST(comprador AS STRING),'')) LIKE '%${qUpper}%'
+              OR REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(comprador AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${qNormalized.toLowerCase()}%'
             )
-          ORDER BY comprador
+          ORDER BY value
           LIMIT 20
         `;
       } else if (field === "documento") {
         sql = `
-          SELECT DISTINCT documento AS value, comprador AS extra
+          SELECT DISTINCT CAST(documento AS STRING) AS value, CAST(comprador AS STRING) AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
-            AND IFNULL(documento,'') != ''
-            AND UPPER(IFNULL(documento,'')) LIKE '%${qUpper}%'
-          ORDER BY documento
+            AND UPPER(IFNULL(CAST(estado AS STRING),'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND IFNULL(CAST(documento AS STRING),'') != ''
+            AND UPPER(IFNULL(CAST(documento AS STRING),'')) LIKE '%${qUpper}%'
+          ORDER BY value
           LIMIT 20
         `;
       } else if (field === "placa") {
         sql = `
-          SELECT DISTINCT UPPER(IFNULL(placa,'')) AS value, descripcion AS extra
+          SELECT DISTINCT UPPER(IFNULL(CAST(placa AS STRING),'')) AS value, CAST(descripcion AS STRING) AS extra
           FROM \`${TABLES.relatorio}\`
           WHERE ${COMITENTE_FILTER}
-            AND UPPER(IFNULL(estado,'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
-            AND IFNULL(placa,'') != ''
-            AND UPPER(IFNULL(placa,'')) LIKE '%${qUpper}%'
+            AND UPPER(IFNULL(CAST(estado AS STRING),'')) NOT LIKE '%CONDICIONAL RECHAZADO%'
+            AND IFNULL(CAST(placa AS STRING),'') != ''
+            AND UPPER(IFNULL(CAST(placa AS STRING),'')) LIKE '%${qUpper}%'
           ORDER BY value
           LIMIT 20
         `;
