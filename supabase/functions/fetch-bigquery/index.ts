@@ -929,13 +929,13 @@ serve(async (req) => {
         const p = prefix ? `${prefix}.` : "";
         if (subasta) {
           const subNorm = normalizeSearchText(subasta);
-          conditions.push(`(UPPER(IFNULL(${p}subasta,'')) = '${subasta.toUpperCase()}' OR REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(${p}subasta AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${subNorm.toLowerCase()}%')`);
+          conditions.push(`(UPPER(IFNULL(CAST(${p}subasta AS STRING),'')) = '${subasta.toUpperCase()}' OR REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(${p}subasta AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${subNorm.toLowerCase()}%')`);
         }
         if (comprador) {
-          conditions.push(`UPPER(IFNULL(${p}comprador,'')) LIKE '%${comprador.toUpperCase()}%'`);
+          conditions.push(`UPPER(IFNULL(CAST(${p}comprador AS STRING),'')) LIKE '%${comprador.toUpperCase()}%'`);
         }
         if (documento) {
-          conditions.push(`UPPER(IFNULL(${p}documento,'')) = '${documento.toUpperCase()}'`);
+          conditions.push(`UPPER(IFNULL(CAST(${p}documento AS STRING),'')) = '${documento.toUpperCase()}'`);
         }
         if (placa) {
           const placaNorm = normalizeSearchText(placa);
