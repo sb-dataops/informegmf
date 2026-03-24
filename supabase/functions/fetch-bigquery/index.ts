@@ -488,15 +488,15 @@ serve(async (req) => {
         ,
         allowed_subastas AS (
           SELECT DISTINCT UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta
-          FROM `${TABLES.relatorio}`
+          FROM \`${TABLES.relatorio}\`
           WHERE ${ESTADO_ALLOWED_FILTER}
             AND ${COMITENTE_FILTER}
             AND IFNULL(CAST(subasta AS STRING), '') != ''
-            AND SAFE_CAST(REGEXP_EXTRACT(IFNULL(CAST(subasta AS STRING), ''), r'(20\d{2})') AS INT64) >= 2026
+            AND SAFE_CAST(REGEXP_EXTRACT(IFNULL(CAST(subasta AS STRING), ''), r'(20\\d{2})') AS INT64) >= 2026
         ),
         consolidado_filtros AS (
           SELECT COUNT(DISTINCT UPPER(IFNULL(CAST(c.placa AS STRING), ''))) AS pendientes_filtros
-          FROM `${TABLES.consolidadoChan}` c
+          FROM \`${TABLES.consolidadoChan}\` c
           INNER JOIN (
             SELECT DISTINCT placa
             FROM allowed_relatorio
