@@ -200,7 +200,6 @@ function consolidateVehiculosBase(
       if (!placa) return;
       const v = getVehicle(placa);
       v.descripcion = r.descripcion || v.descripcion;
-      v.fecha = r.fecha || v.fecha;
       v.subasta = r.subasta || v.subasta;
       v.lote = r.lote || v.lote;
       v.estado = r.estado || v.estado;
