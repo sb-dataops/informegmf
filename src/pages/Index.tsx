@@ -1,14 +1,15 @@
 import { useMemo, useState, useCallback } from "react";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import SearchBar from "@/components/SearchBar";
+import SearchFilters, { type SearchFiltersValues } from "@/components/SearchFilters";
 import BuyerHeader from "@/components/BuyerHeader";
 import VehicleCard from "@/components/VehicleCard";
 import VehicleSupportViewer from "@/components/VehicleSupportViewer";
 import DashboardStats from "@/components/DashboardStats";
 import PaymentDeadlineAlerts from "@/components/PaymentDeadlineAlerts";
 import SubastaFilters from "@/components/SubastaFilters";
-import { searchBigQuery, extractCompradores, consolidateVehiculos, extractVehiculosBySubasta, extractUniqueSubastas, type SubastaMatch } from "@/services/bigqueryService";
+import { extractCompradores, consolidateVehiculos, extractVehiculosBySubasta, extractUniqueSubastas, type SubastaMatch } from "@/services/bigqueryService";
+import { multiSearch, type MultiSearchFilters } from "@/services/autocompleteService";
 import { fetchAllPagos, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
 import { calculateSaldoPendiente, calculateTotalPagos, parseCurrencyLikeValue } from "@/lib/payment-utils";
