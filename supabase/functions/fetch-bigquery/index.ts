@@ -485,6 +485,18 @@ serve(async (req) => {
             COUNTIF(aprobacion = '') AS pendientes_traspaso
           FROM retiros_filtered
         )
+        ,
+        consolidado_filtros AS (
+          SELECT COUNT(DISTINCT UPPER(IFNULL(CAST(c.placa AS STRING), ''))) AS pendientes_filtros
+          FROM \`${TABLES.consolidadoChan}\` c
+          INNER JOIN (
+            SELECT DISTINCT placa
+            FROM allowed_relatorio
+            WHERE placa != ''
+          ) ar ON UPPER(IFNULL(CAST(c.placa AS STRING), '')) = ar.placa
+          WHERE IFNULL(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = ''
+            AND UPPER(IFNULL(CAST(c.placa AS STRING), '')) != ''
+        )
         SELECT
           CAST(relatorio_stats.total AS STRING) AS total,
           CAST(relatorio_stats.aprobados AS STRING) AS aprobados,
@@ -492,9 +504,11 @@ serve(async (req) => {
           CAST(relatorio_stats.pendientes AS STRING) AS pendientes,
           CAST(retiros_stats.pendientes_pago AS STRING) AS pendientes_pago,
           CAST(retiros_stats.pendientes_traspaso AS STRING) AS pendientes_traspaso,
-          CAST(retiros_stats.pendientes_retiro AS STRING) AS pendientes_retiro
+          CAST(retiros_stats.pendientes_retiro AS STRING) AS pendientes_retiro,
+          CAST(consolidado_filtros.pendientes_filtros AS STRING) AS pendientes_filtros
         FROM relatorio_stats
         CROSS JOIN retiros_stats
+        CROSS JOIN consolidado_filtros
       `;
 
       let stats = {
