@@ -54,7 +54,7 @@ const FilteredLots = () => {
   const filteredRows = useMemo(() => {
     const baseRows = normalizedSearch
       ? rows.filter((r) =>
-          [r.placa, r.comprador, r.subasta, r.descripcion]
+          [r.placa, r.comprador, r.subasta, r.descripcion, r.tramitador]
             .filter(Boolean)
             .some((val) => val!.toLowerCase().includes(normalizedSearch)),
         )
@@ -212,6 +212,9 @@ const FilteredLots = () => {
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Tipo</th>
                           )}
                           <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Descripción</th>
+                          {!isPendingPaymentsCategory && (
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Tramitador</th>
+                          )}
                           <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Estado</th>
                         </tr>
                       </thead>
@@ -269,6 +272,11 @@ const FilteredLots = () => {
                               <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[260px] truncate align-top">
                                 {item.descripcion || "—"}
                               </td>
+                              {!isPendingPaymentsCategory && (
+                                <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell align-top">
+                                  {item.tramitador || "—"}
+                                </td>
+                              )}
                               <td className="px-4 py-2.5 hidden md:table-cell align-top">
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                                   {item.estadoTraspaso || item.estadoRetiro || item.estado || "—"}
