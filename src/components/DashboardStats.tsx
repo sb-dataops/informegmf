@@ -84,6 +84,12 @@ const DashboardStats = () => {
           tone: "bg-warning/10 text-warning",
           icon: Truck,
         },
+      ],
+    },
+    {
+      title: "FILTROS",
+      icon: Filter,
+      items: [
         {
           label: "Pendientes por aprobación de filtros",
           value: stats ? Number(stats.pendientes_filtros).toLocaleString("es-CO") : "—",
@@ -97,7 +103,7 @@ const DashboardStats = () => {
 
   return (
     <div className="space-y-5 pt-2">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         {sections.map((section) => {
           const SectionIcon = section.icon;
 
