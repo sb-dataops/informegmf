@@ -127,37 +127,88 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
   });
 }
 
-async function getPendientesFiltrosBQ(token: string, projectId: string): Promise<{ placa: string; subasta: string }[]> {
-  // Step 1: Get GM FINANCIAL subastas from relatorio that have 2026+ dates
-  // Step 2: Filter consolidadoChan by those subastas where approval is empty
-  const sql = `
-    WITH subastas_2026 AS (
-      SELECT DISTINCT UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
-      FROM \`${TABLES.relatorio}\`
-      WHERE ${COMITENTE_FILTER}
-        AND ${ESTADO_ALLOWED_FILTER}
-        AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
-        AND COALESCE(
-          SAFE.PARSE_DATE('%Y-%m-%d', CAST(fecha AS STRING)),
-          SAFE.PARSE_DATE('%d/%m/%Y', CAST(fecha AS STRING)),
-          SAFE.PARSE_DATE('%m/%d/%Y', CAST(fecha AS STRING))
-        ) >= DATE '2026-01-01'
-    )
-    SELECT DISTINCT
-      UPPER(TRIM(IFNULL(CAST(c.placa AS STRING), ''))) AS placa,
-      UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) AS subasta
-    FROM \`${TABLES.consolidadoChan}\` c
-    INNER JOIN subastas_2026 s ON UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) = s.subasta
-    WHERE IFNULL(TRIM(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING)), '') = ''
-      AND IFNULL(TRIM(CAST(c.placa AS STRING)), '') != ''
-    ORDER BY subasta, placa
+const CONTROL_PAGOS_SHEET_ID = "1bCKp2H1F950cmjOh4NfgowaPzrEPu42wFT736ob7Ke4";
+const CONTROL_PAGOS_SHEET_NAME = "controlPagos";
+
+async function readGoogleSheet(token: string, spreadsheetId: string, range: string): Promise<string[][]> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=FORMATTED_VALUE`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Google Sheets error: ${JSON.stringify(data)}`);
+  return data.values || [];
+}
+
+type ControlPagosRow = {
+  placa: string;
+  subasta: string;
+  fechaAprobacionVendedorCreacionFiltros: string;
+};
+
+async function getControlPagosRows(token: string): Promise<ControlPagosRow[]> {
+  const rows = await readGoogleSheet(token, CONTROL_PAGOS_SHEET_ID, `${CONTROL_PAGOS_SHEET_NAME}!A1:Z`);
+  if (rows.length === 0) return [];
+
+  const header = rows[0].map((h) => (h || "").trim().toLowerCase());
+  const subastaIdx = header.findIndex((h) => h === "subasta");
+  const placaIdx = header.findIndex((h) => h === "placa");
+  const fechaIdx = header.findIndex((h) => h.includes("fechaaprobacionvendedor") && h.includes("filtros"));
+
+  console.log(`[sheets] Headers found - subasta:${subastaIdx}, placa:${placaIdx}, fecha:${fechaIdx}`);
+
+  if (placaIdx === -1 || subastaIdx === -1 || fechaIdx === -1) {
+    console.error(`[sheets] Could not find required columns. Headers: ${JSON.stringify(header)}`);
+    return [];
+  }
+
+  return rows.slice(1).map((row) => ({
+    placa: (row[placaIdx] || "").trim().toUpperCase(),
+    subasta: (row[subastaIdx] || "").trim().toUpperCase(),
+    fechaAprobacionVendedorCreacionFiltros: (row[fechaIdx] || "").trim(),
+  }));
+}
+
+async function getPendientesFiltros(token: string, projectId: string): Promise<{ placa: string; subasta: string }[]> {
+  // Step 1: Get GM FINANCIAL subastas with dates >= 2025 from relatorio
+  const subastasSql = `
+    SELECT DISTINCT UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
+    FROM \`${TABLES.relatorio}\`
+    WHERE ${COMITENTE_FILTER}
+      AND ${ESTADO_ALLOWED_FILTER}
+      AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+      AND COALESCE(
+        SAFE.PARSE_DATE('%Y-%m-%d', CAST(fecha AS STRING)),
+        SAFE.PARSE_DATE('%d/%m/%Y', CAST(fecha AS STRING)),
+        SAFE.PARSE_DATE('%m/%d/%Y', CAST(fecha AS STRING))
+      ) >= DATE '2025-01-01'
   `;
 
-  const rows = await queryBQ(token, projectId, sql);
-  return rows.map((row) => ({
-    placa: row.placa || "",
-    subasta: row.subasta || "",
-  }));
+  const [subastasRows, controlPagosRows] = await Promise.all([
+    queryBQ(token, projectId, subastasSql),
+    getControlPagosRows(token),
+  ]);
+
+  const allowedSubastas = new Set(subastasRows.map((r) => (r.subasta || "").trim()));
+  console.log(`[filtros] Allowed subastas (2025+): ${JSON.stringify(Array.from(allowedSubastas))}`);
+
+  // Step 2: Filter controlPagos rows by allowed subastas and empty approval
+  const pendientes = controlPagosRows
+    .filter((row) =>
+      row.placa !== "" &&
+      allowedSubastas.has(row.subasta) &&
+      row.fechaAprobacionVendedorCreacionFiltros === ""
+    );
+
+  // Deduplicate by placa
+  const seen = new Set<string>();
+  const unique = pendientes.filter((row) => {
+    if (seen.has(row.placa)) return false;
+    seen.add(row.placa);
+    return true;
+  });
+
+  return unique.map((row) => ({ placa: row.placa, subasta: row.subasta }));
 }
 
 function sanitize(input: string): string {
@@ -574,8 +625,8 @@ serve(async (req) => {
             console.error(`[pending-payment-stats] FAILED:`, error instanceof Error ? error.message : error);
             return [] as PendingPaymentRow[];
           }),
-          getPendientesFiltrosBQ(token, projectId).catch((error) => {
-            console.error(`[pendientes-filtros-bq] FAILED:`, error instanceof Error ? error.message : error);
+          getPendientesFiltros(token, projectId).catch((error) => {
+            console.error(`[pendientes-filtros] FAILED:`, error instanceof Error ? error.message : error);
             return [] as { placa: string; subasta: string }[];
           }),
         ]);
@@ -859,7 +910,7 @@ serve(async (req) => {
           LIMIT 2000
         `;
       } else if (category === "pendientes_filtros") {
-        const pendientesFiltrosRows = await getPendientesFiltrosBQ(token, projectId);
+        const pendientesFiltrosRows = await getPendientesFiltros(token, projectId);
         const rows = pendientesFiltrosRows.map((r) => ({
           subasta: r.subasta,
           placa: r.placa,
