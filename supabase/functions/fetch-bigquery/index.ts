@@ -127,59 +127,38 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
   });
 }
 
-const CONTROL_PAGOS_SHEET_ID = "1bCKp2H1F950cmjOh4NfgowaPzrEPu42wFT736ob7Ke4";
-const CONTROL_PAGOS_SHEET_NAME = "controlPagos";
-
-async function readGoogleSheet(token: string, spreadsheetId: string, range: string): Promise<string[][]> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=FORMATTED_VALUE`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Google Sheets error: ${JSON.stringify(data)}`);
-  return data.values || [];
-}
-
-type ControlPagosRow = {
-  placa: string;
-  subasta: string;
-  fechaAprobacionVendedorCreacionFiltros: string;
-};
-
-async function getControlPagosRows(token: string): Promise<ControlPagosRow[]> {
-  // Read columns C (subasta), K (placa), P (fechaAprobacionVendedorCreacionFiltros)
-  const rows = await readGoogleSheet(token, CONTROL_PAGOS_SHEET_ID, `${CONTROL_PAGOS_SHEET_NAME}!A1:Z`);
-  if (rows.length === 0) return [];
-
-  // Find header row to get column indices
-  const header = rows[0].map((h) => (h || "").trim().toLowerCase());
-  const subastaIdx = header.findIndex((h) => h === "subasta");
-  const placaIdx = header.findIndex((h) => h === "placa");
-  const fechaIdx = header.findIndex((h) => h.includes("fechaaprobacionvendedor") && h.includes("filtros"));
-
-  console.log(`[sheets] Headers found - subasta:${subastaIdx}, placa:${placaIdx}, fecha:${fechaIdx}`);
-  console.log(`[sheets] All headers: ${JSON.stringify(header)}`);
-
-  if (placaIdx === -1 || subastaIdx === -1 || fechaIdx === -1) {
-    console.error(`[sheets] Could not find required columns. Headers: ${JSON.stringify(header)}`);
-    return [];
-  }
-
-  return rows.slice(1).map((row) => ({
-    placa: (row[placaIdx] || "").trim().toUpperCase(),
-    subasta: (row[subastaIdx] || "").trim().toUpperCase(),
-    fechaAprobacionVendedorCreacionFiltros: (row[fechaIdx] || "").trim(),
-  }));
-}
-
-function getPendientesFiltrosFromSheet(controlPagosRows: ControlPagosRow[]): string[] {
-  return controlPagosRows
-    .filter((row) =>
-      row.placa !== "" &&
-      row.subasta.includes("GM FINANCIAL") &&
-      row.fechaAprobacionVendedorCreacionFiltros === ""
+async function getPendientesFiltrosBQ(token: string, projectId: string): Promise<{ placa: string; subasta: string }[]> {
+  // Get placas from consolidadoChan where subasta contains GM FINANCIAL and fechaAprobacionVendedorCreacionFiltros is empty
+  // Cross-reference with relatorio to only include 2026+ dates
+  const sql = `
+    WITH filtros_pendientes AS (
+      SELECT
+        UPPER(TRIM(IFNULL(CAST(placa AS STRING), ''))) AS placa,
+        IFNULL(CAST(subasta AS STRING), '') AS subasta
+      FROM \`${TABLES.consolidadoChan}\`
+      WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+        AND IFNULL(TRIM(CAST(fechaAprobacionVendedorCreacionFiltros AS STRING)), '') = ''
+        AND IFNULL(TRIM(CAST(placa AS STRING)), '') != ''
+    ),
+    relatorio_2026 AS (
+      SELECT DISTINCT UPPER(IFNULL(TRIM(CAST(placa AS STRING)), '')) AS placa
+      FROM \`${TABLES.relatorio}\`
+      WHERE ${COMITENTE_FILTER}
+        AND ${ESTADO_ALLOWED_FILTER}
+        AND IFNULL(TRIM(CAST(placa AS STRING)), '') != ''
+        AND SAFE.PARSE_DATE('%Y-%m-%d', CAST(fecha AS STRING)) >= DATE '2026-01-01'
     )
-    .map((row) => row.placa);
+    SELECT fp.placa, fp.subasta
+    FROM filtros_pendientes fp
+    INNER JOIN relatorio_2026 r ON fp.placa = r.placa
+    ORDER BY fp.subasta, fp.placa
+  `;
+
+  const rows = await queryBQ(token, projectId, sql);
+  return rows.map((row) => ({
+    placa: row.placa || "",
+    subasta: row.subasta || "",
+  }));
 }
 
 function sanitize(input: string): string {
