@@ -318,6 +318,26 @@ serve(async (req) => {
       });
     }
 
+    if (action === "debug_columns") {
+      const sql = `
+        SELECT 
+          UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
+          UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
+          TO_JSON_STRING(fechaAprobacionVendedorDocsCreacionFiltros) AS fecha_json,
+          CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING) AS fecha_str,
+          TO_JSON_STRING(filtrosCreacionCliente) AS filtros_json,
+          TO_JSON_STRING(fechaEnvioSolicitudVendedorCreacionFiltros) AS envio_json,
+          TO_JSON_STRING(estadoVenta) AS estado_json
+        FROM \`${TABLES.consolidadoChan}\`
+        WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) = 'GM FINANCIAL 69'
+        LIMIT 15
+      `;
+      const rows = await queryBQ(token, projectId, sql);
+      return new Response(JSON.stringify(rows, null, 2), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── SEARCH by documento, comprador name, placa, or subasta ──
     if (action === "search") {
       const q = sanitize(url.searchParams.get("q") || "");
