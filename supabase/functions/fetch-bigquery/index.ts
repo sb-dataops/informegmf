@@ -304,12 +304,14 @@ serve(async (req) => {
         SELECT 
           UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
           UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
-          CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING) AS fecha_raw,
-          LENGTH(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING)) AS fecha_len,
-          CAST(filtrosCreacionCliente AS STRING) AS filtros_raw
+          CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING) AS fecha_aprobacion,
+          CAST(filtrosCreacionCliente AS STRING) AS filtros,
+          CAST(fechaEnvioSolicitudVendedorCreacionFiltros AS STRING) AS fecha_envio,
+          CAST(estadoVenta AS STRING) AS estado_venta
         FROM \`${TABLES.consolidadoChan}\`
-        WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL 69%'
-        LIMIT 20
+        WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL 6%'
+        ORDER BY subasta, placa
+        LIMIT 100
       `;
       const rows = await queryBQ(token, projectId, sql);
       return new Response(JSON.stringify(rows, null, 2), {
