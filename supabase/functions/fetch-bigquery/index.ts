@@ -562,7 +562,7 @@ serve(async (req) => {
       };
 
       try {
-        const [result, pendingPaymentReviewEntries, pendingPaymentRows, controlPagosRows] = await Promise.all([
+        const [result, pendingPaymentReviewEntries, pendingPaymentRows, pendientesFiltrosRows] = await Promise.all([
           queryBQ(token, projectId, statsSQL),
           getPendingPaymentReviewEntries().catch((error) => {
             console.error(`[payment-review-stats] FAILED:`, error instanceof Error ? error.message : error);
@@ -572,16 +572,15 @@ serve(async (req) => {
             console.error(`[pending-payment-stats] FAILED:`, error instanceof Error ? error.message : error);
             return [] as PendingPaymentRow[];
           }),
-          getControlPagosRows(token).catch((error) => {
-            console.error(`[control-pagos-sheets] FAILED:`, error instanceof Error ? error.message : error);
-            return [] as ControlPagosRow[];
+          getPendientesFiltrosBQ(token, projectId).catch((error) => {
+            console.error(`[pendientes-filtros-bq] FAILED:`, error instanceof Error ? error.message : error);
+            return [] as { placa: string; subasta: string }[];
           }),
         ]);
 
-        const pendientesFiltros = getPendientesFiltrosFromSheet(controlPagosRows);
-        console.log(`[stats] pendientes_filtros from Sheets: ${pendientesFiltros.length}, placas: ${JSON.stringify(pendientesFiltros)}`);
+        console.log(`[stats] pendientes_filtros from BQ: ${pendientesFiltrosRows.length}, placas: ${JSON.stringify(pendientesFiltrosRows.map(r => r.placa))}`);
+        console.log(`[stats] result:`, JSON.stringify(result));
 
-      console.log(`[stats] result:`, JSON.stringify(result));
         const combinedPendingPlacas = new Set([
           ...pendingPaymentReviewEntries.map((entry) => entry.placa),
           ...pendingPaymentRows.map((row) => row.placa),
@@ -595,7 +594,7 @@ serve(async (req) => {
           pendientes_pago: result[0]?.pendientes_pago || '0',
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
-          pendientes_filtros: String(pendientesFiltros.length),
+          pendientes_filtros: String(pendientesFiltrosRows.length),
           pagos_pendientes_revision: String(combinedPendingPlacas.size),
           soportes_pendientes_revision: String(pendingPaymentReviewEntries.length),
         };
