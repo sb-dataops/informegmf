@@ -583,7 +583,7 @@ serve(async (req) => {
       };
 
       try {
-        const [result, pendingPaymentReviewEntries, pendingPaymentRows] = await Promise.all([
+        const [result, pendingPaymentReviewEntries, pendingPaymentRows, controlPagosRows] = await Promise.all([
           queryBQ(token, projectId, statsSQL),
           getPendingPaymentReviewEntries().catch((error) => {
             console.error(`[payment-review-stats] FAILED:`, error instanceof Error ? error.message : error);
@@ -593,7 +593,14 @@ serve(async (req) => {
             console.error(`[pending-payment-stats] FAILED:`, error instanceof Error ? error.message : error);
             return [] as PendingPaymentRow[];
           }),
+          getControlPagosRows(token).catch((error) => {
+            console.error(`[control-pagos-sheets] FAILED:`, error instanceof Error ? error.message : error);
+            return [] as ControlPagosRow[];
+          }),
         ]);
+
+        const pendientesFiltros = getPendientesFiltrosFromSheet(controlPagosRows);
+        console.log(`[stats] pendientes_filtros from Sheets: ${pendientesFiltros.length}, placas: ${JSON.stringify(pendientesFiltros)}`);
 
       console.log(`[stats] result:`, JSON.stringify(result));
         const combinedPendingPlacas = new Set([
@@ -609,7 +616,7 @@ serve(async (req) => {
           pendientes_pago: result[0]?.pendientes_pago || '0',
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
-          pendientes_filtros: result[0]?.pendientes_filtros || '0',
+          pendientes_filtros: String(pendientesFiltros.length),
           pagos_pendientes_revision: String(combinedPendingPlacas.size),
           soportes_pendientes_revision: String(pendingPaymentReviewEntries.length),
         };
