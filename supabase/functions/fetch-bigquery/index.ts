@@ -128,34 +128,29 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
 }
 
 async function getPendientesFiltrosBQ(token: string, projectId: string): Promise<{ placa: string; subasta: string }[]> {
+  // Step 1: Get GM FINANCIAL subastas from relatorio that have 2026+ dates
+  // Step 2: Filter consolidadoChan by those subastas where approval is empty
   const sql = `
-    WITH filtros_pendientes AS (
-      SELECT DISTINCT
-        UPPER(TRIM(IFNULL(CAST(placa AS STRING), ''))) AS placa,
-        UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
-      FROM \`${TABLES.consolidadoChan}\`
-      WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
-        AND IFNULL(TRIM(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING)), '') = ''
-        AND IFNULL(TRIM(CAST(placa AS STRING)), '') != ''
-    ),
-    relatorio_2026 AS (
-      SELECT DISTINCT
-        UPPER(IFNULL(TRIM(CAST(placa AS STRING)), '')) AS placa,
-        UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
+    WITH subastas_2026 AS (
+      SELECT DISTINCT UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
       FROM \`${TABLES.relatorio}\`
       WHERE ${COMITENTE_FILTER}
         AND ${ESTADO_ALLOWED_FILTER}
-        AND IFNULL(TRIM(CAST(placa AS STRING)), '') != ''
+        AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
         AND COALESCE(
           SAFE.PARSE_DATE('%Y-%m-%d', CAST(fecha AS STRING)),
           SAFE.PARSE_DATE('%d/%m/%Y', CAST(fecha AS STRING)),
           SAFE.PARSE_DATE('%m/%d/%Y', CAST(fecha AS STRING))
         ) >= DATE '2026-01-01'
     )
-    SELECT DISTINCT fp.placa, fp.subasta
-    FROM filtros_pendientes fp
-    INNER JOIN relatorio_2026 r ON fp.placa = r.placa AND fp.subasta = r.subasta
-    ORDER BY fp.subasta, fp.placa
+    SELECT DISTINCT
+      UPPER(TRIM(IFNULL(CAST(c.placa AS STRING), ''))) AS placa,
+      UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) AS subasta
+    FROM \`${TABLES.consolidadoChan}\` c
+    INNER JOIN subastas_2026 s ON UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) = s.subasta
+    WHERE IFNULL(TRIM(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING)), '') = ''
+      AND IFNULL(TRIM(CAST(c.placa AS STRING)), '') != ''
+    ORDER BY subasta, placa
   `;
 
   const rows = await queryBQ(token, projectId, sql);
