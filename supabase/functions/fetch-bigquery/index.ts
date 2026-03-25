@@ -298,19 +298,19 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "search";
 
-    // ── DEBUG: check column values ──
     if (action === "debug_columns") {
       const sql = `
-        SELECT DISTINCT UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
-          MIN(CAST(fecha AS STRING)) AS min_fecha,
-          MAX(CAST(fecha AS STRING)) AS max_fecha,
-          COUNT(*) AS cnt
+        SELECT 
+          UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
+          UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
+          CAST(fecha AS STRING) AS fecha,
+          CAST(fecha_aprobacion_vendedor AS STRING) AS fecha_aprobacion_vendedor
         FROM \`${TABLES.relatorio}\`
         WHERE ${ESTADO_ALLOWED_FILTER}
           AND ${COMITENTE_FILTER}
-          AND SAFE_CAST(IFNULL(CAST(fecha AS STRING), '') AS DATE) >= DATE('2026-01-01')
-        GROUP BY 1
-        ORDER BY 1
+          AND SAFE_CAST(IFNULL(CAST(fecha AS STRING), '') AS DATE) >= DATE('2026-03-01')
+        ORDER BY subasta, placa
+        LIMIT 50
       `;
       const rows = await queryBQ(token, projectId, sql);
       return new Response(JSON.stringify(rows, null, 2), {
