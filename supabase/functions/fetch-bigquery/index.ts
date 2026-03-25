@@ -137,7 +137,7 @@ async function getPendientesFiltrosBQ(token: string, projectId: string): Promise
         IFNULL(CAST(subasta AS STRING), '') AS subasta
       FROM \`${TABLES.consolidadoChan}\`
       WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
-        AND IFNULL(TRIM(CAST(fechaAprobacionVendedorCreacionFiltros AS STRING)), '') = ''
+        AND IFNULL(TRIM(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING)), '') = ''
         AND IFNULL(TRIM(CAST(placa AS STRING)), '') != ''
     ),
     relatorio_2026 AS (
