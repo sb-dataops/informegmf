@@ -298,6 +298,22 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "search";
 
+    // ── DEBUG: check columns ──
+    if (action === "debug_columns") {
+      const sql = `SELECT column_name FROM \`sbc-data-int\`.HubSpot_uploads.INFORMATION_SCHEMA.COLUMNS WHERE table_name = 'consolidadoChan' ORDER BY ordinal_position`;
+      let cols: Record<string, string | null>[] = [];
+      try { cols = await queryBQ(token, projectId, sql); } catch (_e) {
+        // external table may not support INFORMATION_SCHEMA, try SELECT * LIMIT 1
+        const row = await queryBQ(token, projectId, `SELECT * FROM \`${TABLES.consolidadoChan}\` LIMIT 1`);
+        return new Response(JSON.stringify({ columns: row.length > 0 ? Object.keys(row[0]) : [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ columns: cols }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── SEARCH by documento, comprador name, placa, or subasta ──
     if (action === "search") {
       const q = sanitize(url.searchParams.get("q") || "");
