@@ -879,33 +879,28 @@ serve(async (req) => {
           LIMIT 2000
         `;
       } else if (category === "pendientes_filtros") {
-        sql = `
-          SELECT
-            c.subasta,
-            c.placa,
-            CAST(c.comprador AS STRING) AS comprador,
-            CAST(c.documento AS STRING) AS documento,
-            CAST(c.descripcion AS STRING) AS descripcion,
-            '' AS estado,
-            CAST(c.lote AS STRING) AS lote
-          FROM \`${TABLES.consolidadoChan}\` c
-          INNER JOIN (
-            SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa, UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta
-            FROM \`${TABLES.relatorio}\`
-            WHERE ${ESTADO_ALLOWED_FILTER}
-              AND ${COMITENTE_FILTER}
-              AND IFNULL(placa,'') != ''
-              AND SAFE_CAST(IFNULL(CAST(fecha AS STRING), '') AS DATE) >= DATE('2026-01-01')
-          ) ar ON UPPER(IFNULL(CAST(c.placa AS STRING), '')) = ar.placa
-              AND UPPER(IFNULL(CAST(c.subasta AS STRING), '')) = ar.subasta
-          WHERE UPPER(IFNULL(CAST(c.subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
-            AND UPPER(IFNULL(CAST(c.estadoVenta AS STRING), '')) = 'VENTA'
-            AND IFNULL(CAST(c.filtrosCreacionCliente AS STRING), '') = ''
-            AND IFNULL(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = ''
-            AND UPPER(IFNULL(CAST(c.placa AS STRING), '')) != ''
-          ORDER BY c.subasta, c.placa
-          LIMIT 2000
-        `;
+        // Read directly from Google Sheets instead of BigQuery
+        const controlPagosRows = await getControlPagosRows(token);
+        const pendientes = getPendientesFiltrosFromSheet(controlPagosRows);
+        const sheetRows = pendientes.map((placa) => {
+          const row = controlPagosRows.find((r) => r.placa === placa);
+          return {
+            subasta: row?.subasta || "",
+            placa,
+            comprador: null,
+            documento: null,
+            descripcion: null,
+            estado: "",
+            lote: null,
+          };
+        });
+        const payload = JSON.stringify({ category, rows: sheetRows, count: sheetRows.length });
+        if (canUseFilterCache) {
+          filterResultsCache.set(category, { payload, expiresAt: Date.now() + FILTER_RESULT_TTL_MS });
+        }
+        return new Response(payload, {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       } else if (category === "total") {
         sql = `
           SELECT subasta, placa, comprador, documento, descripcion, estado, lote
