@@ -299,39 +299,6 @@ serve(async (req) => {
     const action = url.searchParams.get("action") || "search";
 
     // ── DEBUG: check column values ──
-    if (action === "debug_columns") {
-      const sql = `
-        SELECT 
-          UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
-          UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
-          CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING) AS fecha_aprobacion,
-          CAST(filtrosCreacionCliente AS STRING) AS filtros,
-          CAST(fechaEnvioSolicitudVendedorCreacionFiltros AS STRING) AS fecha_envio,
-          CAST(estadoVenta AS STRING) AS estado_venta
-        FROM \`${TABLES.consolidadoChan}\`
-        WHERE UPPER(IFNULL(CAST(placa AS STRING), '')) IN ('LLL934','NMS729','PPQ572','KCL853','GZW131','KUY324','FXY162')
-        ORDER BY placa, subasta
-      `;
-      const sql2 = `
-        SELECT 
-          CAST(estadoVenta AS STRING) AS estado_venta,
-          CAST(filtrosCreacionCliente AS STRING) AS filtros,
-          COUNT(*) AS cnt,
-          COUNTIF(IFNULL(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = '') AS sin_fecha
-        FROM \`${TABLES.consolidadoChan}\`
-        WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
-        GROUP BY estado_venta, filtros
-        ORDER BY cnt DESC
-      `;
-      const [r1, r2] = await Promise.all([
-        queryBQ(token, projectId, sql),
-        queryBQ(token, projectId, sql2),
-      ]);
-      return new Response(JSON.stringify({ target_placas: r1, distribution: r2 }, null, 2), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // ── SEARCH by documento, comprador name, placa, or subasta ──
     if (action === "search") {
       const q = sanitize(url.searchParams.get("q") || "");
