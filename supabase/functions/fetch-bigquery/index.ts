@@ -309,12 +309,25 @@ serve(async (req) => {
           CAST(fechaEnvioSolicitudVendedorCreacionFiltros AS STRING) AS fecha_envio,
           CAST(estadoVenta AS STRING) AS estado_venta
         FROM \`${TABLES.consolidadoChan}\`
-        WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL 6%'
-        ORDER BY subasta, placa
-        LIMIT 100
+        WHERE UPPER(IFNULL(CAST(placa AS STRING), '')) IN ('LLL934','NMS729','PPQ572','KCL853','GZW131','KUY324','FXY162')
+        ORDER BY placa, subasta
       `;
-      const rows = await queryBQ(token, projectId, sql);
-      return new Response(JSON.stringify(rows, null, 2), {
+      const sql2 = `
+        SELECT 
+          CAST(estadoVenta AS STRING) AS estado_venta,
+          CAST(filtrosCreacionCliente AS STRING) AS filtros,
+          COUNT(*) AS cnt,
+          COUNTIF(IFNULL(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = '') AS sin_fecha
+        FROM \`${TABLES.consolidadoChan}\`
+        WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+        GROUP BY estado_venta, filtros
+        ORDER BY cnt DESC
+      `;
+      const [r1, r2] = await Promise.all([
+        queryBQ(token, projectId, sql),
+        queryBQ(token, projectId, sql2),
+      ]);
+      return new Response(JSON.stringify({ target_placas: r1, distribution: r2 }, null, 2), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
