@@ -300,19 +300,16 @@ serve(async (req) => {
 
     if (action === "debug_columns") {
       const sql = `
-        SELECT 
-          UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
-          UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
-          CAST(fecha AS STRING) AS fecha,
-          CAST(fecha_aprobacion_vendedor AS STRING) AS fecha_aprobacion_vendedor
-        FROM \`${TABLES.relatorio}\`
-        WHERE ${ESTADO_ALLOWED_FILTER}
-          AND ${COMITENTE_FILTER}
-          AND SAFE_CAST(IFNULL(CAST(fecha AS STRING), '') AS DATE) >= DATE('2026-03-01')
-        ORDER BY subasta, placa
-        LIMIT 50
+        SELECT option_name, option_value
+        FROM \`sbc-data-int\`.HubSpot_uploads.INFORMATION_SCHEMA.TABLE_OPTIONS
+        WHERE table_name = 'consolidadoChan'
       `;
-      const rows = await queryBQ(token, projectId, sql);
+      let rows: Record<string, string | null>[] = [];
+      try { rows = await queryBQ(token, projectId, sql); } catch (e) {
+        return new Response(JSON.stringify({ error: String(e) }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify(rows, null, 2), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
