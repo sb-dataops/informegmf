@@ -910,7 +910,7 @@ serve(async (req) => {
           LIMIT 2000
         `;
       } else if (category === "pendientes_filtros") {
-        const pendientesFiltrosRows = await getPendientesFiltrosBQ(token, projectId);
+        const pendientesFiltrosRows = await getPendientesFiltros(token, projectId);
         const rows = pendientesFiltrosRows.map((r) => ({
           subasta: r.subasta,
           placa: r.placa,
