@@ -491,10 +491,14 @@ serve(async (req) => {
           SELECT COUNT(DISTINCT UPPER(IFNULL(CAST(c.placa AS STRING), ''))) AS pendientes_filtros
           FROM \`${TABLES.consolidadoChan}\` c
           INNER JOIN (
-            SELECT DISTINCT placa
-            FROM allowed_relatorio
-            WHERE placa != ''
+            SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa, UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta
+            FROM \`${TABLES.relatorio}\`
+            WHERE ${ESTADO_ALLOWED_FILTER}
+              AND ${COMITENTE_FILTER}
+              AND IFNULL(placa,'') != ''
+              AND SAFE_CAST(IFNULL(CAST(fecha AS STRING), '') AS DATE) >= DATE('2026-01-01')
           ) ar ON UPPER(IFNULL(CAST(c.placa AS STRING), '')) = ar.placa
+              AND UPPER(IFNULL(CAST(c.subasta AS STRING), '')) = ar.subasta
           WHERE UPPER(IFNULL(CAST(c.subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
             AND UPPER(IFNULL(CAST(c.estadoVenta AS STRING), '')) = 'VENTA'
             AND IFNULL(CAST(c.filtrosCreacionCliente AS STRING), '') = ''
