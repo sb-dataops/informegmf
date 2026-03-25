@@ -529,6 +529,8 @@ serve(async (req) => {
             WHERE placa != ''
           ) ar ON UPPER(IFNULL(CAST(c.placa AS STRING), '')) = ar.placa
           WHERE UPPER(IFNULL(CAST(c.subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+            AND UPPER(IFNULL(CAST(c.estadoVenta AS STRING), '')) = 'VENTA'
+            AND IFNULL(CAST(c.filtrosCreacionCliente AS STRING), '') = ''
             AND IFNULL(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = ''
             AND UPPER(IFNULL(CAST(c.placa AS STRING), '')) != ''
         )
