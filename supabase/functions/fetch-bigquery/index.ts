@@ -128,11 +128,9 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
 }
 
 async function getPendientesFiltrosBQ(token: string, projectId: string): Promise<{ placa: string; subasta: string }[]> {
-  // Get placas from consolidadoChan where subasta contains GM FINANCIAL and fechaAprobacionVendedorCreacionFiltros is empty
-  // Cross-reference with relatorio to only include 2026+ dates
   const sql = `
     WITH filtros_pendientes AS (
-      SELECT
+      SELECT DISTINCT
         UPPER(TRIM(IFNULL(CAST(placa AS STRING), ''))) AS placa,
         IFNULL(CAST(subasta AS STRING), '') AS subasta
       FROM \`${TABLES.consolidadoChan}\`
@@ -146,9 +144,13 @@ async function getPendientesFiltrosBQ(token: string, projectId: string): Promise
       WHERE ${COMITENTE_FILTER}
         AND ${ESTADO_ALLOWED_FILTER}
         AND IFNULL(TRIM(CAST(placa AS STRING)), '') != ''
-        AND SAFE.PARSE_DATE('%Y-%m-%d', CAST(fecha AS STRING)) >= DATE '2026-01-01'
+        AND COALESCE(
+          SAFE.PARSE_DATE('%Y-%m-%d', CAST(fecha AS STRING)),
+          SAFE.PARSE_DATE('%d/%m/%Y', CAST(fecha AS STRING)),
+          SAFE.PARSE_DATE('%m/%d/%Y', CAST(fecha AS STRING))
+        ) >= DATE '2026-01-01'
     )
-    SELECT fp.placa, fp.subasta
+    SELECT DISTINCT fp.placa, fp.subasta
     FROM filtros_pendientes fp
     INNER JOIN relatorio_2026 r ON fp.placa = r.placa
     ORDER BY fp.subasta, fp.placa
