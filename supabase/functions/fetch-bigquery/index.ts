@@ -333,16 +333,19 @@ serve(async (req) => {
 
     if (action === "debug_columns") {
       const sql = `
-        SELECT option_name, option_value
-        FROM \`sbc-data-int\`.HubSpot_uploads.INFORMATION_SCHEMA.TABLE_OPTIONS
-        WHERE table_name = 'consolidadoChan'
+        SELECT DISTINCT
+          UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta,
+          MIN(CAST(fecha AS STRING)) AS min_fecha,
+          MAX(CAST(fecha AS STRING)) AS max_fecha,
+          COUNT(*) AS cnt
+        FROM \`${TABLES.relatorio}\`
+        WHERE ${COMITENTE_FILTER}
+          AND ${ESTADO_ALLOWED_FILTER}
+          AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+        GROUP BY UPPER(TRIM(IFNULL(CAST(subasta AS STRING), '')))
+        ORDER BY subasta
       `;
-      let rows: Record<string, string | null>[] = [];
-      try { rows = await queryBQ(token, projectId, sql); } catch (e) {
-        return new Response(JSON.stringify({ error: String(e) }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const rows = await queryBQ(token, projectId, sql);
       return new Response(JSON.stringify(rows, null, 2), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
