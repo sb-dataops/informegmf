@@ -816,14 +816,6 @@ serve(async (req) => {
         `;
       } else if (category === "pendientes_filtros") {
         sql = `
-          WITH allowed_subastas_filtros AS (
-            SELECT DISTINCT UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta
-            FROM \`${TABLES.relatorio}\`
-            WHERE ${ESTADO_ALLOWED_FILTER}
-              AND ${COMITENTE_FILTER}
-              AND IFNULL(CAST(subasta AS STRING), '') != ''
-              AND SAFE_CAST(IFNULL(CAST(fecha AS STRING), '') AS DATE) >= DATE('2026-01-01')
-          )
           SELECT
             c.subasta,
             c.placa,
@@ -840,8 +832,8 @@ serve(async (req) => {
               AND ${COMITENTE_FILTER}
               AND IFNULL(placa,'') != ''
           ) ar ON UPPER(IFNULL(CAST(c.placa AS STRING), '')) = ar.placa
-          INNER JOIN allowed_subastas_filtros asub ON UPPER(IFNULL(CAST(c.subasta AS STRING), '')) = asub.subasta
-          WHERE IFNULL(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = ''
+          WHERE UPPER(IFNULL(CAST(c.subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+            AND IFNULL(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING), '') = ''
             AND UPPER(IFNULL(CAST(c.placa AS STRING), '')) != ''
           ORDER BY c.subasta, c.placa
           LIMIT 2000
