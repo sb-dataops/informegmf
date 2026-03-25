@@ -336,17 +336,15 @@ serve(async (req) => {
 
     if (action === "debug_columns") {
       const sql = `
-        SELECT DISTINCT
-          UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta,
-          MIN(CAST(fecha AS STRING)) AS min_fecha,
-          MAX(CAST(fecha AS STRING)) AS max_fecha,
-          COUNT(*) AS cnt
-        FROM \`${TABLES.relatorio}\`
-        WHERE ${COMITENTE_FILTER}
-          AND ${ESTADO_ALLOWED_FILTER}
-          AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
-        GROUP BY UPPER(TRIM(IFNULL(CAST(subasta AS STRING), '')))
-        ORDER BY subasta
+        SELECT
+          UPPER(TRIM(IFNULL(CAST(c.placa AS STRING), ''))) AS placa,
+          UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) AS subasta,
+          CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING) AS fecha_raw,
+          IFNULL(TRIM(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING)), '') AS fecha_trimmed
+        FROM \`${TABLES.consolidadoChan}\` c
+        WHERE UPPER(IFNULL(CAST(c.subasta AS STRING), '')) LIKE '%GM FINANCIAL 6%'
+        ORDER BY c.subasta, c.placa
+        LIMIT 50
       `;
       const rows = await queryBQ(token, projectId, sql);
       return new Response(JSON.stringify(rows, null, 2), {
