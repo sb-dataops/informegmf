@@ -625,8 +625,8 @@ serve(async (req) => {
             console.error(`[pending-payment-stats] FAILED:`, error instanceof Error ? error.message : error);
             return [] as PendingPaymentRow[];
           }),
-          getPendientesFiltrosBQ(token, projectId).catch((error) => {
-            console.error(`[pendientes-filtros-bq] FAILED:`, error instanceof Error ? error.message : error);
+          getPendientesFiltros(token, projectId).catch((error) => {
+            console.error(`[pendientes-filtros] FAILED:`, error instanceof Error ? error.message : error);
             return [] as { placa: string; subasta: string }[];
           }),
         ]);
