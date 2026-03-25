@@ -132,14 +132,16 @@ async function getPendientesFiltrosBQ(token: string, projectId: string): Promise
     WITH filtros_pendientes AS (
       SELECT DISTINCT
         UPPER(TRIM(IFNULL(CAST(placa AS STRING), ''))) AS placa,
-        IFNULL(CAST(subasta AS STRING), '') AS subasta
+        UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
       FROM \`${TABLES.consolidadoChan}\`
       WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
         AND IFNULL(TRIM(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING)), '') = ''
         AND IFNULL(TRIM(CAST(placa AS STRING)), '') != ''
     ),
     relatorio_2026 AS (
-      SELECT DISTINCT UPPER(IFNULL(TRIM(CAST(placa AS STRING)), '')) AS placa
+      SELECT DISTINCT
+        UPPER(IFNULL(TRIM(CAST(placa AS STRING)), '')) AS placa,
+        UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
       FROM \`${TABLES.relatorio}\`
       WHERE ${COMITENTE_FILTER}
         AND ${ESTADO_ALLOWED_FILTER}
@@ -152,7 +154,7 @@ async function getPendientesFiltrosBQ(token: string, projectId: string): Promise
     )
     SELECT DISTINCT fp.placa, fp.subasta
     FROM filtros_pendientes fp
-    INNER JOIN relatorio_2026 r ON fp.placa = r.placa
+    INNER JOIN relatorio_2026 r ON fp.placa = r.placa AND fp.subasta = r.subasta
     ORDER BY fp.subasta, fp.placa
   `;
 
