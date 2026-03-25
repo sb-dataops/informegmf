@@ -29,7 +29,7 @@ async function createGCPToken(sa: { client_email: string; private_key: string })
   const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/bigquery.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets.readonly",
+    scope: "https://www.googleapis.com/auth/bigquery.readonly https://www.googleapis.com/auth/drive.readonly",
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600,
@@ -127,88 +127,40 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
   });
 }
 
-const CONTROL_PAGOS_SHEET_ID = "1bCKp2H1F950cmjOh4NfgowaPzrEPu42wFT736ob7Ke4";
-const CONTROL_PAGOS_SHEET_NAME = "controlPagos";
-
-async function readGoogleSheet(token: string, spreadsheetId: string, range: string): Promise<string[][]> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=FORMATTED_VALUE`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Google Sheets error: ${JSON.stringify(data)}`);
-  return data.values || [];
-}
-
-type ControlPagosRow = {
-  placa: string;
-  subasta: string;
-  fechaAprobacionVendedorCreacionFiltros: string;
-};
-
-async function getControlPagosRows(token: string): Promise<ControlPagosRow[]> {
-  const rows = await readGoogleSheet(token, CONTROL_PAGOS_SHEET_ID, `${CONTROL_PAGOS_SHEET_NAME}!A1:Z`);
-  if (rows.length === 0) return [];
-
-  const header = rows[0].map((h) => (h || "").trim().toLowerCase());
-  const subastaIdx = header.findIndex((h) => h === "subasta");
-  const placaIdx = header.findIndex((h) => h === "placa");
-  const fechaIdx = header.findIndex((h) => h.includes("fechaaprobacionvendedor") && h.includes("filtros"));
-
-  console.log(`[sheets] Headers found - subasta:${subastaIdx}, placa:${placaIdx}, fecha:${fechaIdx}`);
-
-  if (placaIdx === -1 || subastaIdx === -1 || fechaIdx === -1) {
-    console.error(`[sheets] Could not find required columns. Headers: ${JSON.stringify(header)}`);
-    return [];
-  }
-
-  return rows.slice(1).map((row) => ({
-    placa: (row[placaIdx] || "").trim().toUpperCase(),
-    subasta: (row[subastaIdx] || "").trim().toUpperCase(),
-    fechaAprobacionVendedorCreacionFiltros: (row[fechaIdx] || "").trim(),
-  }));
-}
-
 async function getPendientesFiltros(token: string, projectId: string): Promise<{ placa: string; subasta: string }[]> {
-  // Step 1: Get GM FINANCIAL subastas with dates >= 2025 from relatorio
-  const subastasSql = `
-    SELECT DISTINCT UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
-    FROM \`${TABLES.relatorio}\`
-    WHERE ${COMITENTE_FILTER}
-      AND ${ESTADO_ALLOWED_FILTER}
-      AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
-      AND COALESCE(
-        SAFE.PARSE_DATE('%Y-%m-%d', CAST(fecha AS STRING)),
-        SAFE.PARSE_DATE('%d/%m/%Y', CAST(fecha AS STRING)),
-        SAFE.PARSE_DATE('%m/%d/%Y', CAST(fecha AS STRING))
-      ) >= DATE '2025-01-01'
+  // Query consolidadoChan directly via BigQuery
+  // Filter: GM FINANCIAL subastas from 2025+, where fechaAprobacionVendedorDocsCreacionFiltros is empty/null
+  const sql = `
+    WITH allowed_subastas AS (
+      SELECT DISTINCT UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
+      FROM \`${TABLES.relatorio}\`
+      WHERE ${COMITENTE_FILTER}
+        AND ${ESTADO_ALLOWED_FILTER}
+        AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+        AND COALESCE(
+          SAFE.PARSE_DATE('%Y-%m-%d', CAST(fecha AS STRING)),
+          SAFE.PARSE_DATE('%d/%m/%Y', CAST(fecha AS STRING)),
+          SAFE.PARSE_DATE('%m/%d/%Y', CAST(fecha AS STRING))
+        ) >= DATE '2025-01-01'
+    )
+    SELECT DISTINCT
+      UPPER(TRIM(IFNULL(CAST(c.placa AS STRING), ''))) AS placa,
+      UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) AS subasta
+    FROM \`${TABLES.consolidadoChan}\` c
+    INNER JOIN allowed_subastas a
+      ON UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) = a.subasta
+    WHERE IFNULL(TRIM(CAST(c.placa AS STRING)), '') != ''
+      AND IFNULL(TRIM(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING)), '') = ''
+    ORDER BY subasta, placa
   `;
 
-  const [subastasRows, controlPagosRows] = await Promise.all([
-    queryBQ(token, projectId, subastasSql),
-    getControlPagosRows(token),
-  ]);
-
-  const allowedSubastas = new Set(subastasRows.map((r) => (r.subasta || "").trim()));
-  console.log(`[filtros] Allowed subastas (2025+): ${JSON.stringify(Array.from(allowedSubastas))}`);
-
-  // Step 2: Filter controlPagos rows by allowed subastas and empty approval
-  const pendientes = controlPagosRows
-    .filter((row) =>
-      row.placa !== "" &&
-      allowedSubastas.has(row.subasta) &&
-      row.fechaAprobacionVendedorCreacionFiltros === ""
-    );
-
-  // Deduplicate by placa
-  const seen = new Set<string>();
-  const unique = pendientes.filter((row) => {
-    if (seen.has(row.placa)) return false;
-    seen.add(row.placa);
-    return true;
-  });
-
-  return unique.map((row) => ({ placa: row.placa, subasta: row.subasta }));
+  const rows = await queryBQ(token, projectId, sql);
+  return rows
+    .map((r) => ({
+      placa: (r.placa || "").trim(),
+      subasta: (r.subasta || "").trim(),
+    }))
+    .filter((r) => r.placa !== "");
 }
 
 function sanitize(input: string): string {
@@ -384,17 +336,15 @@ serve(async (req) => {
 
     if (action === "debug_columns") {
       const sql = `
-        SELECT DISTINCT
-          UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta,
-          MIN(CAST(fecha AS STRING)) AS min_fecha,
-          MAX(CAST(fecha AS STRING)) AS max_fecha,
-          COUNT(*) AS cnt
-        FROM \`${TABLES.relatorio}\`
-        WHERE ${COMITENTE_FILTER}
-          AND ${ESTADO_ALLOWED_FILTER}
-          AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
-        GROUP BY UPPER(TRIM(IFNULL(CAST(subasta AS STRING), '')))
-        ORDER BY subasta
+        SELECT
+          UPPER(TRIM(IFNULL(CAST(c.placa AS STRING), ''))) AS placa,
+          UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) AS subasta,
+          CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING) AS fecha_raw,
+          IFNULL(TRIM(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING)), '') AS fecha_trimmed
+        FROM \`${TABLES.consolidadoChan}\` c
+        WHERE UPPER(IFNULL(CAST(c.subasta AS STRING), '')) LIKE '%GM FINANCIAL 6%'
+        ORDER BY c.subasta, c.placa
+        LIMIT 50
       `;
       const rows = await queryBQ(token, projectId, sql);
       return new Response(JSON.stringify(rows, null, 2), {
