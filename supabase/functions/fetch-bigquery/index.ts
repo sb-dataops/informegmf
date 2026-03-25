@@ -127,6 +127,61 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
   });
 }
 
+const CONTROL_PAGOS_SHEET_ID = "1bCKp2H1F950cmjOh4NfgowaPzrEPu42wFT736ob7Ke4";
+const CONTROL_PAGOS_SHEET_NAME = "controlPagos";
+
+async function readGoogleSheet(token: string, spreadsheetId: string, range: string): Promise<string[][]> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=FORMATTED_VALUE`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Google Sheets error: ${JSON.stringify(data)}`);
+  return data.values || [];
+}
+
+type ControlPagosRow = {
+  placa: string;
+  subasta: string;
+  fechaAprobacionVendedorCreacionFiltros: string;
+};
+
+async function getControlPagosRows(token: string): Promise<ControlPagosRow[]> {
+  // Read columns C (subasta), K (placa), P (fechaAprobacionVendedorCreacionFiltros)
+  const rows = await readGoogleSheet(token, CONTROL_PAGOS_SHEET_ID, `${CONTROL_PAGOS_SHEET_NAME}!A1:Z`);
+  if (rows.length === 0) return [];
+
+  // Find header row to get column indices
+  const header = rows[0].map((h) => (h || "").trim().toLowerCase());
+  const subastaIdx = header.findIndex((h) => h === "subasta");
+  const placaIdx = header.findIndex((h) => h === "placa");
+  const fechaIdx = header.findIndex((h) => h.includes("fechaaprobacionvendedor") && h.includes("filtros"));
+
+  console.log(`[sheets] Headers found - subasta:${subastaIdx}, placa:${placaIdx}, fecha:${fechaIdx}`);
+  console.log(`[sheets] All headers: ${JSON.stringify(header)}`);
+
+  if (placaIdx === -1 || subastaIdx === -1 || fechaIdx === -1) {
+    console.error(`[sheets] Could not find required columns. Headers: ${JSON.stringify(header)}`);
+    return [];
+  }
+
+  return rows.slice(1).map((row) => ({
+    placa: (row[placaIdx] || "").trim().toUpperCase(),
+    subasta: (row[subastaIdx] || "").trim().toUpperCase(),
+    fechaAprobacionVendedorCreacionFiltros: (row[fechaIdx] || "").trim(),
+  }));
+}
+
+function getPendientesFiltrosFromSheet(controlPagosRows: ControlPagosRow[]): string[] {
+  return controlPagosRows
+    .filter((row) =>
+      row.placa !== "" &&
+      row.subasta.includes("GM FINANCIAL") &&
+      row.fechaAprobacionVendedorCreacionFiltros === ""
+    )
+    .map((row) => row.placa);
+}
+
 function sanitize(input: string): string {
   return input.replace(/[^a-zA-Z0-9\s\-_.áéíóúñÁÉÍÓÚÑ()]/g, '').substring(0, 100);
 }
