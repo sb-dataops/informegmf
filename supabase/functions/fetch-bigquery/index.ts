@@ -127,59 +127,37 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
   });
 }
 
-const CONTROL_PAGOS_SHEET_ID = "1bCKp2H1F950cmjOh4NfgowaPzrEPu42wFT736ob7Ke4";
-const CONTROL_PAGOS_SHEET_NAME = "controlPagos";
-
-async function readGoogleSheet(token: string, spreadsheetId: string, range: string): Promise<string[][]> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=FORMATTED_VALUE`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Google Sheets error: ${JSON.stringify(data)}`);
-  return data.values || [];
-}
-
-type ControlPagosRow = {
-  placa: string;
-  subasta: string;
-  fechaAprobacionVendedorCreacionFiltros: string;
-};
-
-async function getControlPagosRows(token: string): Promise<ControlPagosRow[]> {
-  // Read columns C (subasta), K (placa), P (fechaAprobacionVendedorCreacionFiltros)
-  const rows = await readGoogleSheet(token, CONTROL_PAGOS_SHEET_ID, `${CONTROL_PAGOS_SHEET_NAME}!A1:Z`);
-  if (rows.length === 0) return [];
-
-  // Find header row to get column indices
-  const header = rows[0].map((h) => (h || "").trim().toLowerCase());
-  const subastaIdx = header.findIndex((h) => h === "subasta");
-  const placaIdx = header.findIndex((h) => h === "placa");
-  const fechaIdx = header.findIndex((h) => h.includes("fechaaprobacionvendedor") && h.includes("filtros"));
-
-  console.log(`[sheets] Headers found - subasta:${subastaIdx}, placa:${placaIdx}, fecha:${fechaIdx}`);
-  console.log(`[sheets] All headers: ${JSON.stringify(header)}`);
-
-  if (placaIdx === -1 || subastaIdx === -1 || fechaIdx === -1) {
-    console.error(`[sheets] Could not find required columns. Headers: ${JSON.stringify(header)}`);
-    return [];
-  }
-
-  return rows.slice(1).map((row) => ({
-    placa: (row[placaIdx] || "").trim().toUpperCase(),
-    subasta: (row[subastaIdx] || "").trim().toUpperCase(),
-    fechaAprobacionVendedorCreacionFiltros: (row[fechaIdx] || "").trim(),
-  }));
-}
-
-function getPendientesFiltrosFromSheet(controlPagosRows: ControlPagosRow[]): string[] {
-  return controlPagosRows
-    .filter((row) =>
-      row.placa !== "" &&
-      row.subasta.includes("GM FINANCIAL") &&
-      row.fechaAprobacionVendedorCreacionFiltros === ""
+async function getPendientesFiltrosBQ(token: string, projectId: string): Promise<{ placa: string; subasta: string }[]> {
+  // Step 1: Get GM FINANCIAL subastas from relatorio that have 2026+ dates
+  // Step 2: Filter consolidadoChan by those subastas where approval is empty
+  const sql = `
+    WITH subastas_2026 AS (
+      SELECT DISTINCT UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
+      FROM \`${TABLES.relatorio}\`
+      WHERE ${COMITENTE_FILTER}
+        AND ${ESTADO_ALLOWED_FILTER}
+        AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
+        AND COALESCE(
+          SAFE.PARSE_DATE('%Y-%m-%d', CAST(fecha AS STRING)),
+          SAFE.PARSE_DATE('%d/%m/%Y', CAST(fecha AS STRING)),
+          SAFE.PARSE_DATE('%m/%d/%Y', CAST(fecha AS STRING))
+        ) >= DATE '2026-01-01'
     )
-    .map((row) => row.placa);
+    SELECT DISTINCT
+      UPPER(TRIM(IFNULL(CAST(c.placa AS STRING), ''))) AS placa,
+      UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) AS subasta
+    FROM \`${TABLES.consolidadoChan}\` c
+    INNER JOIN subastas_2026 s ON UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) = s.subasta
+    WHERE IFNULL(TRIM(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING)), '') = ''
+      AND IFNULL(TRIM(CAST(c.placa AS STRING)), '') != ''
+    ORDER BY subasta, placa
+  `;
+
+  const rows = await queryBQ(token, projectId, sql);
+  return rows.map((row) => ({
+    placa: row.placa || "",
+    subasta: row.subasta || "",
+  }));
 }
 
 function sanitize(input: string): string {
@@ -583,7 +561,7 @@ serve(async (req) => {
       };
 
       try {
-        const [result, pendingPaymentReviewEntries, pendingPaymentRows, controlPagosRows] = await Promise.all([
+        const [result, pendingPaymentReviewEntries, pendingPaymentRows, pendientesFiltrosRows] = await Promise.all([
           queryBQ(token, projectId, statsSQL),
           getPendingPaymentReviewEntries().catch((error) => {
             console.error(`[payment-review-stats] FAILED:`, error instanceof Error ? error.message : error);
@@ -593,16 +571,15 @@ serve(async (req) => {
             console.error(`[pending-payment-stats] FAILED:`, error instanceof Error ? error.message : error);
             return [] as PendingPaymentRow[];
           }),
-          getControlPagosRows(token).catch((error) => {
-            console.error(`[control-pagos-sheets] FAILED:`, error instanceof Error ? error.message : error);
-            return [] as ControlPagosRow[];
+          getPendientesFiltrosBQ(token, projectId).catch((error) => {
+            console.error(`[pendientes-filtros-bq] FAILED:`, error instanceof Error ? error.message : error);
+            return [] as { placa: string; subasta: string }[];
           }),
         ]);
 
-        const pendientesFiltros = getPendientesFiltrosFromSheet(controlPagosRows);
-        console.log(`[stats] pendientes_filtros from Sheets: ${pendientesFiltros.length}, placas: ${JSON.stringify(pendientesFiltros)}`);
+        console.log(`[stats] pendientes_filtros from BQ: ${pendientesFiltrosRows.length}, placas: ${JSON.stringify(pendientesFiltrosRows.map(r => r.placa))}`);
+        console.log(`[stats] result:`, JSON.stringify(result));
 
-      console.log(`[stats] result:`, JSON.stringify(result));
         const combinedPendingPlacas = new Set([
           ...pendingPaymentReviewEntries.map((entry) => entry.placa),
           ...pendingPaymentRows.map((row) => row.placa),
@@ -616,7 +593,7 @@ serve(async (req) => {
           pendientes_pago: result[0]?.pendientes_pago || '0',
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
-          pendientes_filtros: String(pendientesFiltros.length),
+          pendientes_filtros: String(pendientesFiltrosRows.length),
           pagos_pendientes_revision: String(combinedPendingPlacas.size),
           soportes_pendientes_revision: String(pendingPaymentReviewEntries.length),
         };
@@ -879,22 +856,17 @@ serve(async (req) => {
           LIMIT 2000
         `;
       } else if (category === "pendientes_filtros") {
-        // Read directly from Google Sheets instead of BigQuery
-        const controlPagosRows = await getControlPagosRows(token);
-        const pendientes = getPendientesFiltrosFromSheet(controlPagosRows);
-        const sheetRows = pendientes.map((placa) => {
-          const row = controlPagosRows.find((r) => r.placa === placa);
-          return {
-            subasta: row?.subasta || "",
-            placa,
-            comprador: null,
-            documento: null,
-            descripcion: null,
-            estado: "",
-            lote: null,
-          };
-        });
-        const payload = JSON.stringify({ category, rows: sheetRows, count: sheetRows.length });
+        const pendientesFiltrosRows = await getPendientesFiltrosBQ(token, projectId);
+        const rows = pendientesFiltrosRows.map((r) => ({
+          subasta: r.subasta,
+          placa: r.placa,
+          comprador: null,
+          documento: null,
+          descripcion: null,
+          estado: "",
+          lote: null,
+        }));
+        const payload = JSON.stringify({ category, rows, count: rows.length });
         if (canUseFilterCache) {
           filterResultsCache.set(category, { payload, expiresAt: Date.now() + FILTER_RESULT_TTL_MS });
         }
