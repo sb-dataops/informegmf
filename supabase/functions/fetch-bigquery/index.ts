@@ -299,6 +299,25 @@ serve(async (req) => {
     const action = url.searchParams.get("action") || "search";
 
     // ── DEBUG: check column values ──
+    if (action === "debug_columns") {
+      const sql = `
+        SELECT DISTINCT UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
+          MIN(CAST(fecha AS STRING)) AS min_fecha,
+          MAX(CAST(fecha AS STRING)) AS max_fecha,
+          COUNT(*) AS cnt
+        FROM \`${TABLES.relatorio}\`
+        WHERE ${ESTADO_ALLOWED_FILTER}
+          AND ${COMITENTE_FILTER}
+          AND SAFE_CAST(IFNULL(CAST(fecha AS STRING), '') AS DATE) >= DATE('2026-01-01')
+        GROUP BY 1
+        ORDER BY 1
+      `;
+      const rows = await queryBQ(token, projectId, sql);
+      return new Response(JSON.stringify(rows, null, 2), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── SEARCH by documento, comprador name, placa, or subasta ──
     if (action === "search") {
       const q = sanitize(url.searchParams.get("q") || "");
