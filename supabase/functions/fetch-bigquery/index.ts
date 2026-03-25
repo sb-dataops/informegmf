@@ -303,14 +303,14 @@ serve(async (req) => {
         SELECT 
           UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
           UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
-          TO_JSON_STRING(fechaAprobacionVendedorDocsCreacionFiltros) AS fecha_json,
-          CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING) AS fecha_str,
-          TO_JSON_STRING(filtrosCreacionCliente) AS filtros_json,
-          TO_JSON_STRING(fechaEnvioSolicitudVendedorCreacionFiltros) AS envio_json,
-          TO_JSON_STRING(estadoVenta) AS estado_json
-        FROM \`${TABLES.consolidadoChan}\`
-        WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) = 'GM FINANCIAL 69'
-        LIMIT 15
+          CAST(fecha AS STRING) AS fecha,
+          CAST(fecha_aprobacion_vendedor AS STRING) AS fecha_aprobacion_vendedor
+        FROM \`${TABLES.relatorio}\`
+        WHERE ${ESTADO_ALLOWED_FILTER}
+          AND ${COMITENTE_FILTER}
+          AND SAFE_CAST(IFNULL(CAST(fecha AS STRING), '') AS DATE) >= DATE('2026-03-01')
+        ORDER BY subasta, placa
+        LIMIT 50
       `;
       const rows = await queryBQ(token, projectId, sql);
       return new Response(JSON.stringify(rows, null, 2), {
