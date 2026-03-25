@@ -298,18 +298,21 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "search";
 
-    // ── DEBUG: check columns ──
+    // ── DEBUG: check column values ──
     if (action === "debug_columns") {
-      const sql = `SELECT column_name FROM \`sbc-data-int\`.HubSpot_uploads.INFORMATION_SCHEMA.COLUMNS WHERE table_name = 'consolidadoChan' ORDER BY ordinal_position`;
-      let cols: Record<string, string | null>[] = [];
-      try { cols = await queryBQ(token, projectId, sql); } catch (_e) {
-        // external table may not support INFORMATION_SCHEMA, try SELECT * LIMIT 1
-        const row = await queryBQ(token, projectId, `SELECT * FROM \`${TABLES.consolidadoChan}\` LIMIT 1`);
-        return new Response(JSON.stringify({ columns: row.length > 0 ? Object.keys(row[0]) : [] }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ columns: cols }), {
+      const sql = `
+        SELECT 
+          UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
+          UPPER(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
+          CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING) AS fecha_raw,
+          LENGTH(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING)) AS fecha_len,
+          CAST(filtrosCreacionCliente AS STRING) AS filtros_raw
+        FROM \`${TABLES.consolidadoChan}\`
+        WHERE UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL 69%'
+        LIMIT 20
+      `;
+      const rows = await queryBQ(token, projectId, sql);
+      return new Response(JSON.stringify(rows, null, 2), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
