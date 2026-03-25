@@ -858,22 +858,17 @@ serve(async (req) => {
           LIMIT 2000
         `;
       } else if (category === "pendientes_filtros") {
-        // Read directly from Google Sheets instead of BigQuery
-        const controlPagosRows = await getControlPagosRows(token);
-        const pendientes = getPendientesFiltrosFromSheet(controlPagosRows);
-        const sheetRows = pendientes.map((placa) => {
-          const row = controlPagosRows.find((r) => r.placa === placa);
-          return {
-            subasta: row?.subasta || "",
-            placa,
-            comprador: null,
-            documento: null,
-            descripcion: null,
-            estado: "",
-            lote: null,
-          };
-        });
-        const payload = JSON.stringify({ category, rows: sheetRows, count: sheetRows.length });
+        const pendientesFiltrosRows = await getPendientesFiltrosBQ(token, projectId);
+        const rows = pendientesFiltrosRows.map((r) => ({
+          subasta: r.subasta,
+          placa: r.placa,
+          comprador: null,
+          documento: null,
+          descripcion: null,
+          estado: "",
+          lote: null,
+        }));
+        const payload = JSON.stringify({ category, rows, count: rows.length });
         if (canUseFilterCache) {
           filterResultsCache.set(category, { payload, expiresAt: Date.now() + FILTER_RESULT_TTL_MS });
         }
