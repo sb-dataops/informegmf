@@ -128,29 +128,18 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
 }
 
 async function getPendientesFiltros(token: string, projectId: string): Promise<{ placa: string; subasta: string }[]> {
-  // Query consolidadoChan directly via BigQuery
-  // Filter: GM FINANCIAL subastas from 2025+, where fechaAprobacionVendedorDocsCreacionFiltros is empty/null
+  // Query consolidadoChan directly — no JOIN with relatorio
+  // User-provided query: filter by comitente, estadoRelatorio, fechaSubasta > 2026-01-01, fechaAprobacion IS NULL
   const sql = `
-    WITH allowed_subastas AS (
-      SELECT DISTINCT UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
-      FROM \`${TABLES.relatorio}\`
-      WHERE ${COMITENTE_FILTER}
-        AND ${ESTADO_ALLOWED_FILTER}
-        AND UPPER(IFNULL(CAST(subasta AS STRING), '')) LIKE '%GM FINANCIAL%'
-        AND COALESCE(
-          SAFE.PARSE_DATE('%Y-%m-%d', CAST(fecha AS STRING)),
-          SAFE.PARSE_DATE('%d/%m/%Y', CAST(fecha AS STRING)),
-          SAFE.PARSE_DATE('%m/%d/%Y', CAST(fecha AS STRING))
-        ) >= DATE '2025-01-01'
-    )
     SELECT DISTINCT
-      UPPER(TRIM(IFNULL(CAST(c.placa AS STRING), ''))) AS placa,
-      UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) AS subasta
-    FROM \`${TABLES.consolidadoChan}\` c
-    INNER JOIN allowed_subastas a
-      ON UPPER(TRIM(IFNULL(CAST(c.subasta AS STRING), ''))) = a.subasta
-    WHERE IFNULL(TRIM(CAST(c.placa AS STRING)), '') != ''
-      AND IFNULL(TRIM(CAST(c.fechaAprobacionVendedorDocsCreacionFiltros AS STRING)), '') = ''
+      UPPER(TRIM(IFNULL(CAST(placa AS STRING), ''))) AS placa,
+      UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
+    FROM \`${TABLES.consolidadoChan}\`
+    WHERE LOWER(IFNULL(CAST(comitente AS STRING), '')) = 'gm financial colombia sa compañia de financiamiento'
+      AND IFNULL(CAST(estadoRelatorio AS STRING), '') IN ('Venta', 'Condicional Aprobado', 'Post-oferta Aprobada', 'Venta con incumplimiento de pago')
+      AND CAST(fechaSubasta AS STRING) > '2026-01-01'
+      AND fechaAprobacionVendedorDocsCreacionFiltros IS NULL
+      AND IFNULL(TRIM(CAST(placa AS STRING)), '') != ''
     ORDER BY subasta, placa
   `;
 
