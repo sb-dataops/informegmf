@@ -127,13 +127,26 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
   });
 }
 
-async function getPendientesFiltros(token: string, projectId: string): Promise<{ placa: string; subasta: string }[]> {
-  // Query consolidadoChan directly — no JOIN with relatorio
-  // User-provided query: filter by comitente, estadoRelatorio, fechaSubasta > 2026-01-01, fechaAprobacion IS NULL
+interface PendienteFiltroRow {
+  placa: string;
+  subasta: string;
+  comprador: string | null;
+  descripcion: string | null;
+  tramitador: string | null;
+  lote: string | null;
+  estadoRelatorio: string | null;
+}
+
+async function getPendientesFiltros(token: string, projectId: string): Promise<PendienteFiltroRow[]> {
   const sql = `
-    SELECT DISTINCT
+    SELECT
       UPPER(TRIM(IFNULL(CAST(placa AS STRING), ''))) AS placa,
-      UPPER(TRIM(IFNULL(CAST(subasta AS STRING), ''))) AS subasta
+      TRIM(IFNULL(CAST(subasta AS STRING), '')) AS subasta,
+      TRIM(IFNULL(CAST(comprador AS STRING), '')) AS comprador,
+      TRIM(IFNULL(CAST(descripcion AS STRING), '')) AS descripcion,
+      TRIM(IFNULL(CAST(tramitador AS STRING), '')) AS tramitador,
+      TRIM(IFNULL(CAST(lote AS STRING), '')) AS lote,
+      TRIM(IFNULL(CAST(estadoRelatorio AS STRING), '')) AS estadoRelatorio
     FROM \`${TABLES.consolidadoChan}\`
     WHERE LOWER(IFNULL(CAST(comitente AS STRING), '')) = 'gm financial colombia sa compañia de financiamiento'
       AND IFNULL(CAST(estadoRelatorio AS STRING), '') IN ('Venta', 'Condicional Aprobado', 'Post-oferta Aprobada', 'Venta con incumplimiento de pago')
@@ -148,6 +161,11 @@ async function getPendientesFiltros(token: string, projectId: string): Promise<{
     .map((r) => ({
       placa: (r.placa || "").trim(),
       subasta: (r.subasta || "").trim(),
+      comprador: r.comprador || null,
+      descripcion: r.descripcion || null,
+      tramitador: r.tramitador || null,
+      lote: r.lote || null,
+      estadoRelatorio: r.estadoRelatorio || null,
     }))
     .filter((r) => r.placa !== "");
 }
@@ -853,11 +871,12 @@ serve(async (req) => {
         const rows = pendientesFiltrosRows.map((r) => ({
           subasta: r.subasta,
           placa: r.placa,
-          comprador: null,
+          comprador: r.comprador,
           documento: null,
-          descripcion: null,
-          estado: "",
-          lote: null,
+          descripcion: r.descripcion,
+          estado: r.estadoRelatorio || "",
+          lote: r.lote,
+          tramitador: r.tramitador,
         }));
         const payload = JSON.stringify({ category, rows, count: rows.length });
         if (canUseFilterCache) {
