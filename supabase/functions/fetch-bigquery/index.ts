@@ -871,11 +871,12 @@ serve(async (req) => {
         const rows = pendientesFiltrosRows.map((r) => ({
           subasta: r.subasta,
           placa: r.placa,
-          comprador: null,
+          comprador: r.comprador,
           documento: null,
-          descripcion: null,
-          estado: "",
-          lote: null,
+          descripcion: r.descripcion,
+          estado: r.estadoRelatorio || "",
+          lote: r.lote,
+          tramitador: r.tramitador,
         }));
         const payload = JSON.stringify({ category, rows, count: rows.length });
         if (canUseFilterCache) {
