@@ -24,7 +24,7 @@ import logoGmf from "@/assets/logo-gmf.png";
 const Index = () => {
   const navigate = useNavigate();
   const [filterValues, setFilterValues] = useState<SearchFiltersValues>({
-    subasta: "", comprador: "", documento: "", placa: "",
+    subasta: [], comprador: [], documento: [], placa: [],
   });
   const [activeFilters, setActiveFilters] = useState<MultiSearchFilters | null>(null);
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
