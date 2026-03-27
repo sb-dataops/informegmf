@@ -143,7 +143,7 @@ const Index = () => {
     setSelectedComprador(null);
     setSelectedSubasta(null);
     setActiveFilters(null);
-    setFilterValues({ subasta: "", comprador: "", documento: "", placa: "" });
+    setFilterValues({ subasta: [], comprador: [], documento: [], placa: [] });
   };
 
   const goBackToResults = () => {
