@@ -542,7 +542,7 @@ serve(async (req) => {
         retiros_stats AS (
           SELECT
             COUNTIF(cierre = '') AS pendientes_pago,
-            COUNTIF(entrega = '') AS pendientes_retiro,
+            COUNTIF(entrega = '' AND aprobacion != '') AS pendientes_retiro,
             COUNTIF(aprobacion = '') AS pendientes_traspaso
           FROM retiros_filtered
         )
