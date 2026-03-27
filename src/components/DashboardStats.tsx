@@ -38,7 +38,9 @@ const DashboardStats = () => {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["bigquery-stats"],
     queryFn: fetchDashboardStats,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   if (isLoading) {
