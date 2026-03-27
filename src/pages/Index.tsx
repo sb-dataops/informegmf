@@ -24,7 +24,7 @@ import logoGmf from "@/assets/logo-gmf.png";
 const Index = () => {
   const navigate = useNavigate();
   const [filterValues, setFilterValues] = useState<SearchFiltersValues>({
-    subasta: "", comprador: "", documento: "", placa: "",
+    subasta: [], comprador: [], documento: [], placa: [],
   });
   const [activeFilters, setActiveFilters] = useState<MultiSearchFilters | null>(null);
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
@@ -64,13 +64,19 @@ const Index = () => {
   const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta;
 
   const handleSearch = () => {
-    const hasFilter = filterValues.subasta || filterValues.comprador || filterValues.documento || filterValues.placa;
+    const hasFilter = filterValues.subasta.length || filterValues.comprador.length || filterValues.documento.length || filterValues.placa.length;
     if (!hasFilter) return;
     setSelectedComprador(null);
     setSelectedSubasta(null);
     setFilterPlacas(new Set());
     setFilterCompradores(new Set());
-    setActiveFilters({ ...filterValues });
+    // Convert arrays to pipe-separated strings for the API
+    setActiveFilters({
+      subasta: filterValues.subasta.join("|") || undefined,
+      comprador: filterValues.comprador.join("|") || undefined,
+      documento: filterValues.documento.join("|") || undefined,
+      placa: filterValues.placa.join("|") || undefined,
+    });
   };
 
   const effectiveComprador = showingSubastaDetail || showingSubastaList
@@ -137,7 +143,7 @@ const Index = () => {
     setSelectedComprador(null);
     setSelectedSubasta(null);
     setActiveFilters(null);
-    setFilterValues({ subasta: "", comprador: "", documento: "", placa: "" });
+    setFilterValues({ subasta: [], comprador: [], documento: [], placa: [] });
   };
 
   const goBackToResults = () => {

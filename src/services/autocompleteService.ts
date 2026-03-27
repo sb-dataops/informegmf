@@ -5,15 +5,38 @@ export interface AutocompleteOption {
 
 export type AutocompleteField = "subasta" | "comprador" | "documento" | "placa";
 
+export interface AutocompleteContext {
+  subasta?: string[];
+  comprador?: string[];
+  documento?: string[];
+  placa?: string[];
+}
+
 export async function fetchAutocomplete(
   field: AutocompleteField,
   query: string,
+  context?: AutocompleteContext,
 ): Promise<AutocompleteOption[]> {
   if (!query || query.length < 2) return [];
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const url = `https://${projectId}.supabase.co/functions/v1/fetch-bigquery?action=autocomplete&field=${field}&q=${encodeURIComponent(query)}`;
+  
+  const params = new URLSearchParams({
+    action: "autocomplete",
+    field,
+    q: query,
+  });
+
+  // Add context filters (pipe-separated for multi-values)
+  if (context) {
+    if (context.subasta?.length && field !== "subasta") params.set("ctx_subasta", context.subasta.join("|"));
+    if (context.comprador?.length && field !== "comprador") params.set("ctx_comprador", context.comprador.join("|"));
+    if (context.documento?.length && field !== "documento") params.set("ctx_documento", context.documento.join("|"));
+    if (context.placa?.length && field !== "placa") params.set("ctx_placa", context.placa.join("|"));
+  }
+
+  const url = `https://${projectId}.supabase.co/functions/v1/fetch-bigquery?${params.toString()}`;
 
   const res = await fetch(url, {
     headers: {
