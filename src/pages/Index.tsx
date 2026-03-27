@@ -64,13 +64,19 @@ const Index = () => {
   const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta;
 
   const handleSearch = () => {
-    const hasFilter = filterValues.subasta || filterValues.comprador || filterValues.documento || filterValues.placa;
+    const hasFilter = filterValues.subasta.length || filterValues.comprador.length || filterValues.documento.length || filterValues.placa.length;
     if (!hasFilter) return;
     setSelectedComprador(null);
     setSelectedSubasta(null);
     setFilterPlacas(new Set());
     setFilterCompradores(new Set());
-    setActiveFilters({ ...filterValues });
+    // Convert arrays to pipe-separated strings for the API
+    setActiveFilters({
+      subasta: filterValues.subasta.join("|") || undefined,
+      comprador: filterValues.comprador.join("|") || undefined,
+      documento: filterValues.documento.join("|") || undefined,
+      placa: filterValues.placa.join("|") || undefined,
+    });
   };
 
   const effectiveComprador = showingSubastaDetail || showingSubastaList
