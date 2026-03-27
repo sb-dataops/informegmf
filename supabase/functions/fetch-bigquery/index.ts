@@ -1085,18 +1085,35 @@ serve(async (req) => {
         const conditions: string[] = [];
         const p = prefix ? `${prefix}.` : "";
         if (subasta) {
-          const subNorm = normalizeSearchText(subasta);
-          conditions.push(`(UPPER(IFNULL(CAST(${p}subasta AS STRING),'')) = '${subasta.toUpperCase()}' OR REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(${p}subasta AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${subNorm.toLowerCase()}%')`);
+          const vals = subasta.split("|").map(v => sanitize(v.trim())).filter(Boolean);
+          if (vals.length === 1) {
+            const subNorm = normalizeSearchText(vals[0]);
+            conditions.push(`(UPPER(IFNULL(CAST(${p}subasta AS STRING),'')) = '${vals[0].toUpperCase()}' OR REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(${p}subasta AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${subNorm.toLowerCase()}%')`);
+          } else {
+            const orParts = vals.map(v => {
+              const norm = normalizeSearchText(v);
+              return `(UPPER(IFNULL(CAST(${p}subasta AS STRING),'')) = '${v.toUpperCase()}' OR REGEXP_REPLACE(NORMALIZE_AND_CASEFOLD(IFNULL(CAST(${p}subasta AS STRING),''), NFD), r'[^a-z0-9]', '') LIKE '%${norm.toLowerCase()}%')`;
+            });
+            conditions.push(`(${orParts.join(' OR ')})`);
+          }
         }
         if (comprador) {
-          conditions.push(`UPPER(IFNULL(CAST(${p}comprador AS STRING),'')) LIKE '%${comprador.toUpperCase()}%'`);
+          const vals = comprador.split("|").map(v => sanitize(v.trim())).filter(Boolean);
+          const orParts = vals.map(v => `UPPER(IFNULL(CAST(${p}comprador AS STRING),'')) LIKE '%${v.toUpperCase()}%'`);
+          conditions.push(`(${orParts.join(' OR ')})`);
         }
         if (documento) {
-          conditions.push(`UPPER(IFNULL(CAST(${p}documento AS STRING),'')) = '${documento.toUpperCase()}'`);
+          const vals = documento.split("|").map(v => sanitize(v.trim())).filter(Boolean);
+          const orParts = vals.map(v => `UPPER(IFNULL(CAST(${p}documento AS STRING),'')) = '${v.toUpperCase()}'`);
+          conditions.push(`(${orParts.join(' OR ')})`);
         }
         if (placa) {
-          const placaNorm = normalizeSearchText(placa);
-          conditions.push(`REGEXP_REPLACE(UPPER(IFNULL(CAST(${p}placa AS STRING), '')), r'[^A-Z0-9]', '') = '${placaNorm}'`);
+          const vals = placa.split("|").map(v => sanitize(v.trim())).filter(Boolean);
+          const orParts = vals.map(v => {
+            const norm = normalizeSearchText(v);
+            return `REGEXP_REPLACE(UPPER(IFNULL(CAST(${p}placa AS STRING), '')), r'[^A-Z0-9]', '') = '${norm}'`;
+          });
+          conditions.push(`(${orParts.join(' OR ')})`);
         }
         return conditions.length > 0 ? conditions.join(" AND ") : "TRUE";
       };
