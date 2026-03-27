@@ -552,11 +552,24 @@ serve(async (req) => {
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
         ),
+        retiros_pendientes_traspaso AS (
+          SELECT DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN (
+            SELECT DISTINCT placa
+            FROM allowed_relatorio
+            WHERE placa != ''
+          ) ar3 ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar3.placa
+          WHERE IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = ''
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+        ),
         retiros_stats AS (
           SELECT
             COUNTIF(cierre = '') AS pendientes_pago,
             (SELECT COUNT(*) FROM retiros_pendientes_retiro) AS pendientes_retiro,
-            COUNTIF(aprobacion = '') AS pendientes_traspaso
+            (SELECT COUNT(*) FROM retiros_pendientes_traspaso) AS pendientes_traspaso
           FROM retiros_filtered
         )
         SELECT
