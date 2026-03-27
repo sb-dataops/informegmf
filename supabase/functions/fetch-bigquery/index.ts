@@ -648,6 +648,123 @@ serve(async (req) => {
       });
     }
 
+    // ── INDIVIDUAL STAT ACTIONS for progressive dashboard loading ──
+    if (action === "stats_pagos") {
+      const statsSQL = `
+        WITH allowed_relatorio AS (
+          SELECT UPPER(IFNULL(placa,'')) AS placa
+          FROM \`${TABLES.relatorio}\`
+          WHERE ${ESTADO_ALLOWED_FILTER} AND ${COMITENTE_FILTER}
+        ),
+        excluded_retiros AS (
+          SELECT DISTINCT UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa
+          FROM \`${TABLES.retiros}\`
+          WHERE UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA RESCINDIDA%'
+             OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%INCUMPLIMIENTO DE PAGO%'
+             OR UPPER(IFNULL(CAST(estado AS STRING), '')) LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+        ),
+        retiros_filtered AS (
+          SELECT
+            UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa,
+            MAX(IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '')) AS cierre
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN (SELECT DISTINCT placa FROM allowed_relatorio WHERE placa != '') ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+          LEFT JOIN excluded_retiros er ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = er.placa
+          WHERE er.placa IS NULL
+          GROUP BY UPPER(IFNULL(CAST(r.placa AS STRING), ''))
+        )
+        SELECT CAST(COUNTIF(cierre = '') AS STRING) AS pendientes_pago FROM retiros_filtered
+      `;
+
+      try {
+        const [bqResult, pendingPaymentReviewEntries, pendingPaymentRows] = await Promise.all([
+          queryBQ(token, projectId, statsSQL),
+          getPendingPaymentReviewEntries().catch(() => [] as PendingPaymentReviewEntry[]),
+          getPendingPaymentRows(token, projectId).catch(() => [] as PendingPaymentRow[]),
+        ]);
+
+        const combinedPendingPlacas = new Set([
+          ...pendingPaymentReviewEntries.map((e) => e.placa),
+          ...pendingPaymentRows.map((r) => r.placa),
+        ]);
+
+        return new Response(JSON.stringify({
+          pendientes_pago: bqResult[0]?.pendientes_pago || '0',
+          soportes_pendientes_revision: String(pendingPaymentReviewEntries.length),
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=15" },
+        });
+      } catch (e) {
+        console.error("[stats_pagos] FAILED:", e);
+        return new Response(JSON.stringify({ pendientes_pago: '0', soportes_pendientes_revision: '0' }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    if (action === "stats_retiros") {
+      const statsSQL = `
+        WITH allowed_relatorio AS (
+          SELECT UPPER(IFNULL(placa,'')) AS placa
+          FROM \`${TABLES.relatorio}\`
+          WHERE ${ESTADO_ALLOWED_FILTER} AND ${COMITENTE_FILTER}
+        ),
+        retiros_pendientes_traspaso AS (
+          SELECT DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN (SELECT DISTINCT placa FROM allowed_relatorio WHERE placa != '') ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+          WHERE IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = ''
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+        ),
+        retiros_pendientes_retiro AS (
+          SELECT DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN (SELECT DISTINCT placa FROM allowed_relatorio WHERE placa != '') ar2 ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar2.placa
+          WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
+            AND IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') != ''
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+        )
+        SELECT
+          CAST((SELECT COUNT(*) FROM retiros_pendientes_traspaso) AS STRING) AS pendientes_traspaso,
+          CAST((SELECT COUNT(*) FROM retiros_pendientes_retiro) AS STRING) AS pendientes_retiro
+      `;
+
+      try {
+        const result = await queryBQ(token, projectId, statsSQL);
+        return new Response(JSON.stringify({
+          pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
+          pendientes_retiro: result[0]?.pendientes_retiro || '0',
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=15" },
+        });
+      } catch (e) {
+        console.error("[stats_retiros] FAILED:", e);
+        return new Response(JSON.stringify({ pendientes_traspaso: '0', pendientes_retiro: '0' }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    if (action === "stats_filtros") {
+      try {
+        const rows = await getPendientesFiltros(token, projectId);
+        return new Response(JSON.stringify({
+          pendientes_filtros: String(rows.length),
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=15" },
+        });
+      } catch (e) {
+        console.error("[stats_filtros] FAILED:", e);
+        return new Response(JSON.stringify({ pendientes_filtros: '0' }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // ── FILTER: get rows by category for dashboard drill-down ──
     if (action === "filter") {
       const category = url.searchParams.get("category") || "";

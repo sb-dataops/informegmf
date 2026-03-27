@@ -79,6 +79,30 @@ export async function fetchDashboardStats(): Promise<DashboardStatsData> {
   return result.stats;
 }
 
+async function fetchStatSection(actionName: string): Promise<Record<string, string>> {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = `https://${projectId}.supabase.co/functions/v1/${FUNCTION_NAME}?action=${actionName}`;
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${anonKey}`,
+      apikey: anonKey,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || `Error obteniendo ${actionName}`);
+  }
+
+  return res.json();
+}
+
+export const fetchStatsPagos = () => fetchStatSection("stats_pagos");
+export const fetchStatsRetiros = () => fetchStatSection("stats_retiros");
+export const fetchStatsFiltros = () => fetchStatSection("stats_filtros");
+
 export async function fetchFilteredLots(category: string): Promise<FilteredLotsResult> {
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
