@@ -546,10 +546,11 @@ serve(async (req) => {
             FROM allowed_relatorio
             WHERE placa != ''
           ) ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
-          LEFT JOIN excluded_retiros er ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = er.placa
-          WHERE er.placa IS NULL
-            AND IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
+          WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
             AND IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') != ''
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
         ),
         retiros_stats AS (
           SELECT
