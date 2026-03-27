@@ -545,7 +545,7 @@ serve(async (req) => {
             SELECT DISTINCT placa
             FROM allowed_relatorio
             WHERE placa != ''
-          ) ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+          ) ar2 ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar2.placa
           WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
             AND IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') != ''
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
