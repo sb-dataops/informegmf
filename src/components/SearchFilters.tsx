@@ -1,61 +1,85 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, X, Loader2, ChevronDown, Filter } from "lucide-react";
+import { Search, X, Loader2, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { fetchAutocomplete, type AutocompleteField, type AutocompleteOption } from "@/services/autocompleteService";
+import { fetchAutocomplete, type AutocompleteField, type AutocompleteOption, type AutocompleteContext } from "@/services/autocompleteService";
 
+// ─── Types ───
+export interface SearchFiltersValues {
+  subasta: string[];
+  comprador: string[];
+  documento: string[];
+  placa: string[];
+}
+
+interface SearchFiltersProps {
+  values: SearchFiltersValues;
+  onChange: (values: SearchFiltersValues) => void;
+  onSearch: () => void;
+}
+
+// ─── FilterField (multi-select with autocomplete) ───
 interface FilterFieldProps {
   label: string;
   field: AutocompleteField;
   placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
+  selected: string[];
+  onChange: (values: string[]) => void;
+  context: AutocompleteContext;
   icon?: React.ReactNode;
 }
 
-function FilterField({ label, field, placeholder, value, onChange, icon }: FilterFieldProps) {
-  const [inputValue, setInputValue] = useState(value);
+function FilterField({ label, field, placeholder, selected, onChange, context, icon }: FilterFieldProps) {
+  const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sync external value changes
-  useEffect(() => {
-    setInputValue(value);
-  }, [value]);
-
   const { data: options = [], isFetching } = useQuery({
-    queryKey: ["autocomplete", field, inputValue],
-    queryFn: () => fetchAutocomplete(field, inputValue),
+    queryKey: ["autocomplete", field, inputValue, context],
+    queryFn: () => fetchAutocomplete(field, inputValue, context),
     enabled: inputValue.length >= 2 && open,
     staleTime: 30 * 1000,
   });
 
+  // Filter out already-selected options
+  const filteredOptions = useMemo(
+    () => options.filter((o) => !selected.includes(o.value)),
+    [options, selected],
+  );
+
   const handleSelect = (option: AutocompleteOption) => {
-    onChange(option.value);
-    setInputValue(option.value);
+    if (!selected.includes(option.value)) {
+      onChange([...selected, option.value]);
+    }
+    setInputValue("");
     setOpen(false);
+    inputRef.current?.focus();
   };
 
-  const handleClear = () => {
-    onChange("");
-    setInputValue("");
+  const handleRemove = (value: string) => {
+    onChange(selected.filter((v) => v !== value));
   };
 
   const handleInputChange = (val: string) => {
     setInputValue(val);
     if (!open && val.length >= 2) setOpen(true);
-    if (val === "") onChange("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      if (inputValue.trim()) {
-        onChange(inputValue.trim());
-        setOpen(false);
+    if (e.key === "Enter" && inputValue.trim()) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!selected.includes(inputValue.trim())) {
+        onChange([...selected, inputValue.trim()]);
       }
+      setInputValue("");
+      setOpen(false);
+    }
+    if (e.key === "Backspace" && inputValue === "" && selected.length > 0) {
+      onChange(selected.slice(0, -1));
     }
     if (e.key === "Escape") {
       setOpen(false);
@@ -68,30 +92,34 @@ function FilterField({ label, field, placeholder, value, onChange, icon }: Filte
       <Popover open={open && inputValue.length >= 2} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <div className="relative">
-            <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <div className="absolute left-2.5 top-2.5 text-muted-foreground">
               {icon || <Search className="h-3.5 w-3.5" />}
             </div>
-            <Input
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => handleInputChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={() => inputValue.length >= 2 && setOpen(true)}
-              placeholder={placeholder}
-              className="pl-8 pr-8 h-9 text-sm rounded-lg"
-            />
-            {value ? (
-              <button
-                onClick={handleClear}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : (
-              isFetching && inputValue.length >= 2 && (
-                <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-              )
-            )}
+            <div className="flex flex-wrap items-center gap-1 min-h-[36px] pl-8 pr-2 py-1 border border-input bg-background rounded-lg focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+              {selected.map((val) => (
+                <Badge key={val} variant="secondary" className="text-xs gap-1 py-0 h-5 shrink-0">
+                  <span className="max-w-[120px] truncate">{val}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleRemove(val); }}
+                    className="hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              <Input
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => inputValue.length >= 2 && setOpen(true)}
+                placeholder={selected.length === 0 ? placeholder : ""}
+                className="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 h-7 min-w-[80px] flex-1 p-0 text-sm"
+              />
+              {isFetching && inputValue.length >= 2 && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />
+              )}
+            </div>
           </div>
         </PopoverTrigger>
         <PopoverContent
@@ -101,17 +129,17 @@ function FilterField({ label, field, placeholder, value, onChange, icon }: Filte
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="max-h-48 overflow-y-auto">
-            {isFetching && options.length === 0 ? (
+            {isFetching && filteredOptions.length === 0 ? (
               <div className="flex items-center justify-center py-4 gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Buscando...
               </div>
-            ) : options.length === 0 ? (
+            ) : filteredOptions.length === 0 ? (
               <div className="py-3 text-center text-sm text-muted-foreground">
                 Sin resultados
               </div>
             ) : (
-              options.map((option, idx) => (
+              filteredOptions.map((option, idx) => (
                 <button
                   key={`${option.value}-${idx}`}
                   onClick={() => handleSelect(option)}
@@ -133,49 +161,79 @@ function FilterField({ label, field, placeholder, value, onChange, icon }: Filte
   );
 }
 
-export interface SearchFiltersValues {
-  subasta: string;
-  comprador: string;
-  documento: string;
-  placa: string;
+// ─── Filter Summary ───
+const FIELD_LABELS: Record<keyof SearchFiltersValues, string> = {
+  subasta: "Subasta",
+  comprador: "Nombre",
+  documento: "Cédula / NIT",
+  placa: "Placa",
+};
+
+function FilterSummary({ values, onChange }: { values: SearchFiltersValues; onChange: (v: SearchFiltersValues) => void }) {
+  const entries = (Object.keys(FIELD_LABELS) as Array<keyof SearchFiltersValues>)
+    .filter((key) => values[key].length > 0);
+
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-1">
+      <span className="text-xs text-muted-foreground font-medium">Filtrando por:</span>
+      {entries.map((key) =>
+        values[key].map((val) => (
+          <Badge key={`${key}-${val}`} variant="outline" className="gap-1 text-xs py-0.5">
+            <span className="text-muted-foreground">{FIELD_LABELS[key]}:</span>
+            <span className="font-semibold max-w-[150px] truncate">{val}</span>
+            <button
+              onClick={() => onChange({ ...values, [key]: values[key].filter((v) => v !== val) })}
+              className="hover:text-destructive ml-0.5"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        ))
+      )}
+    </div>
+  );
 }
 
-interface SearchFiltersProps {
-  values: SearchFiltersValues;
-  onChange: (values: SearchFiltersValues) => void;
-  onSearch: () => void;
-}
-
+// ─── Main Component ───
 const SearchFilters = ({ values, onChange, onSearch }: SearchFiltersProps) => {
   const updateField = useCallback(
-    (field: keyof SearchFiltersValues) => (value: string) => {
-      onChange({ ...values, [field]: value });
+    (field: keyof SearchFiltersValues) => (fieldValues: string[]) => {
+      onChange({ ...values, [field]: fieldValues });
     },
     [values, onChange],
   );
 
-  const hasAnyFilter = values.subasta || values.comprador || values.documento || values.placa;
-  const activeCount = [values.subasta, values.comprador, values.documento, values.placa].filter(Boolean).length;
+  // Build context for cascading filters
+  const contextFor = useCallback(
+    (field: keyof SearchFiltersValues): AutocompleteContext => {
+      const ctx: AutocompleteContext = {};
+      if (field !== "subasta" && values.subasta.length) ctx.subasta = values.subasta;
+      if (field !== "comprador" && values.comprador.length) ctx.comprador = values.comprador;
+      if (field !== "documento" && values.documento.length) ctx.documento = values.documento;
+      if (field !== "placa" && values.placa.length) ctx.placa = values.placa;
+      return ctx;
+    },
+    [values],
+  );
+
+  const hasAnyFilter = values.subasta.length > 0 || values.comprador.length > 0 || values.documento.length > 0 || values.placa.length > 0;
+  const activeCount = values.subasta.length + values.comprador.length + values.documento.length + values.placa.length;
 
   const handleClearAll = () => {
-    onChange({ subasta: "", comprador: "", documento: "", placa: "" });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && hasAnyFilter) {
-      onSearch();
-    }
+    onChange({ subasta: [], comprador: [], documento: [], placa: [] });
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-3" onKeyDown={handleKeyDown}>
+    <div className="w-full max-w-5xl mx-auto space-y-3">
       <div className="bg-card rounded-xl border border-border shadow-card p-4 space-y-3">
         <div className="flex items-center gap-2 mb-1">
           <Filter className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">Filtros de búsqueda</span>
           {activeCount > 0 && (
             <Badge variant="secondary" className="text-xs">
-              {activeCount} activo{activeCount > 1 ? "s" : ""}
+              {activeCount} filtro{activeCount > 1 ? "s" : ""}
             </Badge>
           )}
         </div>
@@ -185,31 +243,37 @@ const SearchFilters = ({ values, onChange, onSearch }: SearchFiltersProps) => {
             label="Subasta"
             field="subasta"
             placeholder="Buscar subasta..."
-            value={values.subasta}
+            selected={values.subasta}
             onChange={updateField("subasta")}
+            context={contextFor("subasta")}
           />
           <FilterField
             label="Nombre"
             field="comprador"
             placeholder="Buscar nombre..."
-            value={values.comprador}
+            selected={values.comprador}
             onChange={updateField("comprador")}
+            context={contextFor("comprador")}
           />
           <FilterField
             label="Cédula / NIT"
             field="documento"
             placeholder="Buscar documento..."
-            value={values.documento}
+            selected={values.documento}
             onChange={updateField("documento")}
+            context={contextFor("documento")}
           />
           <FilterField
             label="Placa"
             field="placa"
             placeholder="Buscar placa..."
-            value={values.placa}
+            selected={values.placa}
             onChange={updateField("placa")}
+            context={contextFor("placa")}
           />
         </div>
+
+        <FilterSummary values={values} onChange={onChange} />
 
         <div className="flex items-center gap-2 pt-1">
           <Button onClick={onSearch} disabled={!hasAnyFilter} className="gap-2">
