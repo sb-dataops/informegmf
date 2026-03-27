@@ -149,7 +149,7 @@ async function getPendientesFiltros(token: string, projectId: string): Promise<P
       TRIM(IFNULL(CAST(estadoRelatorio AS STRING), '')) AS estadoRelatorio
     FROM \`${TABLES.consolidadoChan}\`
     WHERE LOWER(IFNULL(CAST(comitente AS STRING), '')) = 'gm financial colombia sa compañia de financiamiento'
-      AND IFNULL(CAST(estadoRelatorio AS STRING), '') IN ('Venta', 'Condicional Aprobado', 'Post-oferta Aprobada', 'Venta con incumplimiento de pago')
+      AND IFNULL(CAST(estadoRelatorio AS STRING), '') IN ('Venta', 'Condicional Aprobado', 'Post-oferta Aprobada')
       AND CAST(fechaSubasta AS STRING) > '2026-01-01'
       AND fechaAprobacionVendedorDocsCreacionFiltros IS NULL
       AND IFNULL(TRIM(CAST(placa AS STRING)), '') != ''
