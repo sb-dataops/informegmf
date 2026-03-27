@@ -527,7 +527,6 @@ serve(async (req) => {
           SELECT
             UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa,
             MAX(IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '')) AS cierre,
-            MAX(IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '')) AS entrega,
             MAX(IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '')) AS aprobacion
           FROM \`${TABLES.retiros}\` r
           INNER JOIN (
@@ -539,10 +538,23 @@ serve(async (req) => {
           WHERE er.placa IS NULL
           GROUP BY UPPER(IFNULL(CAST(r.placa AS STRING), ''))
         ),
+        retiros_pendientes_retiro AS (
+          SELECT DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN (
+            SELECT DISTINCT placa
+            FROM allowed_relatorio
+            WHERE placa != ''
+          ) ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+          LEFT JOIN excluded_retiros er ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = er.placa
+          WHERE er.placa IS NULL
+            AND IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
+            AND IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') != ''
+        ),
         retiros_stats AS (
           SELECT
             COUNTIF(cierre = '') AS pendientes_pago,
-            COUNTIF(entrega = '' AND aprobacion != '') AS pendientes_retiro,
+            (SELECT COUNT(*) FROM retiros_pendientes_retiro) AS pendientes_retiro,
             COUNTIF(aprobacion = '') AS pendientes_traspaso
           FROM retiros_filtered
         )
