@@ -542,7 +542,7 @@ serve(async (req) => {
         retiros_stats AS (
           SELECT
             COUNTIF(cierre = '') AS pendientes_pago,
-            COUNTIF(entrega = '') AS pendientes_retiro,
+            COUNTIF(entrega = '' AND aprobacion != '') AS pendientes_retiro,
             COUNTIF(aprobacion = '') AS pendientes_traspaso
           FROM retiros_filtered
         )
@@ -842,6 +842,7 @@ serve(async (req) => {
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
+            AND IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') != ''
             ${EXCLUDED_ESTADOS_RETIROS}
           ORDER BY r.subasta, r.placa
           LIMIT 2000
