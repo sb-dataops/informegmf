@@ -19,7 +19,7 @@ const queryClient = new QueryClient();
 queryClient.prefetchQuery({
   queryKey: ["bigquery-stats"],
   queryFn: fetchDashboardStats,
-  staleTime: 10 * 60 * 1000,
+  staleTime: 30 * 1000,
 });
 queryClient.prefetchQuery({
   queryKey: ["pagos-all-alerts"],
