@@ -252,6 +252,12 @@ const FilteredLots = () => {
                           {isPendingPaymentsCategory && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Tipo</th>
                           )}
+                          {isPendingPaymentsCategory && (
+                            <>
+                              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha aprobación filtros</th>
+                              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha límite pago</th>
+                            </>
+                          )}
                           {showPagoColumns && (
                             <>
                               <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha aprobación filtros</th>
@@ -276,7 +282,7 @@ const FilteredLots = () => {
                       <tbody>
                         {items.map((item, idx) => {
                           const isUpdating = reviewMutation.isPending && reviewMutation.variables === item.placa;
-                          const fechaLimitePago = showPagoColumns && item.fechaAprobacionFiltros
+                          const fechaLimitePago = (showPagoColumns || isPendingPaymentsCategory) && item.fechaAprobacionFiltros
                             ? addBusinessDays(item.fechaAprobacionFiltros, 3)
                             : null;
 
@@ -326,6 +332,20 @@ const FilteredLots = () => {
                                     {item.hasPendingPayment ? <Badge variant="outline">Pendiente de pago</Badge> : null}
                                   </div>
                                 </td>
+                              )}
+                              {isPendingPaymentsCategory && (
+                                <>
+                                  <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
+                                    {item.fechaAprobacionFiltros ? formatDate(item.fechaAprobacionFiltros) : "—"}
+                                  </td>
+                                  <td className="px-4 py-2.5 hidden sm:table-cell align-top">
+                                    {fechaLimitePago ? (
+                                      <span className="text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">
+                                        {formatDate(fechaLimitePago)}
+                                      </span>
+                                    ) : "—"}
+                                  </td>
+                                </>
                               )}
                               {showPagoColumns && (
                                 <>
