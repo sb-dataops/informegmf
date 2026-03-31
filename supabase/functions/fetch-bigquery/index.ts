@@ -1279,13 +1279,13 @@ serve(async (req) => {
             conditions.push(`CAST(${p}fecha AS STRING) <= '${fechaSubastaHasta}'`);
           }
         }
-        // fechaPazSalvo = procesoPazySalvoaTramitador in retiros table
+        // fechaPazSalvo comes from tramitador tables (pazYSalvoContabilidad), compared as normalized string
         if (tableName === "retiros") {
           if (fechaPazSalvoDesde) {
-            conditions.push(`CAST(${p}procesoPazySalvoaTramitador AS STRING) >= '${fechaPazSalvoDesde}'`);
+            conditions.push(`CAST(${p}pazYSalvoContabilidad AS STRING) >= '${fechaPazSalvoDesde}'`);
           }
           if (fechaPazSalvoHasta) {
-            conditions.push(`CAST(${p}procesoPazySalvoaTramitador AS STRING) <= '${fechaPazSalvoHasta}'`);
+            conditions.push(`CAST(${p}pazYSalvoContabilidad AS STRING) <= '${fechaPazSalvoHasta}'`);
           }
         }
         return conditions.length > 0 ? conditions.join(" AND ") : "TRUE";
