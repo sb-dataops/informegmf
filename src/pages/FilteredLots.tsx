@@ -271,7 +271,7 @@ const FilteredLots = () => {
                           {!showPagoColumns && !isPendingPaymentsCategory && !showRetiroColumns && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Descripción</th>
                           )}
-                          {!isPendingPaymentsCategory && !showPagoColumns && (
+                          {!isPendingPaymentsCategory && !showPagoColumns && category !== "pendientes_filtros" && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Tramitador</th>
                           )}
                           {!showRetiroColumns && !showPagoColumns && (
@@ -371,7 +371,7 @@ const FilteredLots = () => {
                                     : (item.descripcion || "—")}
                                 </td>
                               )}
-                              {!isPendingPaymentsCategory && !showPagoColumns && (
+                              {!isPendingPaymentsCategory && !showPagoColumns && category !== "pendientes_filtros" && (
                                 <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell align-top">
                                   {item.tramitador || "—"}
                                 </td>
