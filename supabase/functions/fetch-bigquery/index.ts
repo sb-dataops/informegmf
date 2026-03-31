@@ -986,7 +986,7 @@ serve(async (req) => {
           LIMIT 2000
         `;
       } else if (category === "pendientes_pago") {
-        sql = `
+        const pagoSQL = `
           ${allowedRelatorioCte},
           consolidado_lookup AS (
             SELECT
@@ -1007,6 +1007,41 @@ serve(async (req) => {
           ORDER BY r.subasta, r.placa
           LIMIT 2000
         `;
+
+        const supabase = getAdminClient();
+        const [bqRows, { data: pagosData }] = await Promise.all([
+          queryBQ(token, projectId, pagoSQL),
+          supabase.from("pagos").select("placa, observacion_pago").range(0, 4999),
+        ]);
+
+        const observacionByPlaca = new Map<string, string>();
+        for (const p of pagosData || []) {
+          if (p.placa && p.observacion_pago) {
+            observacionByPlaca.set(p.placa.toUpperCase(), p.observacion_pago);
+          }
+        }
+
+        const rows = bqRows.map((row) => {
+          const placa = (row.placa || "").toUpperCase().trim();
+          return {
+            subasta: row.subasta || null,
+            placa,
+            comprador: row.comprador || null,
+            documento: row.documento || null,
+            descripcion: null,
+            lote: row.lote || null,
+            fechaAprobacionFiltros: row.fechaAprobacionFiltros || null,
+            observacionPago: observacionByPlaca.get(placa) || null,
+          };
+        });
+
+        const payload = JSON.stringify({ category, rows, count: rows.length });
+        if (canUseFilterCache) {
+          filterResultsCache.set(category, { payload, expiresAt: Date.now() + FILTER_RESULT_TTL_MS });
+        }
+        return new Response(payload, {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=30, s-maxage=120" },
+        });
       } else if (category === "pendientes_retiro") {
         sql = `
           ${allowedRelatorioCte},
