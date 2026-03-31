@@ -986,16 +986,62 @@ serve(async (req) => {
           LIMIT 2000
         `;
       } else if (category === "pendientes_pago") {
-        sql = `
-          ${allowedRelatorioCte}
-          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.lote
+        const pagoSQL = `
+          ${allowedRelatorioCte},
+          consolidado_lookup AS (
+            SELECT
+              UPPER(TRIM(IFNULL(CAST(placa AS STRING), ''))) AS placa,
+              ANY_VALUE(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING)) AS fechaAprobacionFiltros
+            FROM \`${TABLES.consolidadoChan}\`
+            WHERE LOWER(IFNULL(CAST(comitente AS STRING), '')) = 'gm financial colombia sa compañia de financiamiento'
+              AND IFNULL(TRIM(CAST(placa AS STRING)), '') != ''
+            GROUP BY UPPER(TRIM(IFNULL(CAST(placa AS STRING), '')))
+          )
+          SELECT r.subasta, UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa, r.comprador, r.documento, r.lote,
+                 c.fechaAprobacionFiltros
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+          LEFT JOIN consolidado_lookup c ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = c.placa
           WHERE IFNULL(CAST(r.cierrecontableTraspasoComision AS STRING), '') = ''
             ${EXCLUDED_ESTADOS_RETIROS}
           ORDER BY r.subasta, r.placa
           LIMIT 2000
         `;
+
+        const supabase = getAdminClient();
+        const [bqRows, { data: pagosData }] = await Promise.all([
+          queryBQ(token, projectId, pagoSQL),
+          supabase.from("pagos").select("placa, observacion_pago").range(0, 4999),
+        ]);
+
+        const observacionByPlaca = new Map<string, string>();
+        for (const p of pagosData || []) {
+          if (p.placa && p.observacion_pago) {
+            observacionByPlaca.set(p.placa.toUpperCase(), p.observacion_pago);
+          }
+        }
+
+        const rows = bqRows.map((row) => {
+          const placa = (row.placa || "").toUpperCase().trim();
+          return {
+            subasta: row.subasta || null,
+            placa,
+            comprador: row.comprador || null,
+            documento: row.documento || null,
+            descripcion: null,
+            lote: row.lote || null,
+            fechaAprobacionFiltros: row.fechaAprobacionFiltros || null,
+            observacionPago: observacionByPlaca.get(placa) || null,
+          };
+        });
+
+        const payload = JSON.stringify({ category, rows, count: rows.length });
+        if (canUseFilterCache) {
+          filterResultsCache.set(category, { payload, expiresAt: Date.now() + FILTER_RESULT_TTL_MS });
+        }
+        return new Response(payload, {
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=30, s-maxage=120" },
+        });
       } else if (category === "pendientes_retiro") {
         sql = `
           ${allowedRelatorioCte},
