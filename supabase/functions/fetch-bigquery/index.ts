@@ -1191,14 +1191,18 @@ serve(async (req) => {
       const comprador = sanitize(url.searchParams.get("comprador") || "");
       const documento = sanitize(url.searchParams.get("documento") || "");
       const placa = sanitize(url.searchParams.get("placa") || "");
+      const fechaSubastaDesde = sanitize(url.searchParams.get("fechaSubastaDesde") || "");
+      const fechaSubastaHasta = sanitize(url.searchParams.get("fechaSubastaHasta") || "");
+      const fechaPazSalvoDesde = sanitize(url.searchParams.get("fechaPazSalvoDesde") || "");
+      const fechaPazSalvoHasta = sanitize(url.searchParams.get("fechaPazSalvoHasta") || "");
 
-      if (!subasta && !comprador && !documento && !placa) {
+      if (!subasta && !comprador && !documento && !placa && !fechaSubastaDesde && !fechaSubastaHasta && !fechaPazSalvoDesde && !fechaPazSalvoHasta) {
         return new Response(JSON.stringify({ error: "Al menos un filtro es requerido" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const buildWhereConditions = (prefix: string = "") => {
+      const buildWhereConditions = (prefix: string = "", tableName: string = "relatorio") => {
         const conditions: string[] = [];
         const p = prefix ? `${prefix}.` : "";
         if (subasta) {
@@ -1231,6 +1235,24 @@ serve(async (req) => {
             return `REGEXP_REPLACE(UPPER(IFNULL(CAST(${p}placa AS STRING), '')), r'[^A-Z0-9]', '') = '${norm}'`;
           });
           conditions.push(`(${orParts.join(' OR ')})`);
+        }
+        // Date filters only apply to relatorio (has fecha field for subasta date)
+        if (tableName === "relatorio") {
+          if (fechaSubastaDesde) {
+            conditions.push(`CAST(${p}fecha AS STRING) >= '${fechaSubastaDesde}'`);
+          }
+          if (fechaSubastaHasta) {
+            conditions.push(`CAST(${p}fecha AS STRING) <= '${fechaSubastaHasta}'`);
+          }
+        }
+        // fechaPazSalvo only on retiros table
+        if (tableName === "retiros") {
+          if (fechaPazSalvoDesde) {
+            conditions.push(`CAST(${p}fechaPazSalvo AS STRING) >= '${fechaPazSalvoDesde}'`);
+          }
+          if (fechaPazSalvoHasta) {
+            conditions.push(`CAST(${p}fechaPazSalvo AS STRING) <= '${fechaPazSalvoHasta}'`);
+          }
         }
         return conditions.length > 0 ? conditions.join(" AND ") : "TRUE";
       };
