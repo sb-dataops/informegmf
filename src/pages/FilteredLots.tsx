@@ -282,7 +282,7 @@ const FilteredLots = () => {
                       <tbody>
                         {items.map((item, idx) => {
                           const isUpdating = reviewMutation.isPending && reviewMutation.variables === item.placa;
-                          const fechaLimitePago = showPagoColumns && item.fechaAprobacionFiltros
+                          const fechaLimitePago = (showPagoColumns || isPendingPaymentsCategory) && item.fechaAprobacionFiltros
                             ? addBusinessDays(item.fechaAprobacionFiltros, 3)
                             : null;
 
