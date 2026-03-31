@@ -333,7 +333,20 @@ const FilteredLots = () => {
                                   </div>
                                 </td>
                               )}
-                              {showPagoColumns && (
+                              {isPendingPaymentsCategory && (
+                                <>
+                                  <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
+                                    {item.fechaAprobacionFiltros ? formatDate(item.fechaAprobacionFiltros) : "—"}
+                                  </td>
+                                  <td className="px-4 py-2.5 hidden sm:table-cell align-top">
+                                    {fechaLimitePago ? (
+                                      <span className="text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">
+                                        {formatDate(fechaLimitePago)}
+                                      </span>
+                                    ) : "—"}
+                                  </td>
+                                </>
+                              )}
                                 <>
                                   <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
                                     {item.fechaAprobacionFiltros ? formatDate(item.fechaAprobacionFiltros) : "—"}
