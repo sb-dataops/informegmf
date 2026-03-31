@@ -252,15 +252,23 @@ const FilteredLots = () => {
                           {isPendingPaymentsCategory && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Tipo</th>
                           )}
-                          {showRetiroColumns ? (
+                          {showPagoColumns && (
+                            <>
+                              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha aprobación filtros</th>
+                              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha límite pago</th>
+                              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Observaciones pagos</th>
+                            </>
+                          )}
+                          {!showPagoColumns && !isPendingPaymentsCategory && showRetiroColumns && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha entrega docs al vendedor</th>
-                          ) : (
+                          )}
+                          {!showPagoColumns && !isPendingPaymentsCategory && !showRetiroColumns && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Descripción</th>
                           )}
-                          {!isPendingPaymentsCategory && (
+                          {!isPendingPaymentsCategory && !showPagoColumns && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Tramitador</th>
                           )}
-                          {!showRetiroColumns && (
+                          {!showRetiroColumns && !showPagoColumns && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Estado</th>
                           )}
                         </tr>
@@ -268,6 +276,9 @@ const FilteredLots = () => {
                       <tbody>
                         {items.map((item, idx) => {
                           const isUpdating = reviewMutation.isPending && reviewMutation.variables === item.placa;
+                          const fechaLimitePago = showPagoColumns && item.fechaAprobacionFiltros
+                            ? addBusinessDays(item.fechaAprobacionFiltros, 3)
+                            : null;
 
                           return (
                             <tr
@@ -316,17 +327,36 @@ const FilteredLots = () => {
                                   </div>
                                 </td>
                               )}
-                              <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[260px] truncate align-top">
-                                {showRetiroColumns
-                                  ? (item.documentosConTramitador ? formatDate(item.documentosConTramitador) : "—")
-                                  : (item.descripcion || "—")}
-                              </td>
-                              {!isPendingPaymentsCategory && (
+                              {showPagoColumns && (
+                                <>
+                                  <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
+                                    {item.fechaAprobacionFiltros ? formatDate(item.fechaAprobacionFiltros) : "—"}
+                                  </td>
+                                  <td className="px-4 py-2.5 hidden sm:table-cell align-top">
+                                    {fechaLimitePago ? (
+                                      <span className="text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">
+                                        {formatDate(fechaLimitePago)}
+                                      </span>
+                                    ) : "—"}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell align-top max-w-[260px] truncate">
+                                    {item.observacionPago || "—"}
+                                  </td>
+                                </>
+                              )}
+                              {!showPagoColumns && !isPendingPaymentsCategory && (
+                                <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[260px] truncate align-top">
+                                  {showRetiroColumns
+                                    ? (item.documentosConTramitador ? formatDate(item.documentosConTramitador) : "—")
+                                    : (item.descripcion || "—")}
+                                </td>
+                              )}
+                              {!isPendingPaymentsCategory && !showPagoColumns && (
                                 <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell align-top">
                                   {item.tramitador || "—"}
                                 </td>
                               )}
-                              {!showRetiroColumns && (
+                              {!showRetiroColumns && !showPagoColumns && (
                                 <td className="px-4 py-2.5 hidden md:table-cell align-top">
                                   <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                                     {item.estadoTraspaso || item.estadoRetiro || item.estado || "—"}
