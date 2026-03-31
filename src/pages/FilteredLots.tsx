@@ -252,6 +252,12 @@ const FilteredLots = () => {
                           {isPendingPaymentsCategory && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Tipo</th>
                           )}
+                          {isPendingPaymentsCategory && (
+                            <>
+                              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha aprobación filtros</th>
+                              <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha límite pago</th>
+                            </>
+                          )}
                           {showPagoColumns && (
                             <>
                               <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha aprobación filtros</th>
