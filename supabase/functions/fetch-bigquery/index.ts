@@ -959,7 +959,8 @@ serve(async (req) => {
       if (category === "pendientes_traspaso") {
         sql = `
           ${allowedRelatorioCte}
-          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.fechaAprobacionTramite, r.lote, r.tramitador
+          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.fechaAprobacionTramite, r.lote, r.tramitador,
+                 r.documentosConTramitador, r.fechaPazSalvo
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           WHERE IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = ''
