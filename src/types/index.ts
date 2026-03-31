@@ -187,6 +187,8 @@ export interface FilteredLotRow {
   fechaPazSalvo?: string | null;
   comentarios?: string | null;
   observacionTramitador?: string | null;
+  fechaAprobacionFiltros?: string | null;
+  observacionPago?: string | null;
 }
 
 export interface FilteredLotsResult {
