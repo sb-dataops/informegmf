@@ -56,6 +56,10 @@ export interface MultiSearchFilters {
   comprador?: string;
   documento?: string;
   placa?: string;
+  fechaSubastaDesde?: string;
+  fechaSubastaHasta?: string;
+  fechaPazSalvoDesde?: string;
+  fechaPazSalvoHasta?: string;
 }
 
 export async function multiSearch(filters: MultiSearchFilters) {
