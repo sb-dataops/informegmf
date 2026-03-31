@@ -1302,7 +1302,7 @@ serve(async (req) => {
                fechaOkDocsTraspaso, transito, estadoTraspaso, fechaAprobadoRunt,
                fechaTp, fechaEnvioTpComprador, ans, observacion, fechaVencimientoRtm
         FROM \`${TABLES.gestramites}\`
-        WHERE ${buildWhereConditions()}
+        WHERE ${buildWhereConditions("", "gestramites")}
         LIMIT 1000
       `;
 
