@@ -963,18 +963,19 @@ serve(async (req) => {
             SELECT
               UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
               ANY_VALUE(CAST(pazYSalvoContabilidad AS STRING)) AS fechaPazSalvo,
-              ANY_VALUE(CAST(observacion AS STRING)) AS observacionTramitador
+              ANY_VALUE(CAST(observacion AS STRING)) AS observacionTramitador,
+              ANY_VALUE(CAST(estadoTraspaso AS STRING)) AS estadoTraspaso
             FROM (
-              SELECT placa, pazYSalvoContabilidad, observacion FROM \`${TABLES.servitram}\`
+              SELECT placa, pazYSalvoContabilidad, observacion, estadoTraspaso FROM \`${TABLES.servitram}\`
               UNION ALL
-              SELECT placa, pazYSalvoContabilidad, observacion FROM \`${TABLES.gestramites}\`
+              SELECT placa, pazYSalvoContabilidad, observacion, estadoTraspaso FROM \`${TABLES.gestramites}\`
             )
             WHERE IFNULL(CAST(placa AS STRING), '') != ''
             GROUP BY UPPER(IFNULL(CAST(placa AS STRING), ''))
           )
           SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.fechaAprobacionTramite, r.lote, r.tramitador,
                  r.documentosConTramitador, t.fechaPazSalvo,
-                 r.comentarios, r.estadoTraspaso,
+                 r.comentarios, t.estadoTraspaso,
                  t.observacionTramitador
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
