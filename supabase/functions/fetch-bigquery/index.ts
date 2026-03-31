@@ -1263,7 +1263,7 @@ serve(async (req) => {
                comprador, email, documento, ciudad_comprador, departamento_comprador,
                gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
         FROM \`${TABLES.relatorio}\`
-        WHERE ${COMITENTE_FILTER} AND ${buildWhereConditions()} AND ${ESTADO_ALLOWED_FILTER}
+        WHERE ${COMITENTE_FILTER} AND ${buildWhereConditions("", "relatorio")} AND ${ESTADO_ALLOWED_FILTER}
         LIMIT 1000
       `;
 
