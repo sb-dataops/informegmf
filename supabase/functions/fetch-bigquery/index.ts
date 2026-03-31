@@ -958,15 +958,27 @@ serve(async (req) => {
       let sql = "";
       if (category === "pendientes_traspaso") {
         sql = `
-          ${allowedRelatorioCte}
+          ${allowedRelatorioCte},
+          tramitadores_lookup AS (
+            SELECT
+              UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
+              ANY_VALUE(CAST(pazYSalvoContabilidad AS STRING)) AS fechaPazSalvo,
+              ANY_VALUE(CAST(observacion AS STRING)) AS observacionTramitador
+            FROM (
+              SELECT placa, pazYSalvoContabilidad, observacion FROM \`${TABLES.servitram}\`
+              UNION ALL
+              SELECT placa, pazYSalvoContabilidad, observacion FROM \`${TABLES.gestramites}\`
+            )
+            WHERE IFNULL(CAST(placa AS STRING), '') != ''
+            GROUP BY UPPER(IFNULL(CAST(placa AS STRING), ''))
+          )
           SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.fechaAprobacionTramite, r.lote, r.tramitador,
-                 r.documentosConTramitador, r.procesoPazySalvoaTramitador AS fechaPazSalvo,
+                 r.documentosConTramitador, t.fechaPazSalvo,
                  r.comentarios, r.estadoTraspaso,
-                 COALESCE(s.observacion, g.observacion) AS observacionTramitador
+                 t.observacionTramitador
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
-          LEFT JOIN \`${TABLES.servitram}\` s ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = UPPER(IFNULL(CAST(s.placa AS STRING), ''))
-          LEFT JOIN \`${TABLES.gestramites}\` g ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = UPPER(IFNULL(CAST(g.placa AS STRING), ''))
+          LEFT JOIN tramitadores_lookup t ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = t.placa
           WHERE IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = ''
             ${EXCLUDED_ESTADOS_RETIROS}
           ORDER BY r.subasta, r.placa
@@ -985,15 +997,27 @@ serve(async (req) => {
         `;
       } else if (category === "pendientes_retiro") {
         sql = `
-          ${allowedRelatorioCte}
+          ${allowedRelatorioCte},
+          tramitadores_lookup AS (
+            SELECT
+              UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
+              ANY_VALUE(CAST(pazYSalvoContabilidad AS STRING)) AS fechaPazSalvo,
+              ANY_VALUE(CAST(observacion AS STRING)) AS observacionTramitador
+            FROM (
+              SELECT placa, pazYSalvoContabilidad, observacion FROM \`${TABLES.servitram}\`
+              UNION ALL
+              SELECT placa, pazYSalvoContabilidad, observacion FROM \`${TABLES.gestramites}\`
+            )
+            WHERE IFNULL(CAST(placa AS STRING), '') != ''
+            GROUP BY UPPER(IFNULL(CAST(placa AS STRING), ''))
+          )
           SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.fechaEntregaVehiculo, r.lote, r.tramitador,
-                 r.documentosConTramitador, r.procesoPazySalvoaTramitador AS fechaPazSalvo,
+                 r.documentosConTramitador, t.fechaPazSalvo,
                  r.comentarios,
-                 COALESCE(s.observacion, g.observacion) AS observacionTramitador
+                 t.observacionTramitador
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
-          LEFT JOIN \`${TABLES.servitram}\` s ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = UPPER(IFNULL(CAST(s.placa AS STRING), ''))
-          LEFT JOIN \`${TABLES.gestramites}\` g ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = UPPER(IFNULL(CAST(g.placa AS STRING), ''))
+          LEFT JOIN tramitadores_lookup t ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = t.placa
           WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
             AND IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') != ''
             ${EXCLUDED_ESTADOS_RETIROS}
