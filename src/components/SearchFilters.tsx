@@ -166,11 +166,15 @@ function FilterField({ label, field, placeholder, selected, onChange, context, i
 }
 
 // ─── Filter Summary ───
-const FIELD_LABELS: Record<keyof SearchFiltersValues, string> = {
+const FIELD_LABELS: Record<string, string> = {
   subasta: "Subasta",
   comprador: "Nombre",
   documento: "Cédula / NIT",
   placa: "Placa",
+  fechaSubastaDesde: "Fecha subasta desde",
+  fechaSubastaHasta: "Fecha subasta hasta",
+  fechaPazSalvoDesde: "Fecha paz y salvo desde",
+  fechaPazSalvoHasta: "Fecha paz y salvo hasta",
 };
 
 function FilterSummary({ values, onChange }: { values: SearchFiltersValues; onChange: (v: SearchFiltersValues) => void }) {
