@@ -1247,13 +1247,13 @@ serve(async (req) => {
             conditions.push(`CAST(${p}fecha AS STRING) <= '${fechaSubastaHasta}'`);
           }
         }
-        // fechaPazSalvo only on retiros table
+        // fechaPazSalvo = procesoPazySalvoaTramitador in retiros table
         if (tableName === "retiros") {
           if (fechaPazSalvoDesde) {
-            conditions.push(`CAST(${p}fechaPazSalvo AS STRING) >= '${fechaPazSalvoDesde}'`);
+            conditions.push(`CAST(${p}procesoPazySalvoaTramitador AS STRING) >= '${fechaPazSalvoDesde}'`);
           }
           if (fechaPazSalvoHasta) {
-            conditions.push(`CAST(${p}fechaPazSalvo AS STRING) <= '${fechaPazSalvoHasta}'`);
+            conditions.push(`CAST(${p}procesoPazySalvoaTramitador AS STRING) <= '${fechaPazSalvoHasta}'`);
           }
         }
         return conditions.length > 0 ? conditions.join(" AND ") : "TRUE";
@@ -1278,7 +1278,7 @@ serve(async (req) => {
                comentarios, mayoroferta, comprador, email, documento, movil,
                direccion, ciudadComprador, departamentoComprador,
                ubicacionVehiculo, ciudadUbicacionVehiculo, direccionUbicacionVehiculo,
-               quienRetira, estadoRetiro, fechaEstadoRetiro, fechaPazSalvo
+               quienRetira, estadoRetiro, fechaEstadoRetiro, procesoPazySalvoaTramitador AS fechaPazSalvo
         FROM \`${TABLES.retiros}\`
         WHERE ${buildWhereConditions("", "retiros")}
         LIMIT 1000
