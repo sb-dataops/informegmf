@@ -25,6 +25,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [filterValues, setFilterValues] = useState<SearchFiltersValues>({
     subasta: [], comprador: [], documento: [], placa: [],
+    fechaSubastaDesde: '', fechaSubastaHasta: '', fechaPazSalvoDesde: '', fechaPazSalvoHasta: '',
   });
   const [activeFilters, setActiveFilters] = useState<MultiSearchFilters | null>(null);
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
