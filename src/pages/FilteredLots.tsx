@@ -347,6 +347,7 @@ const FilteredLots = () => {
                                   </td>
                                 </>
                               )}
+                              {showPagoColumns && (
                                 <>
                                   <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
                                     {item.fechaAprobacionFiltros ? formatDate(item.fechaAprobacionFiltros) : "—"}
