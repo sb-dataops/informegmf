@@ -25,6 +25,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [filterValues, setFilterValues] = useState<SearchFiltersValues>({
     subasta: [], comprador: [], documento: [], placa: [],
+    fechaSubastaDesde: '', fechaSubastaHasta: '', fechaPazSalvoDesde: '', fechaPazSalvoHasta: '',
   });
   const [activeFilters, setActiveFilters] = useState<MultiSearchFilters | null>(null);
   const [selectedComprador, setSelectedComprador] = useState<Comprador | null>(null);
@@ -64,18 +65,22 @@ const Index = () => {
   const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta;
 
   const handleSearch = () => {
-    const hasFilter = filterValues.subasta.length || filterValues.comprador.length || filterValues.documento.length || filterValues.placa.length;
+    const hasFilter = filterValues.subasta.length || filterValues.comprador.length || filterValues.documento.length || filterValues.placa.length
+      || filterValues.fechaSubastaDesde || filterValues.fechaSubastaHasta || filterValues.fechaPazSalvoDesde || filterValues.fechaPazSalvoHasta;
     if (!hasFilter) return;
     setSelectedComprador(null);
     setSelectedSubasta(null);
     setFilterPlacas(new Set());
     setFilterCompradores(new Set());
-    // Convert arrays to pipe-separated strings for the API
     setActiveFilters({
       subasta: filterValues.subasta.join("|") || undefined,
       comprador: filterValues.comprador.join("|") || undefined,
       documento: filterValues.documento.join("|") || undefined,
       placa: filterValues.placa.join("|") || undefined,
+      fechaSubastaDesde: filterValues.fechaSubastaDesde || undefined,
+      fechaSubastaHasta: filterValues.fechaSubastaHasta || undefined,
+      fechaPazSalvoDesde: filterValues.fechaPazSalvoDesde || undefined,
+      fechaPazSalvoHasta: filterValues.fechaPazSalvoHasta || undefined,
     });
   };
 
@@ -143,7 +148,7 @@ const Index = () => {
     setSelectedComprador(null);
     setSelectedSubasta(null);
     setActiveFilters(null);
-    setFilterValues({ subasta: [], comprador: [], documento: [], placa: [] });
+    setFilterValues({ subasta: [], comprador: [], documento: [], placa: [], fechaSubastaDesde: '', fechaSubastaHasta: '', fechaPazSalvoDesde: '', fechaPazSalvoHasta: '' });
   };
 
   const goBackToResults = () => {

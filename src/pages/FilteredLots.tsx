@@ -1,15 +1,17 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchFilteredLots } from "@/services/bigqueryService";
 import { markPaymentReviewAsReviewed } from "@/services/paymentReviewService";
 import type { FilteredLotRow } from "@/types";
-import { ArrowLeft, Loader2, Search } from "lucide-react";
+import { ArrowLeft, Loader2, Search, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/services/bigqueryService";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
+import * as XLSX from "xlsx";
 
 const CATEGORY_LABELS: Record<string, string> = {
   total: "Total Lotes",
@@ -21,6 +23,26 @@ const CATEGORY_LABELS: Record<string, string> = {
   pendientes_retiro: "Pendientes de Retiro",
   pendientes_filtros: "Pendientes por aprobación de filtros",
 };
+
+const isRetiroCategory = (cat?: string) => cat === "pendientes_traspaso" || cat === "pendientes_retiro";
+
+function downloadExcel(rows: FilteredLotRow[], category: string) {
+  const data = rows.map((r) => ({
+    Subasta: r.subasta || "",
+    Placa: r.placa || "",
+    Comprador: r.comprador || "",
+    Documento: r.documento || "",
+    "Fecha entrega docs al vendedor": r.documentosConTramitador || "",
+    Tramitador: r.tramitador || "",
+    Estado: r.estadoTraspaso || r.estadoRetiro || r.estado || "",
+    Lote: r.lote || "",
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Datos");
+  XLSX.writeFile(wb, `${category}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
 
 const FilteredLots = () => {
   const { category } = useParams<{ category: string }>();
@@ -106,6 +128,8 @@ const FilteredLots = () => {
     reviewMutation.mutate(item.placa);
   };
 
+  const showRetiroColumns = isRetiroCategory(category);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="gradient-header border-b border-sidebar-border sticky top-0 z-50">
@@ -145,6 +169,17 @@ const FilteredLots = () => {
                 </p>
               )}
             </div>
+            {showRetiroColumns && !isLoading && rows.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadExcel(filteredRows, category || "export")}
+                className="gap-2 shrink-0"
+              >
+                <Download className="h-4 w-4" />
+                Descargar Excel
+              </Button>
+            )}
           </div>
 
           {category === "pagos_pendientes_revision" && !isLoading && !isError && rows.length > 0 && (
@@ -212,7 +247,11 @@ const FilteredLots = () => {
                           {isPendingPaymentsCategory && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Tipo</th>
                           )}
-                          <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Descripción</th>
+                          {showRetiroColumns ? (
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha entrega docs al vendedor</th>
+                          ) : (
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Descripción</th>
+                          )}
                           {!isPendingPaymentsCategory && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Tramitador</th>
                           )}
@@ -271,7 +310,9 @@ const FilteredLots = () => {
                                 </td>
                               )}
                               <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[260px] truncate align-top">
-                                {item.descripcion || "—"}
+                                {showRetiroColumns
+                                  ? (item.documentosConTramitador ? formatDate(item.documentosConTramitador) : "—")
+                                  : (item.descripcion || "—")}
                               </td>
                               {!isPendingPaymentsCategory && (
                                 <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell align-top">

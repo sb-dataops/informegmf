@@ -56,6 +56,10 @@ export interface MultiSearchFilters {
   comprador?: string;
   documento?: string;
   placa?: string;
+  fechaSubastaDesde?: string;
+  fechaSubastaHasta?: string;
+  fechaPazSalvoDesde?: string;
+  fechaPazSalvoHasta?: string;
 }
 
 export async function multiSearch(filters: MultiSearchFilters) {
@@ -67,6 +71,10 @@ export async function multiSearch(filters: MultiSearchFilters) {
   if (filters.comprador) params.set("comprador", filters.comprador);
   if (filters.documento) params.set("documento", filters.documento);
   if (filters.placa) params.set("placa", filters.placa);
+  if (filters.fechaSubastaDesde) params.set("fechaSubastaDesde", filters.fechaSubastaDesde);
+  if (filters.fechaSubastaHasta) params.set("fechaSubastaHasta", filters.fechaSubastaHasta);
+  if (filters.fechaPazSalvoDesde) params.set("fechaPazSalvoDesde", filters.fechaPazSalvoDesde);
+  if (filters.fechaPazSalvoHasta) params.set("fechaPazSalvoHasta", filters.fechaPazSalvoHasta);
 
   const url = `https://${projectId}.supabase.co/functions/v1/fetch-bigquery?${params.toString()}`;
 

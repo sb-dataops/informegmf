@@ -959,7 +959,8 @@ serve(async (req) => {
       if (category === "pendientes_traspaso") {
         sql = `
           ${allowedRelatorioCte}
-          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.fechaAprobacionTramite, r.lote, r.tramitador
+          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.fechaAprobacionTramite, r.lote, r.tramitador,
+                 r.documentosConTramitador, r.fechaPazSalvo
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           WHERE IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = ''
@@ -981,7 +982,8 @@ serve(async (req) => {
       } else if (category === "pendientes_retiro") {
         sql = `
           ${allowedRelatorioCte}
-          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.fechaEntregaVehiculo, r.lote, r.tramitador
+          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.fechaEntregaVehiculo, r.lote, r.tramitador,
+                 r.documentosConTramitador, r.fechaPazSalvo
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
@@ -1191,14 +1193,18 @@ serve(async (req) => {
       const comprador = sanitize(url.searchParams.get("comprador") || "");
       const documento = sanitize(url.searchParams.get("documento") || "");
       const placa = sanitize(url.searchParams.get("placa") || "");
+      const fechaSubastaDesde = sanitize(url.searchParams.get("fechaSubastaDesde") || "");
+      const fechaSubastaHasta = sanitize(url.searchParams.get("fechaSubastaHasta") || "");
+      const fechaPazSalvoDesde = sanitize(url.searchParams.get("fechaPazSalvoDesde") || "");
+      const fechaPazSalvoHasta = sanitize(url.searchParams.get("fechaPazSalvoHasta") || "");
 
-      if (!subasta && !comprador && !documento && !placa) {
+      if (!subasta && !comprador && !documento && !placa && !fechaSubastaDesde && !fechaSubastaHasta && !fechaPazSalvoDesde && !fechaPazSalvoHasta) {
         return new Response(JSON.stringify({ error: "Al menos un filtro es requerido" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const buildWhereConditions = (prefix: string = "") => {
+      const buildWhereConditions = (prefix: string = "", tableName: string = "relatorio") => {
         const conditions: string[] = [];
         const p = prefix ? `${prefix}.` : "";
         if (subasta) {
@@ -1232,6 +1238,24 @@ serve(async (req) => {
           });
           conditions.push(`(${orParts.join(' OR ')})`);
         }
+        // Date filters only apply to relatorio (has fecha field for subasta date)
+        if (tableName === "relatorio") {
+          if (fechaSubastaDesde) {
+            conditions.push(`CAST(${p}fecha AS STRING) >= '${fechaSubastaDesde}'`);
+          }
+          if (fechaSubastaHasta) {
+            conditions.push(`CAST(${p}fecha AS STRING) <= '${fechaSubastaHasta}'`);
+          }
+        }
+        // fechaPazSalvo only on retiros table
+        if (tableName === "retiros") {
+          if (fechaPazSalvoDesde) {
+            conditions.push(`CAST(${p}fechaPazSalvo AS STRING) >= '${fechaPazSalvoDesde}'`);
+          }
+          if (fechaPazSalvoHasta) {
+            conditions.push(`CAST(${p}fechaPazSalvo AS STRING) <= '${fechaPazSalvoHasta}'`);
+          }
+        }
         return conditions.length > 0 ? conditions.join(" AND ") : "TRUE";
       };
 
@@ -1241,7 +1265,7 @@ serve(async (req) => {
                comprador, email, documento, ciudad_comprador, departamento_comprador,
                gestor, movil, direccion, marca, linea, modelo, descripcion, codigoSubasta
         FROM \`${TABLES.relatorio}\`
-        WHERE ${COMITENTE_FILTER} AND ${buildWhereConditions()} AND ${ESTADO_ALLOWED_FILTER}
+        WHERE ${COMITENTE_FILTER} AND ${buildWhereConditions("", "relatorio")} AND ${ESTADO_ALLOWED_FILTER}
         LIMIT 1000
       `;
 
@@ -1254,9 +1278,9 @@ serve(async (req) => {
                comentarios, mayoroferta, comprador, email, documento, movil,
                direccion, ciudadComprador, departamentoComprador,
                ubicacionVehiculo, ciudadUbicacionVehiculo, direccionUbicacionVehiculo,
-               quienRetira, estadoRetiro, fechaEstadoRetiro
+               quienRetira, estadoRetiro, fechaEstadoRetiro, fechaPazSalvo
         FROM \`${TABLES.retiros}\`
-        WHERE ${buildWhereConditions()}
+        WHERE ${buildWhereConditions("", "retiros")}
         LIMIT 1000
       `;
 
@@ -1268,7 +1292,7 @@ serve(async (req) => {
                fechaOkDocsTraspaso, transito, estadoTraspaso, fechaAprobadoRunt,
                fechaTp, fechaEnvioTpComprador, ans, observacion
         FROM \`${TABLES.servitram}\`
-        WHERE ${buildWhereConditions()}
+        WHERE ${buildWhereConditions("", "servitram")}
         LIMIT 1000
       `;
 
@@ -1280,7 +1304,7 @@ serve(async (req) => {
                fechaOkDocsTraspaso, transito, estadoTraspaso, fechaAprobadoRunt,
                fechaTp, fechaEnvioTpComprador, ans, observacion, fechaVencimientoRtm
         FROM \`${TABLES.gestramites}\`
-        WHERE ${buildWhereConditions()}
+        WHERE ${buildWhereConditions("", "gestramites")}
         LIMIT 1000
       `;
 

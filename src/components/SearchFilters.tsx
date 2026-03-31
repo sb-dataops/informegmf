@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, X, Loader2, Filter } from "lucide-react";
+import { Search, X, Loader2, Filter, CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,10 @@ export interface SearchFiltersValues {
   comprador: string[];
   documento: string[];
   placa: string[];
+  fechaSubastaDesde: string;
+  fechaSubastaHasta: string;
+  fechaPazSalvoDesde: string;
+  fechaPazSalvoHasta: string;
 }
 
 interface SearchFiltersProps {
@@ -162,23 +166,30 @@ function FilterField({ label, field, placeholder, selected, onChange, context, i
 }
 
 // ─── Filter Summary ───
-const FIELD_LABELS: Record<keyof SearchFiltersValues, string> = {
+const FIELD_LABELS: Record<string, string> = {
   subasta: "Subasta",
   comprador: "Nombre",
   documento: "Cédula / NIT",
   placa: "Placa",
+  fechaSubastaDesde: "Fecha subasta desde",
+  fechaSubastaHasta: "Fecha subasta hasta",
+  fechaPazSalvoDesde: "Fecha paz y salvo desde",
+  fechaPazSalvoHasta: "Fecha paz y salvo hasta",
 };
 
 function FilterSummary({ values, onChange }: { values: SearchFiltersValues; onChange: (v: SearchFiltersValues) => void }) {
-  const entries = (Object.keys(FIELD_LABELS) as Array<keyof SearchFiltersValues>)
-    .filter((key) => values[key].length > 0);
+  const arrayFields = ["subasta", "comprador", "documento", "placa"] as const;
+  const dateFields = ["fechaSubastaDesde", "fechaSubastaHasta", "fechaPazSalvoDesde", "fechaPazSalvoHasta"] as const;
 
-  if (entries.length === 0) return null;
+  const hasArrayEntries = arrayFields.some((key) => values[key].length > 0);
+  const hasDateEntries = dateFields.some((key) => values[key]);
+
+  if (!hasArrayEntries && !hasDateEntries) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2 pt-1">
       <span className="text-xs text-muted-foreground font-medium">Filtrando por:</span>
-      {entries.map((key) =>
+      {arrayFields.map((key) =>
         values[key].map((val) => (
           <Badge key={`${key}-${val}`} variant="outline" className="gap-1 text-xs py-0.5">
             <span className="text-muted-foreground">{FIELD_LABELS[key]}:</span>
@@ -192,6 +203,20 @@ function FilterSummary({ values, onChange }: { values: SearchFiltersValues; onCh
           </Badge>
         ))
       )}
+      {dateFields.map((key) =>
+        values[key] ? (
+          <Badge key={key} variant="outline" className="gap-1 text-xs py-0.5">
+            <span className="text-muted-foreground">{FIELD_LABELS[key]}:</span>
+            <span className="font-semibold">{values[key]}</span>
+            <button
+              onClick={() => onChange({ ...values, [key]: '' })}
+              className="hover:text-destructive ml-0.5"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        ) : null
+      )}
     </div>
   );
 }
@@ -199,15 +224,14 @@ function FilterSummary({ values, onChange }: { values: SearchFiltersValues; onCh
 // ─── Main Component ───
 const SearchFilters = ({ values, onChange, onSearch }: SearchFiltersProps) => {
   const updateField = useCallback(
-    (field: keyof SearchFiltersValues) => (fieldValues: string[]) => {
+    (field: "subasta" | "comprador" | "documento" | "placa") => (fieldValues: string[]) => {
       onChange({ ...values, [field]: fieldValues });
     },
     [values, onChange],
   );
 
-  // Build context for cascading filters
   const contextFor = useCallback(
-    (field: keyof SearchFiltersValues): AutocompleteContext => {
+    (field: "subasta" | "comprador" | "documento" | "placa"): AutocompleteContext => {
       const ctx: AutocompleteContext = {};
       if (field !== "subasta" && values.subasta.length) ctx.subasta = values.subasta;
       if (field !== "comprador" && values.comprador.length) ctx.comprador = values.comprador;
@@ -218,11 +242,14 @@ const SearchFilters = ({ values, onChange, onSearch }: SearchFiltersProps) => {
     [values],
   );
 
-  const hasAnyFilter = values.subasta.length > 0 || values.comprador.length > 0 || values.documento.length > 0 || values.placa.length > 0;
-  const activeCount = values.subasta.length + values.comprador.length + values.documento.length + values.placa.length;
+  const hasAnyFilter = values.subasta.length > 0 || values.comprador.length > 0 || values.documento.length > 0 || values.placa.length > 0
+    || !!values.fechaSubastaDesde || !!values.fechaSubastaHasta || !!values.fechaPazSalvoDesde || !!values.fechaPazSalvoHasta;
+  const activeCount = values.subasta.length + values.comprador.length + values.documento.length + values.placa.length
+    + (values.fechaSubastaDesde ? 1 : 0) + (values.fechaSubastaHasta ? 1 : 0)
+    + (values.fechaPazSalvoDesde ? 1 : 0) + (values.fechaPazSalvoHasta ? 1 : 0);
 
   const handleClearAll = () => {
-    onChange({ subasta: [], comprador: [], documento: [], placa: [] });
+    onChange({ subasta: [], comprador: [], documento: [], placa: [], fechaSubastaDesde: '', fechaSubastaHasta: '', fechaPazSalvoDesde: '', fechaPazSalvoHasta: '' });
   };
 
   return (
@@ -271,6 +298,62 @@ const SearchFilters = ({ values, onChange, onSearch }: SearchFiltersProps) => {
             onChange={updateField("placa")}
             context={contextFor("placa")}
           />
+        </div>
+
+        {/* Date range filters */}
+        <div className="flex flex-wrap gap-3">
+          <div className="flex-1 min-w-[180px]">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Fecha de subasta</label>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <CalendarIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={values.fechaSubastaDesde}
+                  onChange={(e) => onChange({ ...values, fechaSubastaDesde: e.target.value })}
+                  className="pl-8 h-9 text-sm"
+                  placeholder="Desde"
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">a</span>
+              <div className="relative flex-1">
+                <CalendarIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={values.fechaSubastaHasta}
+                  onChange={(e) => onChange({ ...values, fechaSubastaHasta: e.target.value })}
+                  className="pl-8 h-9 text-sm"
+                  placeholder="Hasta"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 min-w-[180px]">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Fecha de paz y salvo</label>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <CalendarIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={values.fechaPazSalvoDesde}
+                  onChange={(e) => onChange({ ...values, fechaPazSalvoDesde: e.target.value })}
+                  className="pl-8 h-9 text-sm"
+                  placeholder="Desde"
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">a</span>
+              <div className="relative flex-1">
+                <CalendarIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={values.fechaPazSalvoHasta}
+                  onChange={(e) => onChange({ ...values, fechaPazSalvoHasta: e.target.value })}
+                  className="pl-8 h-9 text-sm"
+                  placeholder="Hasta"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <FilterSummary values={values} onChange={onChange} />
