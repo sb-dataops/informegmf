@@ -185,6 +185,8 @@ export interface FilteredLotRow {
   reviewPriority?: number | null;
   documentosConTramitador?: string | null;
   fechaPazSalvo?: string | null;
+  comentarios?: string | null;
+  observacionTramitador?: string | null;
 }
 
 export interface FilteredLotsResult {

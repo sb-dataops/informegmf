@@ -32,10 +32,13 @@ function downloadExcel(rows: FilteredLotRow[], category: string) {
     Placa: r.placa || "",
     Comprador: r.comprador || "",
     Documento: r.documento || "",
-    "Fecha entrega docs al vendedor": r.documentosConTramitador || "",
-    Tramitador: r.tramitador || "",
-    Estado: r.estadoTraspaso || r.estadoRetiro || r.estado || "",
     Lote: r.lote || "",
+    Tramitador: r.tramitador || "",
+    "Fecha entrega docs al vendedor": r.documentosConTramitador || "",
+    Estado: r.estadoTraspaso || r.estadoRetiro || r.estado || "",
+    "Fecha Paz y Salvo": r.fechaPazSalvo || "",
+    "Comentarios Superbid": r.comentarios || "",
+    "Observación Tramitador": r.observacionTramitador || "",
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
