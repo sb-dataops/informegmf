@@ -928,31 +928,56 @@ serve(async (req) => {
           .filter((p): p is string => Boolean(p))
           .map((p) => `'${sanitize(p)}'`);
 
-        const metadataRows = placaList.length > 0
-          ? await queryBQ(token, projectId, `
-              SELECT
-                UPPER(IFNULL(placa,'')) AS placa,
-                ANY_VALUE(subasta) AS subasta,
-                ANY_VALUE(comprador) AS comprador,
-                ANY_VALUE(documento) AS documento,
-                ANY_VALUE(descripcion) AS descripcion,
-                ANY_VALUE(estado) AS estado,
-                ANY_VALUE(lote) AS lote
-              FROM \`${TABLES.relatorio}\`
-              WHERE ${ESTADO_ALLOWED_FILTER}
-                AND ${COMITENTE_FILTER}
-                AND UPPER(IFNULL(placa,'')) IN (${placaList.join(",")})
-              GROUP BY UPPER(IFNULL(placa,''))
-            `)
-          : [];
+        const supabase2 = getAdminClient();
+        const [metadataRows, consolidadoRows, { data: pagosData2 }] = await Promise.all([
+          placaList.length > 0
+            ? queryBQ(token, projectId, `
+                SELECT
+                  UPPER(IFNULL(placa,'')) AS placa,
+                  ANY_VALUE(subasta) AS subasta,
+                  ANY_VALUE(comprador) AS comprador,
+                  ANY_VALUE(documento) AS documento,
+                  ANY_VALUE(descripcion) AS descripcion,
+                  ANY_VALUE(estado) AS estado,
+                  ANY_VALUE(lote) AS lote
+                FROM \`${TABLES.relatorio}\`
+                WHERE ${ESTADO_ALLOWED_FILTER}
+                  AND ${COMITENTE_FILTER}
+                  AND UPPER(IFNULL(placa,'')) IN (${placaList.join(",")})
+                GROUP BY UPPER(IFNULL(placa,''))
+              `)
+            : Promise.resolve([]),
+          placaList.length > 0
+            ? queryBQ(token, projectId, `
+                SELECT
+                  UPPER(TRIM(IFNULL(CAST(placa AS STRING), ''))) AS placa,
+                  ANY_VALUE(CAST(fechaAprobacionVendedorDocsCreacionFiltros AS STRING)) AS fechaAprobacionFiltros
+                FROM \`${TABLES.consolidadoChan}\`
+                WHERE LOWER(IFNULL(CAST(comitente AS STRING), '')) = 'gm financial colombia sa compañia de financiamiento'
+                  AND UPPER(TRIM(IFNULL(CAST(placa AS STRING), ''))) IN (${placaList.join(",")})
+                GROUP BY UPPER(TRIM(IFNULL(CAST(placa AS STRING), '')))
+              `)
+            : Promise.resolve([]),
+          supabase2.from("pagos").select("placa, observacion_pago").range(0, 4999),
+        ]);
 
         const metadataByPlaca = new Map(
           metadataRows.map((row) => [normalizePlaca(row.placa) || "", row]),
         );
+        const consolidadoByPlaca = new Map(
+          consolidadoRows.map((row) => [normalizePlaca(row.placa) || "", row]),
+        );
+        const observacionByPlaca2 = new Map<string, string>();
+        for (const p of pagosData2 || []) {
+          if (p.placa && p.observacion_pago) {
+            observacionByPlaca2.set(p.placa.toUpperCase(), p.observacion_pago);
+          }
+        }
 
         const rows = Array.from(reviewByPlaca.entries())
           .map(([placa, reviewEntry]) => {
             const metadata = metadataByPlaca.get(placa);
+            const consolidado = consolidadoByPlaca.get(placa);
             return {
               subasta: metadata?.subasta || "Sin subasta",
               placa,
@@ -963,6 +988,8 @@ serve(async (req) => {
               lote: metadata?.lote || null,
               cantidadSoportes: reviewEntry.documentCount || null,
               ultimoSoporteAt: reviewEntry.latestDocumentAt || null,
+              fechaAprobacionFiltros: consolidado?.fechaAprobacionFiltros || null,
+              observacionPago: observacionByPlaca2.get(placa) || null,
               hasPendingReview: true,
               hasPendingPayment: false,
               reviewPriority: 0,
