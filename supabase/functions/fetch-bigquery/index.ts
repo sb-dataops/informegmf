@@ -1290,7 +1290,7 @@ serve(async (req) => {
                fechaOkDocsTraspaso, transito, estadoTraspaso, fechaAprobadoRunt,
                fechaTp, fechaEnvioTpComprador, ans, observacion
         FROM \`${TABLES.servitram}\`
-        WHERE ${buildWhereConditions()}
+        WHERE ${buildWhereConditions("", "servitram")}
         LIMIT 1000
       `;
 
