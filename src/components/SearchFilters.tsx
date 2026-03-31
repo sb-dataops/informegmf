@@ -13,6 +13,10 @@ export interface SearchFiltersValues {
   comprador: string[];
   documento: string[];
   placa: string[];
+  fechaSubastaDesde: string;
+  fechaSubastaHasta: string;
+  fechaPazSalvoDesde: string;
+  fechaPazSalvoHasta: string;
 }
 
 interface SearchFiltersProps {

@@ -183,6 +183,8 @@ export interface FilteredLotRow {
   hasPendingReview?: boolean;
   hasPendingPayment?: boolean;
   reviewPriority?: number | null;
+  documentosConTramitador?: string | null;
+  fechaPazSalvo?: string | null;
 }
 
 export interface FilteredLotsResult {
