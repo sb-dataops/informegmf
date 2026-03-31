@@ -26,7 +26,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const isRetiroCategory = (cat?: string) => cat === "pendientes_traspaso" || cat === "pendientes_retiro";
-
+const isPendientesPagoCategory = (cat?: string) => cat === "pendientes_pago";
 function downloadExcel(rows: FilteredLotRow[], category: string) {
   const data = rows.map((r) => ({
     Subasta: r.subasta || "",
