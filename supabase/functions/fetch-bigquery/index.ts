@@ -988,9 +988,12 @@ serve(async (req) => {
           ${allowedRelatorioCte}
           SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.fechaEntregaVehiculo, r.lote, r.tramitador,
                  r.documentosConTramitador, r.procesoPazySalvoaTramitador AS fechaPazSalvo,
-                 r.comentarios
+                 r.comentarios,
+                 COALESCE(s.observacion, g.observacion) AS observacionTramitador
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+          LEFT JOIN \`${TABLES.servitram}\` s ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = UPPER(IFNULL(CAST(s.placa AS STRING), ''))
+          LEFT JOIN \`${TABLES.gestramites}\` g ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = UPPER(IFNULL(CAST(g.placa AS STRING), ''))
           WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
             AND IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') != ''
             ${EXCLUDED_ESTADOS_RETIROS}
