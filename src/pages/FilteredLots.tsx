@@ -371,7 +371,7 @@ const FilteredLots = () => {
                                     : (item.descripcion || "—")}
                                 </td>
                               )}
-                              {!isPendingPaymentsCategory && !showPagoColumns && (
+                              {!isPendingPaymentsCategory && !showPagoColumns && category !== "pendientes_filtros" && (
                                 <td className="px-4 py-2.5 text-muted-foreground hidden md:table-cell align-top">
                                   {item.tramitador || "—"}
                                 </td>
