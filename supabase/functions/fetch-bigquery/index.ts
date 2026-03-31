@@ -1276,9 +1276,9 @@ serve(async (req) => {
                comentarios, mayoroferta, comprador, email, documento, movil,
                direccion, ciudadComprador, departamentoComprador,
                ubicacionVehiculo, ciudadUbicacionVehiculo, direccionUbicacionVehiculo,
-               quienRetira, estadoRetiro, fechaEstadoRetiro
+               quienRetira, estadoRetiro, fechaEstadoRetiro, fechaPazSalvo
         FROM \`${TABLES.retiros}\`
-        WHERE ${buildWhereConditions()}
+        WHERE ${buildWhereConditions("", "retiros")}
         LIMIT 1000
       `;
 
