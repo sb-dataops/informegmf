@@ -178,15 +178,18 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 function FilterSummary({ values, onChange }: { values: SearchFiltersValues; onChange: (v: SearchFiltersValues) => void }) {
-  const entries = (Object.keys(FIELD_LABELS) as Array<keyof SearchFiltersValues>)
-    .filter((key) => values[key].length > 0);
+  const arrayFields = ["subasta", "comprador", "documento", "placa"] as const;
+  const dateFields = ["fechaSubastaDesde", "fechaSubastaHasta", "fechaPazSalvoDesde", "fechaPazSalvoHasta"] as const;
 
-  if (entries.length === 0) return null;
+  const hasArrayEntries = arrayFields.some((key) => values[key].length > 0);
+  const hasDateEntries = dateFields.some((key) => values[key]);
+
+  if (!hasArrayEntries && !hasDateEntries) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2 pt-1">
       <span className="text-xs text-muted-foreground font-medium">Filtrando por:</span>
-      {entries.map((key) =>
+      {arrayFields.map((key) =>
         values[key].map((val) => (
           <Badge key={`${key}-${val}`} variant="outline" className="gap-1 text-xs py-0.5">
             <span className="text-muted-foreground">{FIELD_LABELS[key]}:</span>
@@ -199,6 +202,20 @@ function FilterSummary({ values, onChange }: { values: SearchFiltersValues; onCh
             </button>
           </Badge>
         ))
+      )}
+      {dateFields.map((key) =>
+        values[key] ? (
+          <Badge key={key} variant="outline" className="gap-1 text-xs py-0.5">
+            <span className="text-muted-foreground">{FIELD_LABELS[key]}:</span>
+            <span className="font-semibold">{values[key]}</span>
+            <button
+              onClick={() => onChange({ ...values, [key]: '' })}
+              className="hover:text-destructive ml-0.5"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        ) : null
       )}
     </div>
   );
