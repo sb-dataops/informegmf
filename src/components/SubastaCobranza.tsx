@@ -5,11 +5,18 @@ import { formatCurrency, formatDate } from "@/services/bigqueryService";
 import { parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DollarSign, ArrowLeft, ExternalLink } from "lucide-react";
+import { DollarSign, ArrowLeft, ExternalLink, Paperclip } from "lucide-react";
+
+interface DocumentoRow {
+  placas: string[];
+  nombre_archivo: string;
+  valor_soporte: number;
+}
 
 interface SubastaCobranzaProps {
   vehiculos: VehiculoConsolidado[];
   pagosPorPlaca: Map<string, { observacion_pago?: string | null }>;
+  documentos?: DocumentoRow[];
 }
 
 interface BuyerRow {
@@ -32,7 +39,7 @@ const isIncumplimiento = (estado: string | null) =>
 const isPagado = (v: VehiculoConsolidado) =>
   !!v.cierreContableFecha && v.cierreContableFecha.trim() !== "";
 
-const SubastaCobranza = ({ vehiculos, pagosPorPlaca }: SubastaCobranzaProps) => {
+const SubastaCobranza = ({ vehiculos, pagosPorPlaca, documentos = [] }: SubastaCobranzaProps) => {
   const [open, setOpen] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<BuyerRow | null>(null);
   const navigate = useNavigate();
@@ -169,7 +176,7 @@ const SubastaCobranza = ({ vehiculos, pagosPorPlaca }: SubastaCobranzaProps) => 
           </DialogHeader>
 
           {selectedBuyer ? (
-            <BuyerVehiclesDetail buyer={selectedBuyer} pagosPorPlaca={pagosPorPlaca} navigate={navigate} />
+            <BuyerVehiclesDetail buyer={selectedBuyer} pagosPorPlaca={pagosPorPlaca} navigate={navigate} documentos={documentos} />
           ) : (
             <BuyerSummaryTable buyerRows={buyerRows} onSelectBuyer={setSelectedBuyer} />
           )}
@@ -252,11 +259,25 @@ const BuyerVehiclesDetail = ({
   buyer,
   pagosPorPlaca,
   navigate,
+  documentos = [],
 }: {
   buyer: BuyerRow;
   pagosPorPlaca: Map<string, { observacion_pago?: string | null }>;
   navigate: (path: string) => void;
+  documentos?: DocumentoRow[];
 }) => {
+  const soportesPorPlaca = useMemo(() => {
+    const map = new Map<string, { count: number; totalValor: number }>();
+    documentos.forEach((doc) => {
+      (doc.placas || []).forEach((p) => {
+        const key = p.toUpperCase();
+        const prev = map.get(key) || { count: 0, totalValor: 0 };
+        map.set(key, { count: prev.count + 1, totalValor: prev.totalValor + (doc.valor_soporte || 0) });
+      });
+    });
+    return map;
+  }, [documentos]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-4 text-sm">
@@ -275,6 +296,7 @@ const BuyerVehiclesDetail = ({
               <th className="text-right px-3 py-2 font-medium text-muted-foreground">Mayor Oferta</th>
               <th className="text-center px-3 py-2 font-medium text-muted-foreground">Estado</th>
               <th className="text-center px-3 py-2 font-medium text-muted-foreground">Pagado</th>
+              <th className="text-center px-3 py-2 font-medium text-muted-foreground">Soportes</th>
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Obs. Pago</th>
               <th className="text-center px-3 py-2 font-medium text-muted-foreground">Detalle</th>
             </tr>
@@ -286,6 +308,7 @@ const BuyerVehiclesDetail = ({
               const incumplimiento = isIncumplimiento(v.estado);
               const pago = pagosPorPlaca.get(v.placa.toUpperCase());
               const obs = (pago as any)?.observacion_pago || "";
+              const soporte = soportesPorPlaca.get(v.placa.toUpperCase());
 
               return (
                 <tr key={v.placa} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
@@ -303,6 +326,17 @@ const BuyerVehiclesDetail = ({
                   </td>
                   <td className="px-3 py-2 text-center">
                     {pagado ? "✓" : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {soporte && soporte.count > 0 ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <Paperclip className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-foreground font-medium">{soporte.count}</span>
+                        <span className="text-muted-foreground text-xs">({formatCurrency(soporte.totalValor)})</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground max-w-[150px] truncate">{obs || "—"}</td>
                   <td className="px-3 py-2 text-center">
@@ -323,7 +357,7 @@ const BuyerVehiclesDetail = ({
             <tr className="border-t-2 border-border bg-muted/30 font-semibold">
               <td className="px-3 py-2 text-foreground" colSpan={2}>TOTAL</td>
               <td className="px-3 py-2 text-right text-foreground">{formatCurrency(buyer.vlrAsignados)}</td>
-              <td colSpan={4}></td>
+              <td colSpan={5}></td>
             </tr>
           </tfoot>
         </table>
