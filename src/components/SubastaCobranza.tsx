@@ -5,11 +5,18 @@ import { formatCurrency, formatDate } from "@/services/bigqueryService";
 import { parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DollarSign, ArrowLeft, ExternalLink } from "lucide-react";
+import { DollarSign, ArrowLeft, ExternalLink, Paperclip } from "lucide-react";
+
+interface DocumentoRow {
+  placas: string[];
+  nombre_archivo: string;
+  valor_soporte: number;
+}
 
 interface SubastaCobranzaProps {
   vehiculos: VehiculoConsolidado[];
   pagosPorPlaca: Map<string, { observacion_pago?: string | null }>;
+  documentos?: DocumentoRow[];
 }
 
 interface BuyerRow {
