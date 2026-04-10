@@ -110,6 +110,15 @@ const DashboardStats = () => {
     <div className="space-y-5 pt-2">
       <div className="grid gap-4 md:grid-cols-3">
         <SectionCard
+          title="FILTROS"
+          icon={Filter}
+          isLoading={loadingFiltros}
+          itemCount={1}
+          items={[
+            { label: "Pendientes por aprobación de filtros", value: fmt(filtros?.pendientes_filtros), category: "pendientes_filtros", tone: "bg-orange-500/10 text-orange-600", icon: Filter },
+          ]}
+        />
+        <SectionCard
           title="PAGOS"
           icon={Wallet}
           isLoading={loadingPagos}
@@ -127,15 +136,6 @@ const DashboardStats = () => {
           items={[
             { label: "Pendientes de Traspaso", value: fmt(retiros?.pendientes_traspaso), category: "pendientes_traspaso", tone: "bg-info/10 text-info", icon: FileText },
             { label: "Pendientes de Retiro", value: fmt(retiros?.pendientes_retiro), category: "pendientes_retiro", tone: "bg-warning/10 text-warning", icon: Truck },
-          ]}
-        />
-        <SectionCard
-          title="FILTROS"
-          icon={Filter}
-          isLoading={loadingFiltros}
-          itemCount={1}
-          items={[
-            { label: "Pendientes por aprobación de filtros", value: fmt(filtros?.pendientes_filtros), category: "pendientes_filtros", tone: "bg-orange-500/10 text-orange-600", icon: Filter },
           ]}
         />
       </div>
