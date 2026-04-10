@@ -39,7 +39,7 @@ const isIncumplimiento = (estado: string | null) =>
 const isPagado = (v: VehiculoConsolidado) =>
   !!v.cierreContableFecha && v.cierreContableFecha.trim() !== "";
 
-const SubastaCobranza = ({ vehiculos, pagosPorPlaca }: SubastaCobranzaProps) => {
+const SubastaCobranza = ({ vehiculos, pagosPorPlaca, documentos = [] }: SubastaCobranzaProps) => {
   const [open, setOpen] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<BuyerRow | null>(null);
   const navigate = useNavigate();
@@ -176,7 +176,7 @@ const SubastaCobranza = ({ vehiculos, pagosPorPlaca }: SubastaCobranzaProps) => 
           </DialogHeader>
 
           {selectedBuyer ? (
-            <BuyerVehiclesDetail buyer={selectedBuyer} pagosPorPlaca={pagosPorPlaca} navigate={navigate} />
+            <BuyerVehiclesDetail buyer={selectedBuyer} pagosPorPlaca={pagosPorPlaca} navigate={navigate} documentos={documentos} />
           ) : (
             <BuyerSummaryTable buyerRows={buyerRows} onSelectBuyer={setSelectedBuyer} />
           )}
