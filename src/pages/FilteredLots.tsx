@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/services/bigqueryService";
-import { addBusinessDays } from "@/lib/business-days";
+import { addBusinessDays, countBusinessDaysSince } from "@/lib/business-days";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 import * as XLSX from "xlsx";
@@ -270,6 +270,9 @@ const FilteredLots = () => {
                           {!showPagoColumns && !isPendingPaymentsCategory && showRetiroColumns && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha entrega docs al vendedor</th>
                           )}
+                          {category === "pendientes_retiro" && (
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Paz y Salvo → Tramitador</th>
+                          )}
                           {category === "vehiculos_entregados" && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha de entrega</th>
                           )}
@@ -372,6 +375,24 @@ const FilteredLots = () => {
                               {category === "vehiculos_entregados" && (
                                 <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
                                   {item.fechaEntregaVehiculo ? formatDate(item.fechaEntregaVehiculo) : "—"}
+                                </td>
+                              )}
+                              {category === "pendientes_retiro" && (
+                                <td className="px-4 py-2.5 hidden sm:table-cell align-top">
+                                  {item.fechaPazSalvoTramitador ? (
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-muted-foreground">{formatDate(item.fechaPazSalvoTramitador)}</span>
+                                      {(() => {
+                                        const dias = countBusinessDaysSince(item.fechaPazSalvoTramitador!);
+                                        if (dias === null) return null;
+                                        return (
+                                          <span className={`text-xs font-medium ${dias > 10 ? "text-destructive" : dias > 5 ? "text-amber-600" : "text-muted-foreground"}`}>
+                                            {dias} día{dias !== 1 ? "s" : ""} hábil{dias !== 1 ? "es" : ""}
+                                          </span>
+                                        );
+                                      })()}
+                                    </div>
+                                  ) : "—"}
                                 </td>
                               )}
                               {!showPagoColumns && !isPendingPaymentsCategory && (
