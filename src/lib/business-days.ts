@@ -39,3 +39,27 @@ export function addBusinessDays(dateStr: string, days: number): string | null {
   }
   return toDateStr(d);
 }
+
+/**
+ * Count business days elapsed between a date string and today (Colombian calendar).
+ * Returns null if input is invalid.
+ */
+export function countBusinessDaysSince(dateStr: string): number | null {
+  if (!dateStr) return null;
+  const start = new Date(dateStr + "T12:00:00");
+  if (isNaN(start.getTime())) return null;
+
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+
+  if (start >= today) return 0;
+
+  let count = 0;
+  const d = new Date(start);
+  while (true) {
+    d.setDate(d.getDate() + 1);
+    if (d > today) break;
+    if (isBusinessDay(d)) count++;
+  }
+  return count;
+}
