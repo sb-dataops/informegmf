@@ -727,10 +727,20 @@ serve(async (req) => {
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+        ),
+        vehiculos_entregados AS (
+          SELECT DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN (SELECT DISTINCT placa FROM allowed_relatorio WHERE placa != '') ar3 ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar3.placa
+          WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') != ''
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
         )
         SELECT
           CAST((SELECT COUNT(*) FROM retiros_pendientes_traspaso) AS STRING) AS pendientes_traspaso,
-          CAST((SELECT COUNT(*) FROM retiros_pendientes_retiro) AS STRING) AS pendientes_retiro
+          CAST((SELECT COUNT(*) FROM retiros_pendientes_retiro) AS STRING) AS pendientes_retiro,
+          CAST((SELECT COUNT(*) FROM vehiculos_entregados) AS STRING) AS vehiculos_entregados
       `;
 
       try {
@@ -738,12 +748,13 @@ serve(async (req) => {
         return new Response(JSON.stringify({
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
+          vehiculos_entregados: result[0]?.vehiculos_entregados || '0',
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=15" },
         });
       } catch (e) {
         console.error("[stats_retiros] FAILED:", e);
-        return new Response(JSON.stringify({ pendientes_traspaso: '0', pendientes_retiro: '0' }), {
+        return new Response(JSON.stringify({ pendientes_traspaso: '0', pendientes_retiro: '0', vehiculos_entregados: '0' }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -1121,6 +1132,35 @@ serve(async (req) => {
           LEFT JOIN tramitadores_lookup t ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = t.placa
           WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
             AND IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') != ''
+            ${EXCLUDED_ESTADOS_RETIROS}
+          ORDER BY r.subasta, r.placa
+          LIMIT 2000
+        `;
+      } else if (category === "vehiculos_entregados") {
+        sql = `
+          ${allowedRelatorioCte},
+          tramitadores_lookup AS (
+            SELECT
+              UPPER(IFNULL(CAST(placa AS STRING), '')) AS placa,
+              ANY_VALUE(CAST(pazYSalvoContabilidad AS STRING)) AS fechaPazSalvo,
+              ANY_VALUE(CAST(observacion AS STRING)) AS observacionTramitador
+            FROM (
+              SELECT placa, pazYSalvoContabilidad, observacion FROM \`${TABLES.servitram}\`
+              UNION ALL
+              SELECT placa, pazYSalvoContabilidad, observacion FROM \`${TABLES.gestramites}\`
+            )
+            WHERE IFNULL(CAST(placa AS STRING), '') != ''
+            GROUP BY UPPER(IFNULL(CAST(placa AS STRING), ''))
+          )
+          SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.lote, r.tramitador,
+                 r.documentosConTramitador, t.fechaPazSalvo,
+                 r.comentarios,
+                 t.observacionTramitador,
+                 CAST(r.fechaEntregaVehiculo AS STRING) AS fechaEntregaVehiculo
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
+          LEFT JOIN tramitadores_lookup t ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = t.placa
+          WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') != ''
             ${EXCLUDED_ESTADOS_RETIROS}
           ORDER BY r.subasta, r.placa
           LIMIT 2000
