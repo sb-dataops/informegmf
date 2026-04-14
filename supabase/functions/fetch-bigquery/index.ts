@@ -727,10 +727,20 @@ serve(async (req) => {
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+        ),
+        vehiculos_entregados AS (
+          SELECT DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN (SELECT DISTINCT placa FROM allowed_relatorio WHERE placa != '') ar3 ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar3.placa
+          WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') != ''
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
         )
         SELECT
           CAST((SELECT COUNT(*) FROM retiros_pendientes_traspaso) AS STRING) AS pendientes_traspaso,
-          CAST((SELECT COUNT(*) FROM retiros_pendientes_retiro) AS STRING) AS pendientes_retiro
+          CAST((SELECT COUNT(*) FROM retiros_pendientes_retiro) AS STRING) AS pendientes_retiro,
+          CAST((SELECT COUNT(*) FROM vehiculos_entregados) AS STRING) AS vehiculos_entregados
       `;
 
       try {
@@ -738,12 +748,13 @@ serve(async (req) => {
         return new Response(JSON.stringify({
           pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
           pendientes_retiro: result[0]?.pendientes_retiro || '0',
+          vehiculos_entregados: result[0]?.vehiculos_entregados || '0',
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=15" },
         });
       } catch (e) {
         console.error("[stats_retiros] FAILED:", e);
-        return new Response(JSON.stringify({ pendientes_traspaso: '0', pendientes_retiro: '0' }), {
+        return new Response(JSON.stringify({ pendientes_traspaso: '0', pendientes_retiro: '0', vehiculos_entregados: '0' }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
