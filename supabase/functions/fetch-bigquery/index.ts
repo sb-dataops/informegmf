@@ -703,50 +703,45 @@ serve(async (req) => {
     }
 
     if (action === "stats_retiros") {
-      const allowedCTE = `
-        WITH allowed_relatorio AS (
+      const statsSQL = `
+        WITH allowed_placas AS (
           SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
           FROM \`${TABLES.relatorio}\`
           WHERE ${ESTADO_ALLOWED_FILTER} AND ${COMITENTE_FILTER}
             AND IFNULL(TRIM(placa),'') != ''
-        )`;
-      const excludeStates = `
-            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
+        ),
+        base AS (
+          SELECT
+            UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa,
+            IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') AS fat,
+            IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') AS fev
+          FROM \`${TABLES.retiros}\` r
+          INNER JOIN allowed_placas ap ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ap.placa
+          WHERE UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
-            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'`;
-
-      const sqlTraspaso = `${allowedCTE}
-        SELECT CAST(COUNT(DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), ''))) AS STRING) AS cnt
-        FROM \`${TABLES.retiros}\` r
-        INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
-        WHERE IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = ''
-          ${excludeStates}`;
-
-      const sqlRetiro = `${allowedCTE}
-        SELECT CAST(COUNT(DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), ''))) AS STRING) AS cnt
-        FROM \`${TABLES.retiros}\` r
-        INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
-        WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
-          AND IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') != ''
-          ${excludeStates}`;
-
-      const sqlEntregados = `${allowedCTE}
-        SELECT CAST(COUNT(DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), ''))) AS STRING) AS cnt
-        FROM \`${TABLES.retiros}\` r
-        INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
-        WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') != ''
-          ${excludeStates}`;
+            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+        ),
+        agg AS (
+          SELECT
+            placa,
+            MAX(fat) AS fat,
+            MAX(fev) AS fev
+          FROM base
+          GROUP BY placa
+        )
+        SELECT
+          CAST(COUNTIF(fat = '') AS STRING) AS pendientes_traspaso,
+          CAST(COUNTIF(fat != '' AND fev = '') AS STRING) AS pendientes_retiro,
+          CAST(COUNTIF(fev != '') AS STRING) AS vehiculos_entregados
+        FROM agg
+      `;
 
       try {
-        const [rTraspaso, rRetiro, rEntregados] = await Promise.all([
-          queryBQ(token, projectId, sqlTraspaso),
-          queryBQ(token, projectId, sqlRetiro),
-          queryBQ(token, projectId, sqlEntregados),
-        ]);
+        const result = await queryBQ(token, projectId, statsSQL);
         return new Response(JSON.stringify({
-          pendientes_traspaso: rTraspaso[0]?.cnt || '0',
-          pendientes_retiro: rRetiro[0]?.cnt || '0',
-          vehiculos_entregados: rEntregados[0]?.cnt || '0',
+          pendientes_traspaso: result[0]?.pendientes_traspaso || '0',
+          pendientes_retiro: result[0]?.pendientes_retiro || '0',
+          vehiculos_entregados: result[0]?.vehiculos_entregados || '0',
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=15" },
         });
