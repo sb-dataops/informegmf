@@ -1118,7 +1118,8 @@ serve(async (req) => {
           SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.fechaEntregaVehiculo, r.lote, r.tramitador,
                  r.documentosConTramitador, t.fechaPazSalvo,
                  r.comentarios,
-                 t.observacionTramitador
+                 t.observacionTramitador,
+                 CAST(r.procesoPazySalvoaTramitador AS STRING) AS fechaPazSalvoTramitador
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           LEFT JOIN tramitadores_lookup t ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = t.placa
