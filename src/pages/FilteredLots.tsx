@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/services/bigqueryService";
-import { addBusinessDays } from "@/lib/business-days";
+import { addBusinessDays, countBusinessDaysSince } from "@/lib/business-days";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 import * as XLSX from "xlsx";
