@@ -19,6 +19,8 @@ import { Users, Search, ArrowLeft, Loader2, DollarSign, Gavel } from "lucide-rea
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import NotificationBell from "@/components/NotificationBell";
+import UserMenu from "@/components/UserMenu";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
@@ -180,7 +182,11 @@ const Index = () => {
               <p className="text-[10px] text-primary-foreground/50 leading-tight">Consulta & Gestión</p>
             </div>
           </div>
-          <img src={logoGmf} alt="GM Financial" className="h-10 sm:h-12 brightness-0 invert" />
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <UserMenu />
+            <img src={logoGmf} alt="GM Financial" className="h-10 sm:h-12 brightness-0 invert" />
+          </div>
         </div>
       </header>
 

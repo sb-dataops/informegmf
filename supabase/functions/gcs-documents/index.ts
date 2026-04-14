@@ -307,6 +307,28 @@ serve(async (req) => {
       if (error) throw new Error(`DB insert error: ${error.message}`);
       if (reviewStatusResult.error) throw new Error(`Review status error: ${reviewStatusResult.error.message}`);
 
+      // Notify users with 'lector_con_notificacion' role
+      try {
+        const { data: recipients } = await supabase.rpc("get_notification_recipients");
+        if (recipients && recipients.length > 0) {
+          const placasStr = uniquePlacas.join(", ");
+          const title = "Nuevo soporte cargado";
+          const message = `Archivo: ${file.name} | Comprador: ${documentoComprador} | Placas: ${placasStr}`;
+          const firstDocId = data?.[0]?.id ?? null;
+
+          const notifRows = recipients.map((r: { user_id: string }) => ({
+            user_id: r.user_id,
+            title,
+            message,
+            documento_ref: firstDocId,
+          }));
+
+          await supabase.from("notifications").insert(notifRows);
+        }
+      } catch (notifErr) {
+        console.error("Error creating notifications:", notifErr);
+      }
+
       return new Response(JSON.stringify({ success: true, documentos: data, documento: data?.[0] ?? null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
