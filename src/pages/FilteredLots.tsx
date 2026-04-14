@@ -269,6 +269,9 @@ const FilteredLots = () => {
                           {!showPagoColumns && !isPendingPaymentsCategory && showRetiroColumns && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha entrega docs al vendedor</th>
                           )}
+                          {category === "vehiculos_entregados" && (
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha de entrega</th>
+                          )}
                           {!showPagoColumns && !isPendingPaymentsCategory && !showRetiroColumns && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Descripción</th>
                           )}
