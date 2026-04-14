@@ -368,6 +368,11 @@ const FilteredLots = () => {
                                   </td>
                                 </>
                               )}
+                              {category === "vehiculos_entregados" && (
+                                <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
+                                  {item.fechaEntregaVehiculo ? formatDate(item.fechaEntregaVehiculo) : "—"}
+                                </td>
+                              )}
                               {!showPagoColumns && !isPendingPaymentsCategory && (
                                 <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[260px] truncate align-top">
                                   {showRetiroColumns
