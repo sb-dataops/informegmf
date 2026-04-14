@@ -398,7 +398,7 @@ serve(async (req) => {
                tramitador, incioServitramFecha, cierrecontableTraspasoComision,
                procesoPazySalvoaTramitador, estadoDocuemntosComprador,
                enviodoFirmarGmFinancial, estadoGmFinancialFirmas,
-               documentosConTramitador, fechaAprobacionTramite, fechaEntregaVehiculo,
+               SAFE_CAST(documentosConTramitador AS STRING) AS documentosConTramitador, fechaAprobacionTramite, fechaEntregaVehiculo,
                comentarios, mayoroferta, comprador, email, documento, movil,
                direccion, ciudadComprador, departamentoComprador,
                ubicacionVehiculo, ciudadUbicacionVehiculo, direccionUbicacionVehiculo,
@@ -1031,7 +1031,7 @@ serve(async (req) => {
             GROUP BY UPPER(IFNULL(CAST(placa AS STRING), ''))
           )
           SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.fechaAprobacionTramite, r.lote, r.tramitador,
-                 r.documentosConTramitador, t.fechaPazSalvo,
+                 SAFE_CAST(r.documentosConTramitador AS STRING) AS documentosConTramitador, t.fechaPazSalvo,
                  r.comentarios, t.estadoTraspaso,
                  t.observacionTramitador
           FROM \`${TABLES.retiros}\` r
@@ -1116,7 +1116,7 @@ serve(async (req) => {
             GROUP BY UPPER(IFNULL(CAST(placa AS STRING), ''))
           )
           SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.fechaEntregaVehiculo, r.lote, r.tramitador,
-                 r.documentosConTramitador, t.fechaPazSalvo,
+                 SAFE_CAST(r.documentosConTramitador AS STRING) AS documentosConTramitador, t.fechaPazSalvo,
                  r.comentarios,
                  t.observacionTramitador,
                  CAST(r.procesoPazySalvoaTramitador AS STRING) AS fechaPazSalvoTramitador
@@ -1146,7 +1146,7 @@ serve(async (req) => {
             GROUP BY UPPER(IFNULL(CAST(placa AS STRING), ''))
           )
           SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.estadoRetiro, r.lote, r.tramitador,
-                 r.documentosConTramitador, t.fechaPazSalvo,
+                 SAFE_CAST(r.documentosConTramitador AS STRING) AS documentosConTramitador, t.fechaPazSalvo,
                  r.comentarios,
                  t.observacionTramitador,
                  CAST(r.fechaEntregaVehiculo AS STRING) AS fechaEntregaVehiculo
@@ -1440,7 +1440,7 @@ serve(async (req) => {
                tramitador, incioServitramFecha, cierrecontableTraspasoComision,
                procesoPazySalvoaTramitador, estadoDocuemntosComprador,
                enviodoFirmarGmFinancial, estadoGmFinancialFirmas,
-               documentosConTramitador, fechaAprobacionTramite, fechaEntregaVehiculo,
+               SAFE_CAST(documentosConTramitador AS STRING) AS documentosConTramitador, fechaAprobacionTramite, fechaEntregaVehiculo,
                comentarios, mayoroferta, comprador, email, documento, movil,
                direccion, ciudadComprador, departamentoComprador,
                ubicacionVehiculo, ciudadUbicacionVehiculo, direccionUbicacionVehiculo,
