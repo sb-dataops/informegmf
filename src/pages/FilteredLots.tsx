@@ -39,6 +39,7 @@ function downloadExcel(rows: FilteredLotRow[], category: string) {
     "Fecha entrega docs al vendedor": r.documentosConTramitador || "",
     Estado: r.estadoTraspaso || r.estadoRetiro || r.estado || "",
     "Fecha Paz y Salvo": r.fechaPazSalvo || "",
+    "Fecha de entrega": r.fechaEntregaVehiculo || "",
     "Comentarios Superbid": r.comentarios || "",
     "Observación Tramitador": r.observacionTramitador || "",
   }));
