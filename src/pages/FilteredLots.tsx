@@ -446,7 +446,7 @@ const FilteredLots = () => {
                                   </td>
                                 </>
                               )}
-                              {!showPagoColumns && !isPendingPaymentsCategory && (
+                              {!showPagoColumns && !isPendingPaymentsCategory && category !== "pendientes_retiro" && (
                                 <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[260px] truncate align-top">
                                   {showRetiroColumns
                                     ? (item.documentosConTramitador ? formatDate(item.documentosConTramitador) : "—")
