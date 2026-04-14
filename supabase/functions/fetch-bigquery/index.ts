@@ -100,10 +100,10 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
 
   const jobId = data.jobReference?.jobId;
   let attempts = 0;
-  while (!data.jobComplete && jobId && attempts < 10) {
+  while (!data.jobComplete && jobId && attempts < 20) {
     attempts++;
     console.log(`[BQ] Job ${jobId} not complete, polling attempt ${attempts}...`);
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, 2000));
     const pollUrl = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries/${jobId}?timeoutMs=10000`;
     const pollRes = await fetch(pollUrl, {
       headers: { Authorization: `Bearer ${token}` },
