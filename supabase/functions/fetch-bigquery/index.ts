@@ -1149,7 +1149,8 @@ serve(async (req) => {
                  SAFE_CAST(r.documentosConTramitador AS STRING) AS documentosConTramitador, t.fechaPazSalvo,
                  r.comentarios,
                  t.observacionTramitador,
-                 CAST(r.fechaEntregaVehiculo AS STRING) AS fechaEntregaVehiculo
+                 CAST(r.fechaEntregaVehiculo AS STRING) AS fechaEntregaVehiculo,
+                 SAFE_CAST(r.fechaAprobacionTramite AS STRING) AS fechaAprobacionTramite
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           LEFT JOIN tramitadores_lookup t ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = t.placa
