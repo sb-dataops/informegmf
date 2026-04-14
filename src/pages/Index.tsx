@@ -19,6 +19,8 @@ import { Users, Search, ArrowLeft, Loader2, DollarSign, Gavel } from "lucide-rea
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import NotificationBell from "@/components/NotificationBell";
+import UserMenu from "@/components/UserMenu";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
