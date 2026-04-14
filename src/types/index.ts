@@ -190,6 +190,7 @@ export interface FilteredLotRow {
   fechaAprobacionFiltros?: string | null;
   observacionPago?: string | null;
   fechaEntregaVehiculo?: string | null;
+  fechaAprobacionTramite?: string | null;
   fechaPazSalvoTramitador?: string | null;
   diasHabilesRetiro?: number | null;
 }

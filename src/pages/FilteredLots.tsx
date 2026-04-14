@@ -335,8 +335,11 @@ const FilteredLots = () => {
                               <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Observaciones pagos</th>
                             </>
                           )}
-                          {!showPagoColumns && !isPendingPaymentsCategory && showRetiroColumns && category !== "pendientes_retiro" && (
+                          {!showPagoColumns && !isPendingPaymentsCategory && showRetiroColumns && category !== "pendientes_retiro" && category !== "vehiculos_entregados" && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha entrega docs al vendedor</th>
+                          )}
+                          {category === "vehiculos_entregados" && (
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha aprobación trámite</th>
                           )}
                           {category === "pendientes_retiro" && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Paz y Salvo → Tramitador</th>
@@ -446,11 +449,16 @@ const FilteredLots = () => {
                                   </td>
                                 </>
                               )}
-                              {!showPagoColumns && !isPendingPaymentsCategory && category !== "pendientes_retiro" && (
+                              {!showPagoColumns && !isPendingPaymentsCategory && category !== "pendientes_retiro" && category !== "vehiculos_entregados" && (
                                 <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[260px] truncate align-top">
                                   {showRetiroColumns
                                     ? (item.documentosConTramitador ? formatDate(item.documentosConTramitador) : "—")
                                     : (item.descripcion || "—")}
+                                </td>
+                              )}
+                              {category === "vehiculos_entregados" && (
+                                <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
+                                  {item.fechaAprobacionTramite ? formatDate(item.fechaAprobacionTramite) : "—"}
                                 </td>
                               )}
                               {category === "pendientes_retiro" && (
