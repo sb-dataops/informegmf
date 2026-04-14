@@ -28,6 +28,74 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const isRetiroCategory = (cat?: string) => cat === "pendientes_traspaso" || cat === "pendientes_retiro" || cat === "vehiculos_entregados";
 const isPendientesPagoCategory = (cat?: string) => cat === "pendientes_pago";
+
+const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DMY_DATE_PATTERN = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/;
+
+function normalizeCalendarDate(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  const isoMatch = trimmed.match(ISO_DATE_PATTERN);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    const parsed = new Date(Number(year), Number(month) - 1, Number(day), 12);
+    if (
+      parsed.getFullYear() === Number(year)
+      && parsed.getMonth() === Number(month) - 1
+      && parsed.getDate() === Number(day)
+    ) {
+      return `${year}-${month}-${day}`;
+    }
+    return null;
+  }
+
+  const dmyMatch = trimmed.match(DMY_DATE_PATTERN);
+  if (!dmyMatch) return null;
+
+  let [, day, month, year] = dmyMatch;
+  if (year.length === 2) {
+    year = `20${year}`;
+  }
+
+  const parsed = new Date(Number(year), Number(month) - 1, Number(day), 12);
+  if (
+    parsed.getFullYear() !== Number(year)
+    || parsed.getMonth() !== Number(month) - 1
+    || parsed.getDate() !== Number(day)
+  ) {
+    return null;
+  }
+
+  return `${year.padStart(4, "0")}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function getDateTimeValue(value: string | null): number | null {
+  if (!value) return null;
+  const timestamp = new Date(`${value}T12:00:00`).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function resolvePendientesRetiroPazYSalvoDate(item: FilteredLotRow): string | null {
+  const procesoDate = normalizeCalendarDate(item.fechaPazSalvoTramitador);
+  const documentosDate = normalizeCalendarDate(item.documentosConTramitador);
+  const contabilidadDate = normalizeCalendarDate(item.fechaPazSalvo);
+
+  if (procesoDate && documentosDate) {
+    const procesoTime = getDateTimeValue(procesoDate);
+    const documentosTime = getDateTimeValue(documentosDate);
+
+    if (procesoTime !== null && documentosTime !== null) {
+      const diffDays = Math.round((documentosTime - procesoTime) / 86_400_000);
+      if (diffDays > 90) {
+        return documentosDate;
+      }
+    }
+  }
+
+  return procesoDate || contabilidadDate || documentosDate;
+}
+
 function downloadExcel(rows: FilteredLotRow[], category: string) {
   const data = rows.map((r) => ({
     Subasta: r.subasta || "",
@@ -293,6 +361,12 @@ const FilteredLots = () => {
                           const fechaLimitePago = (showPagoColumns || isPendingPaymentsCategory) && item.fechaAprobacionFiltros
                             ? addBusinessDays(item.fechaAprobacionFiltros, 3)
                             : null;
+                          const fechaPazSalvoRetiro = category === "pendientes_retiro"
+                            ? resolvePendientesRetiroPazYSalvoDate(item)
+                            : null;
+                          const diasHabilesPazSalvoRetiro = fechaPazSalvoRetiro
+                            ? countBusinessDaysSince(fechaPazSalvoRetiro)
+                            : null;
 
                           return (
                             <tr
@@ -372,34 +446,30 @@ const FilteredLots = () => {
                                   </td>
                                 </>
                               )}
-                              {category === "vehiculos_entregados" && (
-                                <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
-                                  {item.fechaEntregaVehiculo ? formatDate(item.fechaEntregaVehiculo) : "—"}
-                                </td>
-                              )}
-                              {category === "pendientes_retiro" && (
-                                <td className="px-4 py-2.5 hidden sm:table-cell align-top">
-                                  {item.fechaPazSalvoTramitador ? (
-                                    <div className="flex flex-col gap-0.5">
-                                      <span className="text-muted-foreground">{formatDate(item.fechaPazSalvoTramitador)}</span>
-                                      {(() => {
-                                        const dias = countBusinessDaysSince(item.fechaPazSalvoTramitador!);
-                                        if (dias === null) return null;
-                                        return (
-                                          <span className={`text-xs font-medium ${dias > 10 ? "text-destructive" : dias > 5 ? "text-amber-600" : "text-muted-foreground"}`}>
-                                            {dias} día{dias !== 1 ? "s" : ""} hábil{dias !== 1 ? "es" : ""}
-                                          </span>
-                                        );
-                                      })()}
-                                    </div>
-                                  ) : "—"}
-                                </td>
-                              )}
                               {!showPagoColumns && !isPendingPaymentsCategory && (
                                 <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell max-w-[260px] truncate align-top">
                                   {showRetiroColumns
                                     ? (item.documentosConTramitador ? formatDate(item.documentosConTramitador) : "—")
                                     : (item.descripcion || "—")}
+                                </td>
+                              )}
+                              {category === "pendientes_retiro" && (
+                                <td className="px-4 py-2.5 hidden sm:table-cell align-top">
+                                  {fechaPazSalvoRetiro ? (
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-muted-foreground">{formatDate(fechaPazSalvoRetiro)}</span>
+                                      {diasHabilesPazSalvoRetiro !== null ? (
+                                        <span className={`text-xs font-medium ${diasHabilesPazSalvoRetiro > 10 ? "text-destructive" : diasHabilesPazSalvoRetiro > 5 ? "text-amber-600" : "text-muted-foreground"}`}>
+                                          {diasHabilesPazSalvoRetiro} día{diasHabilesPazSalvoRetiro !== 1 ? "s" : ""} hábil{diasHabilesPazSalvoRetiro !== 1 ? "es" : ""}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  ) : "—"}
+                                </td>
+                              )}
+                              {category === "vehiculos_entregados" && (
+                                <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
+                                  {item.fechaEntregaVehiculo ? formatDate(item.fechaEntregaVehiculo) : "—"}
                                 </td>
                               )}
                               {!isPendingPaymentsCategory && !showPagoColumns && category !== "pendientes_filtros" && (
