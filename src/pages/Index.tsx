@@ -182,7 +182,11 @@ const Index = () => {
               <p className="text-[10px] text-primary-foreground/50 leading-tight">Consulta & Gestión</p>
             </div>
           </div>
-          <img src={logoGmf} alt="GM Financial" className="h-10 sm:h-12 brightness-0 invert" />
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <UserMenu />
+            <img src={logoGmf} alt="GM Financial" className="h-10 sm:h-12 brightness-0 invert" />
+          </div>
         </div>
       </header>
 
