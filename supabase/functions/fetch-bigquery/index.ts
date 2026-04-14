@@ -92,7 +92,7 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
   const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 5000, timeoutMs: 30000, useQueryCache: false }),
+    body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 5000, timeoutMs: 60000 }),
   });
 
   let data = await res.json();
@@ -100,10 +100,9 @@ async function queryBQ(token: string, projectId: string, sql: string): Promise<R
 
   const jobId = data.jobReference?.jobId;
   let attempts = 0;
-  while (!data.jobComplete && jobId && attempts < 10) {
+  while (!data.jobComplete && jobId && attempts < 5) {
     attempts++;
     console.log(`[BQ] Job ${jobId} not complete, polling attempt ${attempts}...`);
-    await new Promise((r) => setTimeout(r, 1200));
     const pollUrl = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries/${jobId}?timeoutMs=10000`;
     const pollRes = await fetch(pollUrl, {
       headers: { Authorization: `Bearer ${token}` },
@@ -704,43 +703,36 @@ serve(async (req) => {
 
     if (action === "stats_retiros") {
       const statsSQL = `
-        WITH allowed_relatorio AS (
-          SELECT UPPER(IFNULL(placa,'')) AS placa
+        WITH allowed_placas AS (
+          SELECT DISTINCT UPPER(IFNULL(placa,'')) AS placa
           FROM \`${TABLES.relatorio}\`
           WHERE ${ESTADO_ALLOWED_FILTER} AND ${COMITENTE_FILTER}
+            AND IFNULL(TRIM(placa),'') != ''
         ),
-        retiros_pendientes_traspaso AS (
-          SELECT DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa
+        base AS (
+          SELECT
+            UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa,
+            IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') AS fat,
+            IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') AS fev
           FROM \`${TABLES.retiros}\` r
-          INNER JOIN (SELECT DISTINCT placa FROM allowed_relatorio WHERE placa != '') ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
-          WHERE IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') = ''
-            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
+          INNER JOIN allowed_placas ap ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ap.placa
+          WHERE UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
             AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
         ),
-        retiros_pendientes_retiro AS (
-          SELECT DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa
-          FROM \`${TABLES.retiros}\` r
-          INNER JOIN (SELECT DISTINCT placa FROM allowed_relatorio WHERE placa != '') ar2 ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar2.placa
-          WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') = ''
-            AND IFNULL(CAST(r.fechaAprobacionTramite AS STRING), '') != ''
-            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
-            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
-            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
-        ),
-        vehiculos_entregados AS (
-          SELECT DISTINCT UPPER(IFNULL(CAST(r.placa AS STRING), '')) AS placa
-          FROM \`${TABLES.retiros}\` r
-          INNER JOIN (SELECT DISTINCT placa FROM allowed_relatorio WHERE placa != '') ar3 ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar3.placa
-          WHERE IFNULL(CAST(r.fechaEntregaVehiculo AS STRING), '') != ''
-            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA RESCINDIDA%'
-            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%INCUMPLIMIENTO DE PAGO%'
-            AND UPPER(IFNULL(CAST(r.estado AS STRING), '')) NOT LIKE '%VENTA NO EFECTUADA POR EL COMITENTE%'
+        agg AS (
+          SELECT
+            placa,
+            MAX(fat) AS fat,
+            MAX(fev) AS fev
+          FROM base
+          GROUP BY placa
         )
         SELECT
-          CAST((SELECT COUNT(*) FROM retiros_pendientes_traspaso) AS STRING) AS pendientes_traspaso,
-          CAST((SELECT COUNT(*) FROM retiros_pendientes_retiro) AS STRING) AS pendientes_retiro,
-          CAST((SELECT COUNT(*) FROM vehiculos_entregados) AS STRING) AS vehiculos_entregados
+          CAST(COUNTIF(fat = '') AS STRING) AS pendientes_traspaso,
+          CAST(COUNTIF(fat != '' AND fev = '') AS STRING) AS pendientes_retiro,
+          CAST(COUNTIF(fev != '') AS STRING) AS vehiculos_entregados
+        FROM agg
       `;
 
       try {
