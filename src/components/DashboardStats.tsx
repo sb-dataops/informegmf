@@ -132,10 +132,11 @@ const DashboardStats = () => {
           title="RETIROS"
           icon={Truck}
           isLoading={loadingRetiros}
-          itemCount={2}
+          itemCount={3}
           items={[
             { label: "Pendientes de Traspaso", value: fmt(retiros?.pendientes_traspaso), category: "pendientes_traspaso", tone: "bg-info/10 text-info", icon: FileText },
             { label: "Pendientes de Retiro", value: fmt(retiros?.pendientes_retiro), category: "pendientes_retiro", tone: "bg-warning/10 text-warning", icon: Truck },
+            { label: "Vehículos Entregados", value: fmt(retiros?.vehiculos_entregados), category: "vehiculos_entregados", tone: "bg-emerald-500/10 text-emerald-600", icon: Truck },
           ]}
         />
       </div>

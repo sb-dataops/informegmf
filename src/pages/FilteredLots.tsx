@@ -22,10 +22,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   pendientes_pago: "Lotes con pagos pendientes",
   pendientes_traspaso: "Pendientes de Traspaso",
   pendientes_retiro: "Pendientes de Retiro",
+  vehiculos_entregados: "Vehículos Entregados",
   pendientes_filtros: "Pendientes por aprobación de filtros",
 };
 
-const isRetiroCategory = (cat?: string) => cat === "pendientes_traspaso" || cat === "pendientes_retiro";
+const isRetiroCategory = (cat?: string) => cat === "pendientes_traspaso" || cat === "pendientes_retiro" || cat === "vehiculos_entregados";
 const isPendientesPagoCategory = (cat?: string) => cat === "pendientes_pago";
 function downloadExcel(rows: FilteredLotRow[], category: string) {
   const data = rows.map((r) => ({
