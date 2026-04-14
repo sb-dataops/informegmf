@@ -316,7 +316,7 @@ serve(async (req) => {
           const message = `Archivo: ${file.name} | Comprador: ${documentoComprador} | Placas: ${placasStr}`;
           const firstDocId = data?.[0]?.id ?? null;
 
-          const notifRows = recipients.map((r: { user_id: string }) => ({
+          const notifRows = recipients.map((r: { user_id: string; email: string; display_name: string }) => ({
             user_id: r.user_id,
             title,
             message,
@@ -324,6 +324,51 @@ serve(async (req) => {
           }));
 
           await supabase.from("notifications").insert(notifRows);
+
+          // Send email notifications via Resend
+          const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+          const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+
+          if (LOVABLE_API_KEY && RESEND_API_KEY) {
+            const emailRecipients = recipients
+              .filter((r: { email: string }) => r.email)
+              .map((r: { email: string }) => r.email);
+
+            if (emailRecipients.length > 0) {
+              try {
+                const emailHtml = `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #1a1a2e;">📄 Nuevo soporte de pago cargado</h2>
+                    <div style="background: #f4f4f8; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                      <p style="margin: 4px 0;"><strong>Archivo:</strong> ${file.name}</p>
+                      <p style="margin: 4px 0;"><strong>Comprador:</strong> ${documentoComprador}</p>
+                      <p style="margin: 4px 0;"><strong>Placas:</strong> ${placasStr}</p>
+                    </div>
+                    <p style="color: #666; font-size: 14px;">Ingresa al dashboard para revisar el documento.</p>
+                  </div>
+                `;
+
+                await fetch("https://connector-gateway.lovable.dev/resend/emails", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+                    "X-Connection-Api-Key": RESEND_API_KEY,
+                  },
+                  body: JSON.stringify({
+                    from: "Superbid Exchange <informes@superbidcolombia.com>",
+                    to: emailRecipients,
+                    subject: `Nuevo soporte: ${file.name} | Placas: ${placasStr}`,
+                    html: emailHtml,
+                  }),
+                });
+              } catch (emailErr) {
+                console.error("Error sending email notifications:", emailErr);
+              }
+            }
+          } else {
+            console.warn("Email notifications skipped: LOVABLE_API_KEY or RESEND_API_KEY not configured");
+          }
         }
       } catch (notifErr) {
         console.error("Error creating notifications:", notifErr);
