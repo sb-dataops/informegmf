@@ -10,6 +10,7 @@ import BuyerHeader from "@/components/BuyerHeader";
 import PaymentForm from "@/components/PaymentForm";
 import DocumentUpload from "@/components/DocumentUpload";
 import VehicleSupportViewer from "@/components/VehicleSupportViewer";
+import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
