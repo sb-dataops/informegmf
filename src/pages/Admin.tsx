@@ -31,6 +31,7 @@ export default function Admin() {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState("");
+  const [emailInput, setEmailInput] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [adding, setAdding] = useState(false);
 
