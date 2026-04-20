@@ -216,45 +216,56 @@ const GestionPagos = () => {
 
         {activeTab === "documentos" && (
           <div className="space-y-6">
-            <Card className="border-border">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">Buscar Comprador</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Buscar por cédula/NIT, nombre o placa..."
-                    value={docSearch}
-                    onChange={(e) => setDocSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleDocSearch()}
+            {!canEdit ? (
+              <Card className="border-border bg-muted/30">
+                <CardContent className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
+                  <Lock className="h-4 w-4 shrink-0" />
+                  Tu rol actual solo permite consultar documentos. Para cargar nuevos soportes, solicita un permiso de Editor o Administrador.
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <Card className="border-border">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg">Buscar Comprador</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Buscar por cédula/NIT, nombre o placa..."
+                        value={docSearch}
+                        onChange={(e) => setDocSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleDocSearch()}
+                      />
+                      <Button onClick={handleDocSearch} disabled={searchingDoc} variant="secondary" className="shrink-0">
+                        {searchingDoc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
+
+                    {compradores.length > 0 && !selectedComprador && (
+                      <div className="space-y-2">
+                        {compradores.map((c) => (
+                          <button
+                            key={c.documento}
+                            onClick={() => setSelectedComprador(c)}
+                            className="w-full text-left p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors"
+                          >
+                            <p className="font-medium text-foreground">{c.nombre}</p>
+                            <p className="text-sm text-muted-foreground">{c.documento}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {selectedComprador && (
+                  <DocumentUpload
+                    documentoComprador={selectedComprador.documento}
+                    compradorNombre={selectedComprador.nombre}
                   />
-                  <Button onClick={handleDocSearch} disabled={searchingDoc} variant="secondary" className="shrink-0">
-                    {searchingDoc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  </Button>
-                </div>
-
-                {compradores.length > 0 && !selectedComprador && (
-                  <div className="space-y-2">
-                    {compradores.map((c) => (
-                      <button
-                        key={c.documento}
-                        onClick={() => setSelectedComprador(c)}
-                        className="w-full text-left p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors"
-                      >
-                        <p className="font-medium text-foreground">{c.nombre}</p>
-                        <p className="text-sm text-muted-foreground">{c.documento}</p>
-                      </button>
-                    ))}
-                  </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {selectedComprador && (
-              <DocumentUpload
-                documentoComprador={selectedComprador.documento}
-                compradorNombre={selectedComprador.nombre}
-              />
+              </>
             )}
           </div>
         )}
