@@ -24,15 +24,15 @@ const StatButton = ({ item, onClick }: { item: StatItem; onClick: () => void }) 
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left transition-all hover:border-primary/30 hover:shadow-card-hover"
+      className="group flex w-full items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left transition-all hover:border-primary hover:bg-accent hover:shadow-card-hover"
     >
       <div className="flex items-center gap-3">
-        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${item.tone}`}>
+        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${item.tone} transition-colors group-hover:bg-primary group-hover:text-primary-foreground`}>
           <ItemIcon className="h-4 w-4" />
         </div>
-        <p className="text-sm font-semibold text-foreground">{item.label}</p>
+        <p className="text-sm font-semibold text-foreground group-hover:text-accent-foreground">{item.label}</p>
       </div>
-      <p className="text-2xl font-bold text-foreground">{item.value}</p>
+      <p className="text-2xl font-bold text-primary">{item.value}</p>
     </button>
   );
 };
