@@ -26,6 +26,7 @@ interface DocumentUploadProps {
 }
 
 const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: DocumentUploadProps) => {
+  const { canEdit } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedPlacas, setSelectedPlacas] = useState<string[]>(placa ? [placa.toUpperCase()] : []);
