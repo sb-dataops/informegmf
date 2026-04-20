@@ -124,6 +124,8 @@ const FilteredLots = () => {
   const { category } = useParams<{ category: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { canEdit, isLectorConNotificacion } = useAuth();
+  const canMarkReview = canEdit || isLectorConNotificacion;
   const [search, setSearch] = useState("");
   const isPendingPaymentsCategory = category === "pagos_pendientes_revision" || category === "soportes_pendientes_revision";
   const showPagoColumns = isPendientesPagoCategory(category);
@@ -384,19 +386,23 @@ const FilteredLots = () => {
                               {isPendingPaymentsCategory && (
                                 <td className="px-4 py-2.5 align-top">
                                   {item.hasPendingReview ? (
-                                    <div className="flex items-center gap-2">
-                                      <Checkbox
-                                        checked={false}
-                                        disabled={isUpdating}
-                                        onCheckedChange={(checked) => handleReviewCheck(item, checked)}
-                                        aria-label={`Marcar ${item.placa || "lote"} como revisado`}
-                                      />
-                                      {isUpdating ? (
-                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                      ) : (
-                                        <span className="text-xs text-muted-foreground">Marcar revisión</span>
-                                      )}
-                                    </div>
+                                    canMarkReview ? (
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          checked={false}
+                                          disabled={isUpdating}
+                                          onCheckedChange={(checked) => handleReviewCheck(item, checked)}
+                                          aria-label={`Marcar ${item.placa || "lote"} como revisado`}
+                                        />
+                                        {isUpdating ? (
+                                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground">Marcar revisión</span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">Sin permiso</span>
+                                    )
                                   ) : (
                                     <span className="text-xs text-muted-foreground">No aplica</span>
                                   )}
