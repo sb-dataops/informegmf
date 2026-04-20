@@ -16,7 +16,8 @@ import { toast } from "@/hooks/use-toast";
 import { formatNumericInput, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { buildAllowedPlacasFromRelatorio, normalizePlaca } from "@/lib/vehicle-filters";
 import PlateValueFields from "@/components/documentos/PlateValueFields";
-import { Upload, FileIcon, Trash2, Loader2, FileText, Download, X } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Upload, FileIcon, Trash2, Loader2, FileText, Download, X, Lock } from "lucide-react";
 
 interface DocumentUploadProps {
   documentoComprador: string;
