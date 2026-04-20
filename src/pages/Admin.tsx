@@ -85,7 +85,7 @@ export default function Admin() {
     setAdding(true);
     const { error } = await supabase.from("user_roles").insert({
       user_id: userId,
-      role: selectedRole as "admin" | "lector_con_notificacion",
+      role: selectedRole as "admin" | "editor" | "lector" | "lector_con_notificacion",
     });
     if (error) {
       if (error.code === "23505") toast.error("Este usuario ya tiene ese rol");
@@ -169,7 +169,9 @@ export default function Admin() {
                       <SelectValue placeholder="Seleccionar rol" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                      <SelectItem value="editor">Editor</SelectItem>
+                      <SelectItem value="lector">Lector</SelectItem>
                       <SelectItem value="lector_con_notificacion">Lector con notificación</SelectItem>
                     </SelectContent>
                   </Select>
@@ -212,7 +214,13 @@ export default function Admin() {
                       <TableCell className="text-muted-foreground">{getUserEmail(r.user_id)}</TableCell>
                       <TableCell>
                         <Badge variant={r.role === "admin" ? "default" : "secondary"}>
-                          {r.role === "admin" ? "Admin" : "Lector con notificación"}
+                          {r.role === "admin"
+                            ? "Administrador"
+                            : r.role === "editor"
+                              ? "Editor"
+                              : r.role === "lector"
+                                ? "Lector"
+                                : "Lector con notificación"}
                         </Badge>
                       </TableCell>
                       <TableCell>
