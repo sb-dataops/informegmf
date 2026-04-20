@@ -125,36 +125,63 @@ export default function Admin() {
             <CardTitle className="text-lg">Asignar rol</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-3 items-end">
-              <div className="flex-1 min-w-[200px]">
-                <Select value={selectedUser} onValueChange={setSelectedUser}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar usuario" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {profiles.map((p) => (
-                      <SelectItem key={p.user_id} value={p.user_id}>
-                        {p.display_name || p.email || p.user_id.slice(0, 8)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Seleccionar usuario existente</Label>
+                  <Select
+                    value={selectedUser}
+                    onValueChange={(v) => {
+                      setSelectedUser(v);
+                      setEmailInput("");
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar usuario" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {profiles.map((p) => (
+                        <SelectItem key={p.user_id} value={p.user_id}>
+                          {p.display_name || p.email || p.user_id.slice(0, 8)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">O ingresar por correo</Label>
+                  <Input
+                    type="email"
+                    placeholder="correo@superbid.com.co"
+                    value={emailInput}
+                    onChange={(e) => {
+                      setEmailInput(e.target.value);
+                      if (e.target.value) setSelectedUser("");
+                    }}
+                  />
+                </div>
               </div>
-              <div className="min-w-[200px]">
-                <Select value={selectedRole} onValueChange={setSelectedRole}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="lector_con_notificacion">Lector con notificación</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="min-w-[220px] flex-1 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Rol</Label>
+                  <Select value={selectedRole} onValueChange={setSelectedRole}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar rol" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="lector_con_notificacion">Lector con notificación</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleAddRole}
+                  disabled={adding || !selectedRole || (!selectedUser && !emailInput.trim())}
+                >
+                  {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+                  Asignar
+                </Button>
               </div>
-              <Button onClick={handleAddRole} disabled={adding || !selectedUser || !selectedRole}>
-                {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
-                Asignar
-              </Button>
             </div>
           </CardContent>
         </Card>
