@@ -12,6 +12,7 @@ import { formatDate } from "@/services/bigqueryService";
 import { addBusinessDays, countBusinessDaysSince } from "@/lib/business-days";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
+import { useAuth } from "@/contexts/AuthContext";
 import * as XLSX from "xlsx";
 
 const CATEGORY_LABELS: Record<string, string> = {

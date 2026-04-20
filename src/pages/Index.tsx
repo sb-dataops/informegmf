@@ -21,11 +21,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/NotificationBell";
 import UserMenu from "@/components/UserMenu";
+import { useAuth } from "@/contexts/AuthContext";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { canEdit } = useAuth();
   const [filterValues, setFilterValues] = useState<SearchFiltersValues>({
     subasta: [], comprador: [], documento: [], placa: [],
     fechaSubastaDesde: '', fechaSubastaHasta: '', fechaPazSalvoDesde: '', fechaPazSalvoHasta: '',
@@ -217,7 +219,7 @@ const Index = () => {
               </div>
             )}
 
-            {!hasSearched && (
+            {!hasSearched && canEdit && (
               <div className="flex justify-center gap-3">
                 <Button onClick={() => navigate("/gestion-pagos")} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-stat">
                   <DollarSign className="h-4 w-4" />
