@@ -63,10 +63,28 @@ export default function Admin() {
   };
 
   const handleAddRole = async () => {
-    if (!selectedUser || !selectedRole) return;
+    if (!selectedRole) return;
+    let userId = selectedUser;
+
+    // Si no hay usuario del select, intentar resolver por email
+    if (!userId && emailInput.trim()) {
+      const email = emailInput.trim().toLowerCase();
+      const profile = profiles.find((p) => p.email?.toLowerCase() === email);
+      if (!profile) {
+        toast.error("No se encontró un usuario con ese correo. Debe haber iniciado sesión al menos una vez.");
+        return;
+      }
+      userId = profile.user_id;
+    }
+
+    if (!userId) {
+      toast.error("Selecciona un usuario o ingresa un correo");
+      return;
+    }
+
     setAdding(true);
     const { error } = await supabase.from("user_roles").insert({
-      user_id: selectedUser,
+      user_id: userId,
       role: selectedRole as "admin" | "lector_con_notificacion",
     });
     if (error) {
@@ -77,6 +95,7 @@ export default function Admin() {
       const { data } = await supabase.from("user_roles").select("*");
       setRoles(data ?? []);
       setSelectedUser("");
+      setEmailInput("");
       setSelectedRole("");
     }
     setAdding(false);
