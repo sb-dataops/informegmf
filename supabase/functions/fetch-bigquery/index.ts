@@ -1033,7 +1033,8 @@ serve(async (req) => {
           SELECT r.subasta, r.placa, r.comprador, r.documento, r.descripcion, r.estado, r.fechaAprobacionTramite, r.lote, r.tramitador,
                  SAFE_CAST(r.documentosConTramitador AS STRING) AS documentosConTramitador, t.fechaPazSalvo,
                  r.comentarios, t.estadoTraspaso,
-                 t.observacionTramitador
+                 t.observacionTramitador,
+                 SAFE_CAST(r.fechaAutorizacionEntregaVh AS STRING) AS fechaAutorizacionEntregaVh
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           LEFT JOIN tramitadores_lookup t ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = t.placa
@@ -1119,7 +1120,8 @@ serve(async (req) => {
                  SAFE_CAST(r.documentosConTramitador AS STRING) AS documentosConTramitador, t.fechaPazSalvo,
                  r.comentarios,
                  t.observacionTramitador,
-                 CAST(r.procesoPazySalvoaTramitador AS STRING) AS fechaPazSalvoTramitador
+                 CAST(r.procesoPazySalvoaTramitador AS STRING) AS fechaPazSalvoTramitador,
+                 SAFE_CAST(r.fechaAutorizacionEntregaVh AS STRING) AS fechaAutorizacionEntregaVh
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           LEFT JOIN tramitadores_lookup t ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = t.placa
@@ -1150,7 +1152,8 @@ serve(async (req) => {
                  r.comentarios,
                  t.observacionTramitador,
                  CAST(r.fechaEntregaVehiculo AS STRING) AS fechaEntregaVehiculo,
-                 SAFE_CAST(r.fechaAprobacionTramite AS STRING) AS fechaAprobacionTramite
+                 SAFE_CAST(r.fechaAprobacionTramite AS STRING) AS fechaAprobacionTramite,
+                 SAFE_CAST(r.fechaAutorizacionEntregaVh AS STRING) AS fechaAutorizacionEntregaVh
           FROM \`${TABLES.retiros}\` r
           INNER JOIN allowed_relatorio ar ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = ar.placa
           LEFT JOIN tramitadores_lookup t ON UPPER(IFNULL(CAST(r.placa AS STRING), '')) = t.placa

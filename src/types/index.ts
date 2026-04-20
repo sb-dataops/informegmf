@@ -193,6 +193,7 @@ export interface FilteredLotRow {
   fechaAprobacionTramite?: string | null;
   fechaPazSalvoTramitador?: string | null;
   diasHabilesRetiro?: number | null;
+  fechaAutorizacionEntregaVh?: string | null;
 }
 
 export interface FilteredLotsResult {

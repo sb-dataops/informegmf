@@ -108,6 +108,7 @@ function downloadExcel(rows: FilteredLotRow[], category: string) {
     Estado: r.estadoTraspaso || r.estadoRetiro || r.estado || "",
     "Fecha Paz y Salvo": r.fechaPazSalvo || "",
     "Fecha de entrega": r.fechaEntregaVehiculo || "",
+    "Fecha autorización entrega VH": r.fechaAutorizacionEntregaVh || "",
     "Comentarios Superbid": r.comentarios || "",
     "Observación Tramitador": r.observacionTramitador || "",
   }));
@@ -347,6 +348,9 @@ const FilteredLots = () => {
                           {category === "vehiculos_entregados" && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha de entrega</th>
                           )}
+                          {showRetiroColumns && (
+                            <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Fecha autorización entrega VH</th>
+                          )}
                           {!showPagoColumns && !isPendingPaymentsCategory && !showRetiroColumns && (
                             <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">Descripción</th>
                           )}
@@ -478,6 +482,11 @@ const FilteredLots = () => {
                               {category === "vehiculos_entregados" && (
                                 <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
                                   {item.fechaEntregaVehiculo ? formatDate(item.fechaEntregaVehiculo) : "—"}
+                                </td>
+                              )}
+                              {showRetiroColumns && (
+                                <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell align-top">
+                                  {item.fechaAutorizacionEntregaVh ? formatDate(item.fechaAutorizacionEntregaVh) : "—"}
                                 </td>
                               )}
                               {!isPendingPaymentsCategory && !showPagoColumns && category !== "pendientes_filtros" && (
