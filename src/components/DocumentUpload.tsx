@@ -16,7 +16,8 @@ import { toast } from "@/hooks/use-toast";
 import { formatNumericInput, parseCurrencyLikeValue } from "@/lib/payment-utils";
 import { buildAllowedPlacasFromRelatorio, normalizePlaca } from "@/lib/vehicle-filters";
 import PlateValueFields from "@/components/documentos/PlateValueFields";
-import { Upload, FileIcon, Trash2, Loader2, FileText, Download, X } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Upload, FileIcon, Trash2, Loader2, FileText, Download, X, Lock } from "lucide-react";
 
 interface DocumentUploadProps {
   documentoComprador: string;
@@ -25,6 +26,7 @@ interface DocumentUploadProps {
 }
 
 const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: DocumentUploadProps) => {
+  const { canEdit } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedPlacas, setSelectedPlacas] = useState<string[]>(placa ? [placa.toUpperCase()] : []);
@@ -221,7 +223,14 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!placa && placasDisponibles.length > 0 && (
+        {!canEdit && (
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <Lock className="h-3.5 w-3.5 shrink-0" />
+            Vista de solo lectura. No puedes cargar ni eliminar soportes con tu rol actual.
+          </div>
+        )}
+
+        {canEdit && !placa && placasDisponibles.length > 0 && (
           <div className="space-y-2">
             <Label className="text-sm font-medium">Relacionar soporte a placa(s)</Label>
             <div className="flex flex-wrap gap-2">
@@ -243,7 +252,7 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
           </div>
         )}
 
-        {placa && (
+        {canEdit && placa && (
           <div className="space-y-2">
             <Label className="text-sm font-medium">Placa relacionada</Label>
             <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground">
@@ -252,89 +261,93 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
           </div>
         )}
 
-        <PlateValueFields
-          selectedPlacas={selectedPlacas}
-          values={valoresPorPlaca}
-          onValueChange={handlePlateValueChange}
-          disabled={uploading}
-        />
+        {canEdit && (
+          <>
+            <PlateValueFields
+              selectedPlacas={selectedPlacas}
+              values={valoresPorPlaca}
+              onValueChange={handlePlateValueChange}
+              disabled={uploading}
+            />
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            if (e.target.files) queueFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) queueFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
 
-        <div
-          className={`cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {uploading ? (
-            <div className="flex items-center justify-center gap-2">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <span className="text-muted-foreground">Cargando soportes...</span>
+            <div
+              className={`cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <span className="text-muted-foreground">Cargando soportes...</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Upload className="mx-auto h-8 w-8 text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">
+                    Arrastra archivos aquí o <span className="font-medium text-primary">haz clic para seleccionarlos</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">Luego usa el botón de carga para guardar la información.</p>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="space-y-2">
-              <Upload className="mx-auto h-8 w-8 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">
-                Arrastra archivos aquí o <span className="font-medium text-primary">haz clic para seleccionarlos</span>
-              </p>
-              <p className="text-xs text-muted-foreground">Luego usa el botón de carga para guardar la información.</p>
-            </div>
-          )}
-        </div>
 
-        {selectedFiles.length > 0 && (
-          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-foreground">Archivos listos para cargar</p>
-              <p className="text-xs text-muted-foreground">{selectedFiles.length} archivo(s)</p>
-            </div>
-            <div className="space-y-2">
-              {selectedFiles.map((file, index) => (
-                <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2">
-                  <FileIcon className="h-4 w-4 shrink-0 text-primary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeSelectedFile(index);
-                    }}
-                  >
-                    <X className="h-3.5 w-3.5" />
+            {selectedFiles.length > 0 && (
+              <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-foreground">Archivos listos para cargar</p>
+                  <p className="text-xs text-muted-foreground">{selectedFiles.length} archivo(s)</p>
+                </div>
+                <div className="space-y-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2">
+                      <FileIcon className="h-4 w-4 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeSelectedFile(index);
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                    Seleccionar más archivos
+                  </Button>
+                  <Button type="button" onClick={handleUpload} disabled={uploading}>
+                    {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                    Cargar soportes
                   </Button>
                 </div>
-              ))}
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                Seleccionar más archivos
-              </Button>
-              <Button type="button" onClick={handleUpload} disabled={uploading}>
-                {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                Cargar soportes
-              </Button>
-            </div>
-          </div>
+              </div>
+            )}
+          </>
         )}
 
         {isLoading && (
@@ -369,29 +382,31 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
                       </a>
                     </Button>
                   )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-destructive hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete({
-                        id: doc.id,
-                        documento_comprador: doc.documento_comprador,
-                        placa: doc.soportes[0]?.placa || null,
-                        placas: doc.soportes.map((item) => item.placa),
-                        valor_soporte: doc.soportes.reduce((acc, item) => acc + item.valor_soporte, 0),
-                        nombre_archivo: doc.nombre_archivo,
-                        tipo_archivo: doc.tipo_archivo,
-                        tamano: doc.tamano,
-                        gcs_path: doc.gcs_path,
-                        gcs_url: doc.gcs_url,
-                        created_at: doc.created_at,
-                      });
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {canEdit && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete({
+                          id: doc.id,
+                          documento_comprador: doc.documento_comprador,
+                          placa: doc.soportes[0]?.placa || null,
+                          placas: doc.soportes.map((item) => item.placa),
+                          valor_soporte: doc.soportes.reduce((acc, item) => acc + item.valor_soporte, 0),
+                          nombre_archivo: doc.nombre_archivo,
+                          tipo_archivo: doc.tipo_archivo,
+                          tamano: doc.tamano,
+                          gcs_path: doc.gcs_path,
+                          gcs_url: doc.gcs_url,
+                          created_at: doc.created_at,
+                        });
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

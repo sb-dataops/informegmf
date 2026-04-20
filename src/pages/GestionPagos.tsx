@@ -13,7 +13,8 @@ import { listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosSe
 import { formatCurrency, searchBigQuery } from "@/services/bigqueryService";
 import { calculateSaldoPendiente } from "@/lib/payment-utils";
 import { buildAllowedPlacasFromRelatorio, isCondicionalRechazado, normalizePlaca } from "@/lib/vehicle-filters";
-import { ArrowLeft, DollarSign, Search, Loader2, FileText } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { ArrowLeft, DollarSign, Search, Loader2, FileText, Lock } from "lucide-react";
 import logoSuperbid from "@/assets/logo-superbid.png";
 import logoGmf from "@/assets/logo-gmf.png";
 
@@ -21,6 +22,7 @@ const getTabFromQuery = (tab: string | null): "pagos" | "documentos" => (tab ===
 
 const GestionPagos = () => {
   const navigate = useNavigate();
+  const { canEdit } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<"pagos" | "documentos">(() => getTabFromQuery(searchParams.get("tab")));
   const [docSearch, setDocSearch] = useState("");
@@ -148,10 +150,19 @@ const GestionPagos = () => {
 
         {activeTab === "pagos" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-              <PaymentForm onSaved={() => refetchPagos()} />
-              <MassPaymentUpload onCompleted={() => refetchPagos()} />
-            </div>
+            {canEdit ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <PaymentForm onSaved={() => refetchPagos()} />
+                <MassPaymentUpload onCompleted={() => refetchPagos()} />
+              </div>
+            ) : (
+              <Card className="border-border bg-muted/30">
+                <CardContent className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
+                  <Lock className="h-4 w-4 shrink-0" />
+                  Tu rol actual solo permite consultar pagos. Para cargar o actualizar información, solicita un permiso de Editor o Administrador.
+                </CardContent>
+              </Card>
+            )}
 
             <Card className="border-border">
               <CardHeader className="pb-4">
@@ -205,45 +216,56 @@ const GestionPagos = () => {
 
         {activeTab === "documentos" && (
           <div className="space-y-6">
-            <Card className="border-border">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">Buscar Comprador</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Buscar por cédula/NIT, nombre o placa..."
-                    value={docSearch}
-                    onChange={(e) => setDocSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleDocSearch()}
+            {!canEdit ? (
+              <Card className="border-border bg-muted/30">
+                <CardContent className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
+                  <Lock className="h-4 w-4 shrink-0" />
+                  Tu rol actual solo permite consultar documentos. Para cargar nuevos soportes, solicita un permiso de Editor o Administrador.
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <Card className="border-border">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg">Buscar Comprador</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Buscar por cédula/NIT, nombre o placa..."
+                        value={docSearch}
+                        onChange={(e) => setDocSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleDocSearch()}
+                      />
+                      <Button onClick={handleDocSearch} disabled={searchingDoc} variant="secondary" className="shrink-0">
+                        {searchingDoc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
+
+                    {compradores.length > 0 && !selectedComprador && (
+                      <div className="space-y-2">
+                        {compradores.map((c) => (
+                          <button
+                            key={c.documento}
+                            onClick={() => setSelectedComprador(c)}
+                            className="w-full text-left p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors"
+                          >
+                            <p className="font-medium text-foreground">{c.nombre}</p>
+                            <p className="text-sm text-muted-foreground">{c.documento}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {selectedComprador && (
+                  <DocumentUpload
+                    documentoComprador={selectedComprador.documento}
+                    compradorNombre={selectedComprador.nombre}
                   />
-                  <Button onClick={handleDocSearch} disabled={searchingDoc} variant="secondary" className="shrink-0">
-                    {searchingDoc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  </Button>
-                </div>
-
-                {compradores.length > 0 && !selectedComprador && (
-                  <div className="space-y-2">
-                    {compradores.map((c) => (
-                      <button
-                        key={c.documento}
-                        onClick={() => setSelectedComprador(c)}
-                        className="w-full text-left p-3 rounded-lg bg-muted/50 border border-border hover:border-primary/30 transition-colors"
-                      >
-                        <p className="font-medium text-foreground">{c.nombre}</p>
-                        <p className="text-sm text-muted-foreground">{c.documento}</p>
-                      </button>
-                    ))}
-                  </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {selectedComprador && (
-              <DocumentUpload
-                documentoComprador={selectedComprador.documento}
-                compradorNombre={selectedComprador.nombre}
-              />
+              </>
             )}
           </div>
         )}

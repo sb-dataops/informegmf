@@ -10,6 +10,7 @@ import BuyerHeader from "@/components/BuyerHeader";
 import PaymentForm from "@/components/PaymentForm";
 import DocumentUpload from "@/components/DocumentUpload";
 import VehicleSupportViewer from "@/components/VehicleSupportViewer";
+import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ const VehicleDetail = () => {
   const { placa } = useParams<{ placa: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { canEdit } = useAuth();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["vehicle-detail", placa],
@@ -146,7 +148,7 @@ const VehicleDetail = () => {
             />
           )}
 
-          {vehiculo && (
+          {vehiculo && canEdit && (
             <PaymentForm
               initialPlaca={vehiculo.placa}
               initialSubasta={vehiculo.subasta || undefined}

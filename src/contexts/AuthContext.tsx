@@ -7,6 +7,10 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  isEditor: boolean;
+  isLectorConNotificacion: boolean;
+  /** True si el usuario puede crear/editar/eliminar (admin o editor). */
+  canEdit: boolean;
   roles: string[];
   signOut: () => Promise<void>;
 }
@@ -16,6 +20,9 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   isAdmin: false,
+  isEditor: false,
+  isLectorConNotificacion: false,
+  canEdit: false,
   roles: [],
   signOut: async () => {},
 });
@@ -64,9 +71,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const isAdmin = roles.includes("admin");
+  const isEditor = roles.includes("editor");
+  const isLectorConNotificacion = roles.includes("lector_con_notificacion");
+  const canEdit = isAdmin || isEditor;
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, roles, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        loading,
+        isAdmin,
+        isEditor,
+        isLectorConNotificacion,
+        canEdit,
+        roles,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
