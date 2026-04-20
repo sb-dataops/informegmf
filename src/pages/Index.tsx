@@ -219,7 +219,7 @@ const Index = () => {
 
             {!hasSearched && (
               <div className="flex justify-center gap-3">
-                <Button onClick={() => navigate("/gestion-pagos")} variant="outline" className="gap-2">
+                <Button onClick={() => navigate("/gestion-pagos")} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-stat">
                   <DollarSign className="h-4 w-4" />
                   Gestión y Soportes de Pago
                 </Button>
