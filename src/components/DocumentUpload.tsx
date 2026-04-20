@@ -178,6 +178,8 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
       setValoresPorPlaca((current) => Object.fromEntries(selectedPlacas.map((item) => [item, current[item] ? "" : ""] )));
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ["all-documentos"] });
+      queryClient.invalidateQueries({ queryKey: ["stats-pagos"] });
+      queryClient.invalidateQueries({ queryKey: ["pagos-all-alerts"] });
     } catch (err) {
       toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -191,6 +193,8 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
       toast({ title: "Eliminado", description: doc.nombre_archivo });
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ["all-documentos"] });
+      queryClient.invalidateQueries({ queryKey: ["stats-pagos"] });
+      queryClient.invalidateQueries({ queryKey: ["pagos-all-alerts"] });
     } catch (err) {
       toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
     }
