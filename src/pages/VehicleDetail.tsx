@@ -21,6 +21,7 @@ const VehicleDetail = () => {
   const { placa } = useParams<{ placa: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { canEdit } = useAuth();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["vehicle-detail", placa],
@@ -147,7 +148,7 @@ const VehicleDetail = () => {
             />
           )}
 
-          {vehiculo && (
+          {vehiculo && canEdit && (
             <PaymentForm
               initialPlaca={vehiculo.placa}
               initialSubasta={vehiculo.subasta || undefined}
