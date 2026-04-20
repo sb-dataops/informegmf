@@ -382,29 +382,31 @@ const DocumentUpload = ({ documentoComprador, placa, compradorNombre }: Document
                       </a>
                     </Button>
                   )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-destructive hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete({
-                        id: doc.id,
-                        documento_comprador: doc.documento_comprador,
-                        placa: doc.soportes[0]?.placa || null,
-                        placas: doc.soportes.map((item) => item.placa),
-                        valor_soporte: doc.soportes.reduce((acc, item) => acc + item.valor_soporte, 0),
-                        nombre_archivo: doc.nombre_archivo,
-                        tipo_archivo: doc.tipo_archivo,
-                        tamano: doc.tamano,
-                        gcs_path: doc.gcs_path,
-                        gcs_url: doc.gcs_url,
-                        created_at: doc.created_at,
-                      });
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {canEdit && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete({
+                          id: doc.id,
+                          documento_comprador: doc.documento_comprador,
+                          placa: doc.soportes[0]?.placa || null,
+                          placas: doc.soportes.map((item) => item.placa),
+                          valor_soporte: doc.soportes.reduce((acc, item) => acc + item.valor_soporte, 0),
+                          nombre_archivo: doc.nombre_archivo,
+                          tipo_archivo: doc.tipo_archivo,
+                          tamano: doc.tamano,
+                          gcs_path: doc.gcs_path,
+                          gcs_url: doc.gcs_url,
+                          created_at: doc.created_at,
+                        });
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
