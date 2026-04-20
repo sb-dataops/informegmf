@@ -13,6 +13,7 @@ import type { GroupedDocumentoRecord } from "@/services/documentosService";
 import { fetchDocumentoBlob, formatFileSize } from "@/services/documentosService";
 import { formatCurrency } from "@/services/bigqueryService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
 import { CalendarDays, DollarSign, Eye, FileText, Loader2 } from "lucide-react";
 
 interface VehicleSupportViewerProps {
@@ -148,9 +149,10 @@ const VehicleSupportViewer = ({
             <Select
               value={observacionPago || ""}
               onValueChange={(val) => onObservacionPagoChange?.(placa, val)}
+              disabled={!canEdit}
             >
               <SelectTrigger className="w-full bg-background">
-                <SelectValue placeholder="Seleccionar observación..." />
+                <SelectValue placeholder={canEdit ? "Seleccionar observación..." : "Sin permiso para editar"} />
               </SelectTrigger>
               <SelectContent>
                 {OBSERVACION_PAGO_OPTIONS.map((opt) => (
