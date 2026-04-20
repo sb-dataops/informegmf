@@ -60,6 +60,7 @@ export type Database = {
         Row: {
           created_at: string
           documento_ref: string | null
+          email_notified_at: string | null
           id: string
           is_read: boolean
           message: string
@@ -69,6 +70,7 @@ export type Database = {
         Insert: {
           created_at?: string
           documento_ref?: string | null
+          email_notified_at?: string | null
           id?: string
           is_read?: boolean
           message: string
@@ -78,6 +80,7 @@ export type Database = {
         Update: {
           created_at?: string
           documento_ref?: string | null
+          email_notified_at?: string | null
           id?: string
           is_read?: boolean
           message?: string
