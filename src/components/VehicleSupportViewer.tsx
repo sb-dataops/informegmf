@@ -51,6 +51,7 @@ const VehicleSupportViewer = ({
   observacionPago,
   onObservacionPagoChange,
 }: VehicleSupportViewerProps) => {
+  const { canEdit } = useAuth();
   const [activeDocument, setActiveDocument] = useState<GroupedDocumentoRecord | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
