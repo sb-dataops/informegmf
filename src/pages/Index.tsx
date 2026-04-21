@@ -100,17 +100,19 @@ const Index = () => {
     });
   };
 
-  const effectiveComprador = showingSubastaDetail || showingSubastaList
+  const effectiveComprador = showingSubastaDetail || showingSubastaList || showingPlacaList
     ? null
-    : selectedComprador || (compradores.length === 1 && searchResult && matchingSubastas.length === 0 ? compradores[0] : null);
+    : selectedComprador || (compradores.length === 1 && searchResult && matchingSubastas.length === 0 && !isPlacaCentricSearch ? compradores[0] : null);
   const effectiveVehiculos = showingSubastaDetail
     ? vehiculosSubasta
-    : effectiveComprador && searchResult
-      ? consolidateVehiculos(searchResult, effectiveComprador.documento)
-      : [];
+    : showingPlacaList
+      ? placaCentricVehiculos
+      : effectiveComprador && searchResult
+        ? consolidateVehiculos(searchResult, effectiveComprador.documento)
+        : [];
 
-  const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail;
-  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail && !showingSubastaList && matchingSubastas.length === 0;
+  const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail || showingPlacaList;
+  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail && !showingSubastaList && !showingPlacaList && matchingSubastas.length === 0;
 
   const filteredVehiculos = useMemo(() => {
     if (!showingSubastaDetail) return effectiveVehiculos;
