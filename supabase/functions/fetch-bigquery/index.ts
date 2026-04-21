@@ -1429,6 +1429,10 @@ serve(async (req) => {
         // Relatorio/retiros rows are resolved later via the placas fallback so we only
         // bring in vehicles whose placa actually matches the paz y salvo date range.
         if (tableName === "servitram" || tableName === "gestramites") {
+          if (fechaPazSalvoDesde || fechaPazSalvoHasta) {
+            conditions.push(`${pazSalvoDateExpr} IS NOT NULL`);
+            conditions.push(`IFNULL(TRIM(CAST(${p}pazYSalvoContabilidad AS STRING)), '') != ''`);
+          }
           if (fechaPazSalvoDesde) {
             conditions.push(`${pazSalvoDateExpr} >= DATE '${fechaPazSalvoDesde}'`);
           }
