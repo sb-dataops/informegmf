@@ -407,7 +407,7 @@ const Index = () => {
               {filteredVehiculos.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">
-                    {showingSubastaDetail ? "No se encontraron vehículos para esta subasta" : "No se encontraron vehículos con placa para este comprador"}
+                    {showingSubastaDetail ? "No se encontraron vehículos para esta subasta" : showingPlacaList ? "No se encontraron vehículos con esos filtros" : "No se encontraron vehículos con placa para este comprador"}
                   </p>
                 </div>
               )}
