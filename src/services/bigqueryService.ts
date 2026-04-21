@@ -320,7 +320,9 @@ function consolidateVehiculosBase(
       v.lote = r.lote || v.lote;
       v.tramitador = r.tramitador || v.tramitador;
       v.transito = r.transito || v.transito;
-      v.cierreContableFecha = r.pazYSalvoContabilidad || v.cierreContableFecha;
+      // Cierre Contable / Paz y Salvo is sourced exclusively from retiros.cierrecontableTraspasoComision.
+      // Do NOT overwrite it with pazYSalvoContabilidad from servitram/gestramites.
+      v.fechaRecibidoImprontas = r.fechaRecibidoImprontas || v.fechaRecibidoImprontas;
       v.fechaRecibidoImprontas = r.fechaRecibidoImprontas || v.fechaRecibidoImprontas;
       v.estadoTraspaso = r.estadoTraspaso || v.estadoTraspaso;
       v.observacion = r.observacion || v.observacion;
