@@ -1417,11 +1417,11 @@ serve(async (req) => {
             conditions.push(`CAST(${p}fecha AS STRING) <= '${fechaSubastaHasta}'`);
           }
         }
-        // fechaPazSalvo lives in retiros/servitram/gestramites (pazYSalvoContabilidad).
-        // The relatorio table does NOT have this column, so we must NOT apply this filter there;
-        // instead, the relatorio rows are resolved later via the placas fallback so we only
+        // fechaPazSalvo (pazYSalvoContabilidad) only exists in servitram/gestramites.
+        // The retiros and relatorio tables do NOT have this column, so we must not reference it there.
+        // Relatorio/retiros rows are resolved later via the placas fallback so we only
         // bring in vehicles whose placa actually matches the paz y salvo date range.
-        if (tableName === "retiros" || tableName === "servitram" || tableName === "gestramites") {
+        if (tableName === "servitram" || tableName === "gestramites") {
           if (fechaPazSalvoDesde) {
             conditions.push(`CAST(${p}pazYSalvoContabilidad AS STRING) >= '${fechaPazSalvoDesde}'`);
           }
