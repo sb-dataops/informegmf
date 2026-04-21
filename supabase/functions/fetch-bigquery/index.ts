@@ -459,11 +459,11 @@ serve(async (req) => {
         safeQuery(gestramitesSQL),
       ]);
 
-      if (relatorio.length === 0 || hasPazSalvoFilter) {
+      if (relatorio.length === 0) {
         const placasFallback = Array.from(new Set([
           ...servitram.map((row) => normalizePlaca(row.placa)).filter(Boolean),
           ...gestramites.map((row) => normalizePlaca(row.placa)).filter(Boolean),
-          ...(hasPazSalvoFilter ? [] : retiros.map((row) => normalizePlaca(row.placa)).filter(Boolean)),
+          ...retiros.map((row) => normalizePlaca(row.placa)).filter(Boolean),
         ]));
 
         if (placasFallback.length > 0) {
@@ -1510,11 +1510,11 @@ serve(async (req) => {
         safeQuery(gestramitesSQL),
       ]);
 
-      if (relatorio.length === 0) {
+      if (relatorio.length === 0 || hasPazSalvoFilter) {
         const placasFallback = Array.from(new Set([
-          ...retiros.map((row) => normalizePlaca(row.placa)).filter(Boolean),
           ...servitram.map((row) => normalizePlaca(row.placa)).filter(Boolean),
           ...gestramites.map((row) => normalizePlaca(row.placa)).filter(Boolean),
+          ...(hasPazSalvoFilter ? [] : retiros.map((row) => normalizePlaca(row.placa)).filter(Boolean)),
         ]));
 
         if (placasFallback.length > 0) {
