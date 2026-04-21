@@ -374,7 +374,7 @@ const Index = () => {
 
                 return (
                   <div key={v.placa} className="space-y-2">
-                    {showingSubastaDetail && buyerForCard && (
+                    {(showingSubastaDetail || showingPlacaList) && buyerForCard && (
                       <BuyerHeader comprador={buyerForCard} vehicleCount={1} />
                     )}
                     <VehicleCard
