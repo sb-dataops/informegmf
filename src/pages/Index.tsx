@@ -287,10 +287,14 @@ const Index = () => {
               </div>
             )}
 
-            {hasSearched && !isLoading && compradores.length === 0 && matchingSubastas.length === 0 && !isError && (
+            {hasSearched && !isLoading && compradores.length === 0 && matchingSubastas.length === 0 && placaCentricVehiculos.length === 0 && !isError && (
               <div className="text-center py-12">
                 <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground">No se encontraron resultados</p>
+                <p className="text-muted-foreground mb-4">No se encontraron resultados</p>
+                <Button onClick={goBack} variant="outline" className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Volver al inicio
+                </Button>
               </div>
             )}
           </div>
