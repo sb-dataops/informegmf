@@ -334,7 +334,9 @@ const Index = () => {
                   onPlacasChange={setFilterPlacas}
                   onCompradoresChange={setFilterCompradores}
                 />
-                <SubastaCobranza vehiculos={effectiveVehiculos} pagosPorPlaca={pagosPorPlaca} documentos={documentosFuente} />
+                {!(showingPlacaList && (activeFilters?.fechaPazSalvoDesde || activeFilters?.fechaPazSalvoHasta)) && (
+                  <SubastaCobranza vehiculos={effectiveVehiculos} pagosPorPlaca={pagosPorPlaca} documentos={documentosFuente} />
+                )}
               </div>
             ) : effectiveComprador ? (
               <BuyerHeader comprador={effectiveComprador} vehicleCount={effectiveVehiculos.length} />
