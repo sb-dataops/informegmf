@@ -1495,7 +1495,9 @@ serve(async (req) => {
       };
 
       let [relatorio, retiros, servitram, gestramites] = await Promise.all([
-        safeQuery(relatorioSQL),
+        // Skip the unfiltered relatorio query when only paz-y-salvo is set; the placas fallback
+        // below will pull only the relatorio rows whose placa matches the paz y salvo date range.
+        onlyPazSalvoFilter ? Promise.resolve([] as any[]) : safeQuery(relatorioSQL),
         safeQuery(retirosSQL),
         safeQuery(servitramSQL),
         safeQuery(gestramitesSQL),
