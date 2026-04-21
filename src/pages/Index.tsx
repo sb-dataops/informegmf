@@ -141,7 +141,7 @@ const Index = () => {
   const { data: documentosSubasta = [], isLoading: isDocumentosSubastaLoading } = useQuery({
     queryKey: ["documentos-subasta", activeFilters],
     queryFn: () => listDocumentos({}),
-    enabled: showingSubastaDetail,
+    enabled: showingSubastaDetail || showingPlacaList,
     staleTime: 60 * 1000,
   });
 
