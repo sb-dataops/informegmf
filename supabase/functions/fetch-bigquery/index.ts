@@ -1374,16 +1374,25 @@ serve(async (req) => {
         });
       }
 
+      const buildPazSalvoDateExpr = (prefix: string = "") => {
+        const p = prefix ? `${prefix}.` : "";
+        const raw = `TRIM(CAST(${p}cierrecontableTraspasoComision AS STRING))`;
+        return `COALESCE(
+          SAFE_CAST(${p}cierrecontableTraspasoComision AS DATE),
+          DATE(SAFE_CAST(${p}cierrecontableTraspasoComision AS TIMESTAMP)),
+          SAFE.PARSE_DATE('%Y-%m-%d', ${raw}),
+          SAFE.PARSE_DATE('%m/%d/%Y', ${raw}),
+          SAFE.PARSE_DATE('%m/%d/%y', ${raw}),
+          SAFE.PARSE_DATE('%d/%m/%Y', ${raw}),
+          SAFE.PARSE_DATE('%d/%m/%y', ${raw}),
+          IF(SAFE_CAST(${raw} AS FLOAT64) BETWEEN 20000 AND 60000, DATE_ADD(DATE '1899-12-30', INTERVAL CAST(FLOOR(SAFE_CAST(${raw} AS FLOAT64)) AS INT64) DAY), NULL)
+        )`;
+      };
+
       const buildWhereConditions = (prefix: string = "", tableName: string = "relatorio") => {
         const conditions: string[] = [];
         const p = prefix ? `${prefix}.` : "";
-        const pazSalvoDateExpr = `COALESCE(
-          SAFE_CAST(${p}cierrecontableTraspasoComision AS DATE),
-          DATE(SAFE_CAST(${p}cierrecontableTraspasoComision AS TIMESTAMP)),
-          SAFE.PARSE_DATE('%Y-%m-%d', TRIM(CAST(${p}cierrecontableTraspasoComision AS STRING))),
-          SAFE.PARSE_DATE('%d/%m/%Y', TRIM(CAST(${p}cierrecontableTraspasoComision AS STRING))),
-          SAFE.PARSE_DATE('%d/%m/%y', TRIM(CAST(${p}cierrecontableTraspasoComision AS STRING)))
-        )`;
+        const pazSalvoDateExpr = buildPazSalvoDateExpr(prefix);
         if (subasta) {
           const vals = subasta.split("|").map(v => sanitize(v.trim())).filter(Boolean);
           if (vals.length === 1) {
@@ -1461,7 +1470,7 @@ serve(async (req) => {
 
       const retirosSQL = `
         SELECT codigo, fecha, subasta, estado, lote, descripcion, placa, transito,
-               tramitador, incioServitramFecha, cierrecontableTraspasoComision,
+               tramitador, incioServitramFecha, CAST(${buildPazSalvoDateExpr()} AS STRING) AS cierrecontableTraspasoComision,
                procesoPazySalvoaTramitador, estadoDocuemntosComprador,
                enviodoFirmarGmFinancial, estadoGmFinancialFirmas,
                SAFE_CAST(documentosConTramitador AS STRING) AS documentosConTramitador, fechaAprobacionTramite, fechaEntregaVehiculo,
