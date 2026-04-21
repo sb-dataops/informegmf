@@ -459,11 +459,11 @@ serve(async (req) => {
         safeQuery(gestramitesSQL),
       ]);
 
-      if (relatorio.length === 0) {
+      if (relatorio.length === 0 || hasPazSalvoFilter) {
         const placasFallback = Array.from(new Set([
-          ...retiros.map((row) => normalizePlaca(row.placa)).filter(Boolean),
           ...servitram.map((row) => normalizePlaca(row.placa)).filter(Boolean),
           ...gestramites.map((row) => normalizePlaca(row.placa)).filter(Boolean),
+          ...(hasPazSalvoFilter ? [] : retiros.map((row) => normalizePlaca(row.placa)).filter(Boolean)),
         ]));
 
         if (placasFallback.length > 0) {
@@ -1531,6 +1531,13 @@ serve(async (req) => {
             LIMIT 5000
           `;
           relatorio = await safeQuery(relatorioByPlacasSQL);
+          retiros = retiros.filter((row) => {
+            const rowPlaca = normalizePlaca(row.placa);
+            return !!rowPlaca && placasFallback.includes(rowPlaca);
+          });
+        } else if (hasPazSalvoFilter) {
+          relatorio = [];
+          retiros = [];
         }
       }
 
