@@ -150,13 +150,13 @@ const Index = () => {
     [pagos],
   );
 
-  const documentosFuente = showingSubastaDetail ? documentosSubasta : documentosComprador;
+  const documentosFuente = (showingSubastaDetail || showingPlacaList) ? documentosSubasta : documentosComprador;
   const documentosAgrupados = useMemo(
     () => groupDocumentosByArchivo(documentosFuente),
     [documentosFuente],
   );
 
-  const isFinancialDataLoading = isPagosLoading || (showingSubastaDetail ? isDocumentosSubastaLoading : isDocumentosLoading);
+  const isFinancialDataLoading = isPagosLoading || ((showingSubastaDetail || showingPlacaList) ? isDocumentosSubastaLoading : isDocumentosLoading);
 
   const selectComprador = (c: Comprador) => {
     setSelectedComprador(c);
