@@ -1378,11 +1378,11 @@ serve(async (req) => {
         const conditions: string[] = [];
         const p = prefix ? `${prefix}.` : "";
         const pazSalvoDateExpr = `COALESCE(
-          SAFE_CAST(${p}pazYSalvoContabilidad AS DATE),
-          DATE(SAFE_CAST(${p}pazYSalvoContabilidad AS TIMESTAMP)),
-          SAFE.PARSE_DATE('%Y-%m-%d', TRIM(CAST(${p}pazYSalvoContabilidad AS STRING))),
-          SAFE.PARSE_DATE('%d/%m/%Y', TRIM(CAST(${p}pazYSalvoContabilidad AS STRING))),
-          SAFE.PARSE_DATE('%d/%m/%y', TRIM(CAST(${p}pazYSalvoContabilidad AS STRING)))
+          SAFE_CAST(${p}cierrecontableTraspasoComision AS DATE),
+          DATE(SAFE_CAST(${p}cierrecontableTraspasoComision AS TIMESTAMP)),
+          SAFE.PARSE_DATE('%Y-%m-%d', TRIM(CAST(${p}cierrecontableTraspasoComision AS STRING))),
+          SAFE.PARSE_DATE('%d/%m/%Y', TRIM(CAST(${p}cierrecontableTraspasoComision AS STRING))),
+          SAFE.PARSE_DATE('%d/%m/%y', TRIM(CAST(${p}cierrecontableTraspasoComision AS STRING)))
         )`;
         if (subasta) {
           const vals = subasta.split("|").map(v => sanitize(v.trim())).filter(Boolean);
@@ -1424,14 +1424,12 @@ serve(async (req) => {
             conditions.push(`CAST(${p}fecha AS STRING) <= '${fechaSubastaHasta}'`);
           }
         }
-        // fechaPazSalvo (pazYSalvoContabilidad) only exists in servitram/gestramites.
-        // The retiros and relatorio tables do NOT have this column, so we must not reference it there.
-        // Relatorio/retiros rows are resolved later via the placas fallback so we only
-        // bring in vehicles whose placa actually matches the paz y salvo date range.
-        if (tableName === "servitram" || tableName === "gestramites") {
+        // fechaPazSalvo (cierrecontableTraspasoComision) only exists in retiros.
+        // The relatorio/servitram/gestramites tables do NOT have this column, so we must not reference it there.
+        if (tableName === "retiros") {
           if (fechaPazSalvoDesde || fechaPazSalvoHasta) {
             conditions.push(`${pazSalvoDateExpr} IS NOT NULL`);
-            conditions.push(`IFNULL(TRIM(CAST(${p}pazYSalvoContabilidad AS STRING)), '') != ''`);
+            conditions.push(`IFNULL(TRIM(CAST(${p}cierrecontableTraspasoComision AS STRING)), '') != ''`);
           }
           if (fechaPazSalvoDesde) {
             conditions.push(`${pazSalvoDateExpr} >= DATE '${fechaPazSalvoDesde}'`);
