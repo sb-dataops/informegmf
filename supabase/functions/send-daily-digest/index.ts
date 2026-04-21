@@ -31,10 +31,12 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch all unsent email notifications
+    // Exclude login/new-user notifications — those are bell-only for admins.
     const { data: pending, error: fetchErr } = await supabase
       .from("notifications")
       .select("id, user_id, title, message, created_at")
       .is("email_notified_at", null)
+      .neq("title", "Nuevo usuario sin rol asignado")
       .order("created_at", { ascending: true });
 
     if (fetchErr) throw new Error(`Fetch error: ${fetchErr.message}`);
