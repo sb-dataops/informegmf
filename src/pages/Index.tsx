@@ -69,6 +69,17 @@ const Index = () => {
   const showingSubastaDetail = hasSearched && !isLoading && vehiculosSubasta.length > 0 && !!activeSubastaQuery;
   const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta;
 
+  // When the active search filters by placa or fecha de paz y salvo, the user expects to see
+  // the matching vehicles directly (one row per placa) rather than the buyer list.
+  const isPlacaCentricSearch = !!(activeFilters?.placa || activeFilters?.fechaPazSalvoDesde || activeFilters?.fechaPazSalvoHasta);
+  const placaCentricVehiculos = useMemo(
+    () => (searchResult && isPlacaCentricSearch ? consolidateVehiculos(searchResult) : []),
+    [searchResult, isPlacaCentricSearch],
+  );
+  const showingPlacaList = hasSearched && !isLoading && isPlacaCentricSearch
+    && !showingSubastaDetail && !showingSubastaList && !selectedComprador
+    && placaCentricVehiculos.length > 0;
+
   const handleSearch = () => {
     const hasFilter = filterValues.subasta.length || filterValues.comprador.length || filterValues.documento.length || filterValues.placa.length
       || filterValues.fechaSubastaDesde || filterValues.fechaSubastaHasta || filterValues.fechaPazSalvoDesde || filterValues.fechaPazSalvoHasta;
@@ -89,17 +100,19 @@ const Index = () => {
     });
   };
 
-  const effectiveComprador = showingSubastaDetail || showingSubastaList
+  const effectiveComprador = showingSubastaDetail || showingSubastaList || showingPlacaList
     ? null
-    : selectedComprador || (compradores.length === 1 && searchResult && matchingSubastas.length === 0 ? compradores[0] : null);
+    : selectedComprador || (compradores.length === 1 && searchResult && matchingSubastas.length === 0 && !isPlacaCentricSearch ? compradores[0] : null);
   const effectiveVehiculos = showingSubastaDetail
     ? vehiculosSubasta
-    : effectiveComprador && searchResult
-      ? consolidateVehiculos(searchResult, effectiveComprador.documento)
-      : [];
+    : showingPlacaList
+      ? placaCentricVehiculos
+      : effectiveComprador && searchResult
+        ? consolidateVehiculos(searchResult, effectiveComprador.documento)
+        : [];
 
-  const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail;
-  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail && !showingSubastaList && matchingSubastas.length === 0;
+  const showingDetail = (!!effectiveComprador && !!searchResult) || showingSubastaDetail || showingPlacaList;
+  const showingResults = hasSearched && !isLoading && compradores.length > 1 && !selectedComprador && !showingSubastaDetail && !showingSubastaList && !showingPlacaList && matchingSubastas.length === 0;
 
   const filteredVehiculos = useMemo(() => {
     if (!showingSubastaDetail) return effectiveVehiculos;
@@ -128,7 +141,7 @@ const Index = () => {
   const { data: documentosSubasta = [], isLoading: isDocumentosSubastaLoading } = useQuery({
     queryKey: ["documentos-subasta", activeFilters],
     queryFn: () => listDocumentos({}),
-    enabled: showingSubastaDetail,
+    enabled: showingSubastaDetail || showingPlacaList,
     staleTime: 60 * 1000,
   });
 
@@ -137,13 +150,13 @@ const Index = () => {
     [pagos],
   );
 
-  const documentosFuente = showingSubastaDetail ? documentosSubasta : documentosComprador;
+  const documentosFuente = (showingSubastaDetail || showingPlacaList) ? documentosSubasta : documentosComprador;
   const documentosAgrupados = useMemo(
     () => groupDocumentosByArchivo(documentosFuente),
     [documentosFuente],
   );
 
-  const isFinancialDataLoading = isPagosLoading || (showingSubastaDetail ? isDocumentosSubastaLoading : isDocumentosLoading);
+  const isFinancialDataLoading = isPagosLoading || ((showingSubastaDetail || showingPlacaList) ? isDocumentosSubastaLoading : isDocumentosLoading);
 
   const selectComprador = (c: Comprador) => {
     setSelectedComprador(c);
@@ -294,12 +307,14 @@ const Index = () => {
               {showingSubastaDetail && matchingSubastas.length > 1 ? "Volver a subastas" : showingSubastaDetail ? "Volver al inicio" : compradores.length > 1 ? "Volver a resultados" : "Volver al inicio"}
             </Button>
 
-            {showingSubastaDetail ? (
+            {(showingSubastaDetail || showingPlacaList) ? (
               <div className="space-y-3">
                 <div className="bg-card rounded-xl border border-border shadow-card p-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h2 className="text-xl font-bold text-foreground">Subasta {activeSubastaQuery}</h2>
+                      <h2 className="text-xl font-bold text-foreground">
+                        {showingSubastaDetail ? `Subasta ${activeSubastaQuery}` : "Resultados del filtro"}
+                      </h2>
                       <p className="text-sm text-muted-foreground">
                         {filteredVehiculos.length === effectiveVehiculos.length
                           ? `${effectiveVehiculos.length} vehículo(s) encontrado(s) con información consolidada`
@@ -308,7 +323,7 @@ const Index = () => {
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                       <span>🚗 {filteredVehiculos.length} placa(s)</span>
-                      <span>👤 {totalCompradoresSubasta} comprador(es)</span>
+                      <span>👤 {showingSubastaDetail ? totalCompradoresSubasta : new Set(effectiveVehiculos.map(v => v.documento).filter(Boolean)).size} comprador(es)</span>
                     </div>
                   </div>
                 </div>
@@ -359,7 +374,7 @@ const Index = () => {
 
                 return (
                   <div key={v.placa} className="space-y-2">
-                    {showingSubastaDetail && buyerForCard && (
+                    {(showingSubastaDetail || showingPlacaList) && buyerForCard && (
                       <BuyerHeader comprador={buyerForCard} vehicleCount={1} />
                     )}
                     <VehicleCard
@@ -392,7 +407,7 @@ const Index = () => {
               {filteredVehiculos.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">
-                    {showingSubastaDetail ? "No se encontraron vehículos para esta subasta" : "No se encontraron vehículos con placa para este comprador"}
+                    {showingSubastaDetail ? "No se encontraron vehículos para esta subasta" : showingPlacaList ? "No se encontraron vehículos con esos filtros" : "No se encontraron vehículos con placa para este comprador"}
                   </p>
                 </div>
               )}
