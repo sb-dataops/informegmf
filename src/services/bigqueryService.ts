@@ -318,6 +318,7 @@ function consolidateVehiculosBase(
       v.lote = r.lote || v.lote;
       v.tramitador = r.tramitador || v.tramitador;
       v.transito = r.transito || v.transito;
+      v.cierreContableFecha = r.pazYSalvoContabilidad || v.cierreContableFecha;
       v.fechaRecibidoImprontas = r.fechaRecibidoImprontas || v.fechaRecibidoImprontas;
       v.estadoTraspaso = r.estadoTraspaso || v.estadoTraspaso;
       v.observacion = r.observacion || v.observacion;
