@@ -69,6 +69,17 @@ const Index = () => {
   const showingSubastaDetail = hasSearched && !isLoading && vehiculosSubasta.length > 0 && !!activeSubastaQuery;
   const showingSubastaList = hasSearched && !isLoading && matchingSubastas.length > 1 && !selectedSubasta;
 
+  // When the active search filters by placa or fecha de paz y salvo, the user expects to see
+  // the matching vehicles directly (one row per placa) rather than the buyer list.
+  const isPlacaCentricSearch = !!(activeFilters?.placa || activeFilters?.fechaPazSalvoDesde || activeFilters?.fechaPazSalvoHasta);
+  const placaCentricVehiculos = useMemo(
+    () => (searchResult && isPlacaCentricSearch ? consolidateVehiculos(searchResult) : []),
+    [searchResult, isPlacaCentricSearch],
+  );
+  const showingPlacaList = hasSearched && !isLoading && isPlacaCentricSearch
+    && !showingSubastaDetail && !showingSubastaList && !selectedComprador
+    && placaCentricVehiculos.length > 0;
+
   const handleSearch = () => {
     const hasFilter = filterValues.subasta.length || filterValues.comprador.length || filterValues.documento.length || filterValues.placa.length
       || filterValues.fechaSubastaDesde || filterValues.fechaSubastaHasta || filterValues.fechaPazSalvoDesde || filterValues.fechaPazSalvoHasta;
