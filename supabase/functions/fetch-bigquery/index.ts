@@ -1377,6 +1377,13 @@ serve(async (req) => {
       const buildWhereConditions = (prefix: string = "", tableName: string = "relatorio") => {
         const conditions: string[] = [];
         const p = prefix ? `${prefix}.` : "";
+        const pazSalvoDateExpr = `COALESCE(
+          SAFE_CAST(${p}pazYSalvoContabilidad AS DATE),
+          DATE(SAFE_CAST(${p}pazYSalvoContabilidad AS TIMESTAMP)),
+          SAFE.PARSE_DATE('%Y-%m-%d', TRIM(CAST(${p}pazYSalvoContabilidad AS STRING))),
+          SAFE.PARSE_DATE('%d/%m/%Y', TRIM(CAST(${p}pazYSalvoContabilidad AS STRING))),
+          SAFE.PARSE_DATE('%d/%m/%y', TRIM(CAST(${p}pazYSalvoContabilidad AS STRING)))
+        )`;
         if (subasta) {
           const vals = subasta.split("|").map(v => sanitize(v.trim())).filter(Boolean);
           if (vals.length === 1) {
@@ -1423,10 +1430,10 @@ serve(async (req) => {
         // bring in vehicles whose placa actually matches the paz y salvo date range.
         if (tableName === "servitram" || tableName === "gestramites") {
           if (fechaPazSalvoDesde) {
-            conditions.push(`CAST(${p}pazYSalvoContabilidad AS STRING) >= '${fechaPazSalvoDesde}'`);
+            conditions.push(`${pazSalvoDateExpr} >= DATE '${fechaPazSalvoDesde}'`);
           }
           if (fechaPazSalvoHasta) {
-            conditions.push(`CAST(${p}pazYSalvoContabilidad AS STRING) <= '${fechaPazSalvoHasta}'`);
+            conditions.push(`${pazSalvoDateExpr} <= DATE '${fechaPazSalvoHasta}'`);
           }
         }
         return conditions.length > 0 ? conditions.join(" AND ") : "TRUE";
@@ -1438,6 +1445,7 @@ serve(async (req) => {
       // relatorio rows whose placa appears in retiros/servitram/gestramites for that date range.
       const hasRelatorioSideFilter = !!(subasta || comprador || documento || placa || fechaSubastaDesde || fechaSubastaHasta);
       const onlyPazSalvoFilter = !hasRelatorioSideFilter && !!(fechaPazSalvoDesde || fechaPazSalvoHasta);
+      const hasPazSalvoFilter = !!(fechaPazSalvoDesde || fechaPazSalvoHasta);
 
       const relatorioSQL = `
         SELECT codigo_k, codigo_, fecha, subasta, lote, comitente, categoria,
