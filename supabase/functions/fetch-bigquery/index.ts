@@ -1417,8 +1417,11 @@ serve(async (req) => {
             conditions.push(`CAST(${p}fecha AS STRING) <= '${fechaSubastaHasta}'`);
           }
         }
-        // fechaPazSalvo comes from tramitador tables (pazYSalvoContabilidad), compared as normalized string
-        if (tableName === "retiros") {
+        // fechaPazSalvo lives in retiros/servitram/gestramites (pazYSalvoContabilidad).
+        // The relatorio table does NOT have this column, so we must NOT apply this filter there;
+        // instead, the relatorio rows are resolved later via the placas fallback so we only
+        // bring in vehicles whose placa actually matches the paz y salvo date range.
+        if (tableName === "retiros" || tableName === "servitram" || tableName === "gestramites") {
           if (fechaPazSalvoDesde) {
             conditions.push(`CAST(${p}pazYSalvoContabilidad AS STRING) >= '${fechaPazSalvoDesde}'`);
           }
@@ -1428,6 +1431,13 @@ serve(async (req) => {
         }
         return conditions.length > 0 ? conditions.join(" AND ") : "TRUE";
       };
+
+      // When the user filters ONLY by fecha paz y salvo (no other relatorio-side filter),
+      // we must skip the initial relatorio query — otherwise it would return up to 1000 rows
+      // unfiltered (every comprador). The placas-fallback below will then pull only the
+      // relatorio rows whose placa appears in retiros/servitram/gestramites for that date range.
+      const hasRelatorioSideFilter = !!(subasta || comprador || documento || placa || fechaSubastaDesde || fechaSubastaHasta);
+      const onlyPazSalvoFilter = !hasRelatorioSideFilter && !!(fechaPazSalvoDesde || fechaPazSalvoHasta);
 
       const relatorioSQL = `
         SELECT codigo_k, codigo_, fecha, subasta, lote, comitente, categoria,
