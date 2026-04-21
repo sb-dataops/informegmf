@@ -257,9 +257,9 @@ function consolidateVehiculosBase(
       v.transito = r.transito || v.transito;
       v.tramitador = r.tramitador || v.tramitador;
       v.inicioTramiteFecha = r.incioServitramFecha || v.inicioTramiteFecha;
-      // NOTE: cierreContableFecha (Cierre Contable / Paz y Salvo) must come ONLY from
-      // pazYSalvoContabilidad (servitram/gestramites). Do NOT use retiros.cierrecontableTraspasoComision
-      // here because it's a different date and causes incorrect values to be shown.
+      // Cierre Contable / Paz y Salvo comes ONLY from retiros.cierrecontableTraspasoComision
+      // (NOT from servitram/gestramites.pazYSalvoContabilidad — that is a different date).
+      v.cierreContableFecha = r.cierrecontableTraspasoComision || v.cierreContableFecha;
       v.envioDocFirmaFecha = r.enviodoFirmarGmFinancial || v.envioDocFirmaFecha;
       v.docsConTramitadorFecha = r.documentosConTramitador || v.docsConTramitadorFecha;
       v.fechaAprobacionTramite = r.fechaAprobacionTramite || v.fechaAprobacionTramite;
