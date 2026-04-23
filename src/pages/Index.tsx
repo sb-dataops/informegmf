@@ -9,7 +9,7 @@ import DashboardStats from "@/components/DashboardStats";
 import SubastaCobranza from "@/components/SubastaCobranza";
 import PaymentDeadlineAlerts from "@/components/PaymentDeadlineAlerts";
 import SubastaFilters from "@/components/SubastaFilters";
-import { extractCompradores, consolidateVehiculos, extractVehiculosBySubasta, extractUniqueSubastas, type SubastaMatch } from "@/services/bigqueryService";
+import { extractCompradores, consolidateVehiculos, extractVehiculosBySubasta, extractVehiculosBySubastaIncluyendoRechazados, extractUniqueSubastas, type SubastaMatch } from "@/services/bigqueryService";
 import { multiSearch, type MultiSearchFilters } from "@/services/autocompleteService";
 import { fetchAllPagos, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
