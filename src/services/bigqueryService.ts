@@ -222,7 +222,7 @@ function consolidateVehiculosBase(
 
   result.relatorio
     .filter((r) => r.placa && matchesDocumento(r.documento) && matchesPlaca(r.placa))
-    .filter((r) => !isCondicionalRechazado(r.estado))
+    .filter((r) => includeRechazados || !isCondicionalRechazado(r.estado))
     .forEach((r) => {
       const placa = normalizePlaca(r.placa);
       if (!placa) return;
