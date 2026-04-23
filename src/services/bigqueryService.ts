@@ -398,6 +398,30 @@ export function extractVehiculosBySubasta(result: SearchResult, query: string): 
   });
 }
 
+// Like extractVehiculosBySubasta but ALSO includes lots whose estado is "venta con incumplimiento de pago"
+// (or any other estado normally filtered out). Use ONLY for the cobranza summary so that incumplimientos
+// are visible there without polluting the rest of the dashboard.
+export function extractVehiculosBySubastaIncluyendoRechazados(result: SearchResult, query: string): VehiculoConsolidado[] {
+  if (!query?.trim()) return [];
+
+  const matchedPlacas = new Set<string>();
+
+  result.relatorio
+    .filter((row) => matchesNormalizedSearch(row.subasta, query))
+    .forEach((row) => {
+      const placa = normalizePlaca(row.placa);
+      if (placa) matchedPlacas.add(placa);
+    });
+
+  if (matchedPlacas.size === 0) return [];
+
+  return consolidateVehiculosBase(result, {
+    placaFilter: matchedPlacas,
+    allowedPlacas: null,
+    includeRechazados: true,
+  });
+}
+
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("es-CO", {
     style: "currency",
