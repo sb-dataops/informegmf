@@ -344,7 +344,12 @@ const Index = () => {
                   onCompradoresChange={setFilterCompradores}
                 />
                 {!(showingPlacaList && (activeFilters?.fechaPazSalvoDesde || activeFilters?.fechaPazSalvoHasta)) && (
-                  <SubastaCobranza vehiculos={effectiveVehiculos} pagosPorPlaca={pagosPorPlaca} documentos={documentosFuente} />
+                  <SubastaCobranza
+                    vehiculos={showingSubastaDetail ? vehiculosSubastaCobranza : effectiveVehiculos}
+                    pagosPorPlaca={pagosPorPlaca}
+                    documentos={documentosFuente}
+                    subastaNombre={activeSubastaQuery || undefined}
+                  />
                 )}
               </div>
             ) : effectiveComprador ? (
