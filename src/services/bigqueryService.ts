@@ -157,10 +157,11 @@ function consolidateVehiculosBase(
     documento?: string;
     placaFilter?: Set<string>;
     allowedPlacas?: Set<string> | null;
+    includeRechazados?: boolean;
   },
 ): VehiculoConsolidado[] {
   const vehicleMap = new Map<string, VehiculoConsolidado>();
-  const { documento, placaFilter, allowedPlacas: explicitAllowedPlacas } = options || {};
+  const { documento, placaFilter, allowedPlacas: explicitAllowedPlacas, includeRechazados } = options || {};
   const allowedPlacas = explicitAllowedPlacas !== undefined ? explicitAllowedPlacas : buildAllowedPlacasFromRelatorio(result.relatorio);
   const allowedDocumentosByPlaca = buildAllowedDocumentosByPlaca(result);
   // When allowedPlacas is an empty set (no relatorio data), skip the filter
@@ -221,7 +222,7 @@ function consolidateVehiculosBase(
 
   result.relatorio
     .filter((r) => r.placa && matchesDocumento(r.documento) && matchesPlaca(r.placa))
-    .filter((r) => !isCondicionalRechazado(r.estado))
+    .filter((r) => includeRechazados || !isCondicionalRechazado(r.estado))
     .forEach((r) => {
       const placa = normalizePlaca(r.placa);
       if (!placa) return;
@@ -394,6 +395,30 @@ export function extractVehiculosBySubasta(result: SearchResult, query: string): 
 
   return consolidateVehiculosBase(result, {
     placaFilter: matchedPlacas,
+  });
+}
+
+// Like extractVehiculosBySubasta but ALSO includes lots whose estado is "venta con incumplimiento de pago"
+// (or any other estado normally filtered out). Use ONLY for the cobranza summary so that incumplimientos
+// are visible there without polluting the rest of the dashboard.
+export function extractVehiculosBySubastaIncluyendoRechazados(result: SearchResult, query: string): VehiculoConsolidado[] {
+  if (!query?.trim()) return [];
+
+  const matchedPlacas = new Set<string>();
+
+  result.relatorio
+    .filter((row) => matchesNormalizedSearch(row.subasta, query))
+    .forEach((row) => {
+      const placa = normalizePlaca(row.placa);
+      if (placa) matchedPlacas.add(placa);
+    });
+
+  if (matchedPlacas.size === 0) return [];
+
+  return consolidateVehiculosBase(result, {
+    placaFilter: matchedPlacas,
+    allowedPlacas: null,
+    includeRechazados: true,
   });
 }
 

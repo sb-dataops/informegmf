@@ -9,7 +9,7 @@ import DashboardStats from "@/components/DashboardStats";
 import SubastaCobranza from "@/components/SubastaCobranza";
 import PaymentDeadlineAlerts from "@/components/PaymentDeadlineAlerts";
 import SubastaFilters from "@/components/SubastaFilters";
-import { extractCompradores, consolidateVehiculos, extractVehiculosBySubasta, extractUniqueSubastas, type SubastaMatch } from "@/services/bigqueryService";
+import { extractCompradores, consolidateVehiculos, extractVehiculosBySubasta, extractVehiculosBySubastaIncluyendoRechazados, extractUniqueSubastas, type SubastaMatch } from "@/services/bigqueryService";
 import { multiSearch, type MultiSearchFilters } from "@/services/autocompleteService";
 import { fetchAllPagos, updateObservacionPago } from "@/services/pagosService";
 import { groupDocumentosByArchivo, listDocumentos, sumValorSoportesByPlaca } from "@/services/documentosService";
@@ -60,6 +60,11 @@ const Index = () => {
   const activeSubastaQuery = selectedSubasta || (matchingSubastas.length === 1 ? matchingSubastas[0].nombre : null);
   const vehiculosSubasta = useMemo(
     () => (searchResult && activeSubastaQuery ? extractVehiculosBySubasta(searchResult, activeSubastaQuery) : []),
+    [searchResult, activeSubastaQuery],
+  );
+  // Includes lots in "venta con incumplimiento de pago" — used ONLY for the cobranza panel.
+  const vehiculosSubastaCobranza = useMemo(
+    () => (searchResult && activeSubastaQuery ? extractVehiculosBySubastaIncluyendoRechazados(searchResult, activeSubastaQuery) : []),
     [searchResult, activeSubastaQuery],
   );
   const totalCompradoresSubasta = useMemo(
@@ -339,7 +344,12 @@ const Index = () => {
                   onCompradoresChange={setFilterCompradores}
                 />
                 {!(showingPlacaList && (activeFilters?.fechaPazSalvoDesde || activeFilters?.fechaPazSalvoHasta)) && (
-                  <SubastaCobranza vehiculos={effectiveVehiculos} pagosPorPlaca={pagosPorPlaca} documentos={documentosFuente} />
+                  <SubastaCobranza
+                    vehiculos={showingSubastaDetail ? vehiculosSubastaCobranza : effectiveVehiculos}
+                    pagosPorPlaca={pagosPorPlaca}
+                    documentos={documentosFuente}
+                    subastaNombre={activeSubastaQuery || undefined}
+                  />
                 )}
               </div>
             ) : effectiveComprador ? (
