@@ -62,6 +62,11 @@ const Index = () => {
     () => (searchResult && activeSubastaQuery ? extractVehiculosBySubasta(searchResult, activeSubastaQuery) : []),
     [searchResult, activeSubastaQuery],
   );
+  // Includes lots in "venta con incumplimiento de pago" — used ONLY for the cobranza panel.
+  const vehiculosSubastaCobranza = useMemo(
+    () => (searchResult && activeSubastaQuery ? extractVehiculosBySubastaIncluyendoRechazados(searchResult, activeSubastaQuery) : []),
+    [searchResult, activeSubastaQuery],
+  );
   const totalCompradoresSubasta = useMemo(
     () => new Set(vehiculosSubasta.map((vehiculo) => vehiculo.documento).filter(Boolean)).size,
     [vehiculosSubasta],
