@@ -157,10 +157,11 @@ function consolidateVehiculosBase(
     documento?: string;
     placaFilter?: Set<string>;
     allowedPlacas?: Set<string> | null;
+    includeRechazados?: boolean;
   },
 ): VehiculoConsolidado[] {
   const vehicleMap = new Map<string, VehiculoConsolidado>();
-  const { documento, placaFilter, allowedPlacas: explicitAllowedPlacas } = options || {};
+  const { documento, placaFilter, allowedPlacas: explicitAllowedPlacas, includeRechazados } = options || {};
   const allowedPlacas = explicitAllowedPlacas !== undefined ? explicitAllowedPlacas : buildAllowedPlacasFromRelatorio(result.relatorio);
   const allowedDocumentosByPlaca = buildAllowedDocumentosByPlaca(result);
   // When allowedPlacas is an empty set (no relatorio data), skip the filter
