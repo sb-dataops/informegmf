@@ -184,6 +184,30 @@ export type Database = {
         }
         Relationships: []
       }
+      subasta_notificada: {
+        Row: {
+          created_at: string
+          id: string
+          notified_at: string
+          subasta: string
+          total_placas: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notified_at?: string
+          subasta: string
+          total_placas: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notified_at?: string
+          subasta?: string
+          total_placas?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
