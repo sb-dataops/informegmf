@@ -1540,7 +1540,8 @@ serve(async (req) => {
             FROM \`${TABLES.relatorio}\`
             WHERE ${COMITENTE_FILTER}
               AND REGEXP_REPLACE(UPPER(IFNULL(CAST(placa AS STRING), '')), r'[^A-Z0-9]', '') IN (${placasList})
-              AND ${ESTADO_ALLOWED_FILTER}
+              AND (${ESTADO_ALLOWED_FILTER}
+                   OR UPPER(IFNULL(CAST(estado AS STRING),'')) LIKE '%INCUMPLIMIENTO DE PAGO%')
             LIMIT 5000
           `;
           relatorio = await safeQuery(relatorioByPlacasSQL);
