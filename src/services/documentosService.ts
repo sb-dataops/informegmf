@@ -27,22 +27,16 @@ export interface GroupedDocumentoRecord {
   }>;
 }
 
+import { apiFetch } from "@/lib/api-client";
+
 const FUNCTION_NAME = "gcs-documents";
 
-function buildUrl(action: string, params?: Record<string, string>): string {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const base = `https://${projectId}.supabase.co/functions/v1/${FUNCTION_NAME}?action=${action}`;
-  if (!params) return base;
-  const qs = Object.entries(params).map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join("");
-  return base + qs;
-}
-
-function headers(): Record<string, string> {
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  return {
-    Authorization: `Bearer ${anonKey}`,
-    apikey: anonKey,
-  };
+function buildPath(action: string, params?: Record<string, string>): string {
+  let path = `/${FUNCTION_NAME}?action=${action}`;
+  if (params) {
+    path += Object.entries(params).map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join("");
+  }
+  return path;
 }
 
 export async function uploadDocumento(
@@ -65,9 +59,8 @@ export async function uploadDocumento(
   formData.append("valor_soporte", String(valoresNormalizados[placas[0]] ?? 0));
   if (placas[0]) formData.append("placa", placas[0]);
 
-  const res = await fetch(buildUrl("upload"), {
+  const res = await apiFetch(buildPath("upload"), {
     method: "POST",
-    headers: headers(),
     body: formData,
   });
 
@@ -89,7 +82,7 @@ export async function listDocumentos(params: {
   if (params.documento_comprador) queryParams.documento_comprador = params.documento_comprador;
   if (params.placa) queryParams.placa = params.placa;
 
-  const res = await fetch(buildUrl("list", queryParams), { headers: headers() });
+  const res = await apiFetch(buildPath("list", queryParams));
 
   if (!res.ok) {
     const err = await res.json();
@@ -101,9 +94,7 @@ export async function listDocumentos(params: {
 }
 
 export async function fetchDocumentoBlob(gcsPath: string): Promise<Blob> {
-  const res = await fetch(buildUrl("view", { path: gcsPath }), {
-    headers: headers(),
-  });
+  const res = await apiFetch(buildPath("view", { path: gcsPath }));
 
   if (!res.ok) {
     const contentType = res.headers.get("content-type") || "";
@@ -119,9 +110,9 @@ export async function fetchDocumentoBlob(gcsPath: string): Promise<Blob> {
 }
 
 export async function deleteDocumento(id: string, gcsPath: string): Promise<void> {
-  const res = await fetch(buildUrl("delete"), {
+  const res = await apiFetch(buildPath("delete"), {
     method: "POST",
-    headers: { ...headers(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, gcs_path: gcsPath }),
   });
 

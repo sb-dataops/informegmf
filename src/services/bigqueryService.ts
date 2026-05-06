@@ -6,6 +6,7 @@ import {
   VehiculoConsolidado,
 } from "@/types";
 import { buildAllowedPlacasFromRelatorio, isAllowedPlaca, isCondicionalRechazado, matchesNormalizedSearch, normalizePlaca, normalizeSearchText } from "@/lib/vehicle-filters";
+import { apiFetch } from "@/lib/api-client";
 
 const FUNCTION_NAME = "fetch-bigquery";
 
@@ -37,65 +38,30 @@ function buildAllowedDocumentosByPlaca(result: SearchResult): Map<string, Set<st
 }
 
 export async function searchBigQuery(query: string): Promise<SearchResult> {
-  // supabase.functions.invoke doesn't support query params well for GET,
-  // so let's use fetch directly
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const url = `https://${projectId}.supabase.co/functions/v1/${FUNCTION_NAME}?action=search&q=${encodeURIComponent(query)}`;
-
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-    },
-  });
-
+  const res = await apiFetch(`/${FUNCTION_NAME}?action=search&q=${encodeURIComponent(query)}`);
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error || "Error en la búsqueda");
   }
-
   return res.json();
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStatsData> {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const url = `https://${projectId}.supabase.co/functions/v1/${FUNCTION_NAME}?action=stats`;
-
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-    },
-  });
-
+  const res = await apiFetch(`/${FUNCTION_NAME}?action=stats`);
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error || "Error obteniendo estadísticas");
   }
-
   const result = await res.json();
   return result.stats;
 }
 
 async function fetchStatSection(actionName: string): Promise<Record<string, string>> {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const url = `https://${projectId}.supabase.co/functions/v1/${FUNCTION_NAME}?action=${actionName}`;
-
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-    },
-  });
-
+  const res = await apiFetch(`/${FUNCTION_NAME}?action=${actionName}`);
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error || `Error obteniendo ${actionName}`);
   }
-
   return res.json();
 }
 
@@ -104,22 +70,11 @@ export const fetchStatsRetiros = () => fetchStatSection("stats_retiros");
 export const fetchStatsFiltros = () => fetchStatSection("stats_filtros");
 
 export async function fetchFilteredLots(category: string): Promise<FilteredLotsResult> {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const url = `https://${projectId}.supabase.co/functions/v1/${FUNCTION_NAME}?action=filter&category=${encodeURIComponent(category)}`;
-
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-    },
-  });
-
+  const res = await apiFetch(`/${FUNCTION_NAME}?action=filter&category=${encodeURIComponent(category)}`);
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error || "Error obteniendo datos filtrados");
   }
-
   return res.json();
 }
 
