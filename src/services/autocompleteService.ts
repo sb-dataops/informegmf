@@ -1,3 +1,5 @@
+import { apiFetch } from "@/lib/api-client";
+
 export interface AutocompleteOption {
   value: string;
   extra: string | null;
@@ -19,16 +21,13 @@ export async function fetchAutocomplete(
 ): Promise<AutocompleteOption[]> {
   if (!query || query.length < 2) return [];
 
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  
   const params = new URLSearchParams({
     action: "autocomplete",
     field,
     q: query,
   });
 
-  // Add context filters (pipe-separated for multi-values)
+  // Context filters: other active filters to scope results
   if (context) {
     if (context.subasta?.length && field !== "subasta") params.set("ctx_subasta", context.subasta.join("|"));
     if (context.comprador?.length && field !== "comprador") params.set("ctx_comprador", context.comprador.join("|"));
@@ -36,14 +35,7 @@ export async function fetchAutocomplete(
     if (context.placa?.length && field !== "placa") params.set("ctx_placa", context.placa.join("|"));
   }
 
-  const url = `https://${projectId}.supabase.co/functions/v1/fetch-bigquery?${params.toString()}`;
-
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-    },
-  });
+  const res = await apiFetch(`/fetch-bigquery?${params.toString()}`);
 
   if (!res.ok) return [];
 
@@ -63,9 +55,6 @@ export interface MultiSearchFilters {
 }
 
 export async function multiSearch(filters: MultiSearchFilters) {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
   const params = new URLSearchParams({ action: "multi-search" });
   if (filters.subasta) params.set("subasta", filters.subasta);
   if (filters.comprador) params.set("comprador", filters.comprador);
@@ -76,14 +65,7 @@ export async function multiSearch(filters: MultiSearchFilters) {
   if (filters.fechaPazSalvoDesde) params.set("fechaPazSalvoDesde", filters.fechaPazSalvoDesde);
   if (filters.fechaPazSalvoHasta) params.set("fechaPazSalvoHasta", filters.fechaPazSalvoHasta);
 
-  const url = `https://${projectId}.supabase.co/functions/v1/fetch-bigquery?${params.toString()}`;
-
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-    },
-  });
+  const res = await apiFetch(`/fetch-bigquery?${params.toString()}`);
 
   if (!res.ok) {
     const err = await res.json();
