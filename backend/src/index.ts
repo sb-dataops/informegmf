@@ -5,6 +5,7 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { authMiddleware, type AuthUser } from "./middleware/auth.js";
 import { bigqueryRouter } from "./routes/bigquery.js";
 import { documentsRouter } from "./routes/documents.js";
+import { jobsRouter } from "./routes/jobs.js";
 
 const app = new Hono<{ Variables: { user: AuthUser } }>();
 
@@ -29,6 +30,10 @@ app.route("/fetch-bigquery", bigqueryRouter);
 
 app.use("/gcs-documents", authMiddleware);
 app.route("/gcs-documents", documentsRouter);
+
+// /jobs/* is intentionally NOT behind authMiddleware. Cloud Run + IAM (roles/run.invoker)
+// will protect these routes when invoked by Cloud Scheduler. For local dev, hit directly.
+app.route("/jobs", jobsRouter);
 
 serve(
   { fetch: app.fetch, port: config.port },
