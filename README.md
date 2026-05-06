@@ -1,73 +1,67 @@
-# Welcome to your Lovable project
+# Informe GMF
 
-## Project info
+Aplicativo de consulta de subastas, retiros, pagos y soportes para el cliente GMF Financial.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+- Vite + React 18 + TypeScript
+- shadcn/ui + Tailwind CSS
+- Supabase (auth + Postgres)
+- BigQuery (`sbc-data-int`) para datos analíticos
+- GCS para almacenamiento de soportes
+- Resend para emails transaccionales
 
-There are several ways of editing your application.
+## Requisitos
 
-**Use Lovable**
+- Node.js 20 LTS
+- npm
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Setup local
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+git clone https://github.com/sb-dataops/informegmf.git
+cd informegmf
+npm install
+cp .env.example .env.local
+# Edita .env.local con los valores reales (pídelos a un mantenedor)
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+La app queda en `http://localhost:8080`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Scripts
 
-**Use GitHub Codespaces**
+| Comando | Descripción |
+|---------|-------------|
+| `npm run dev` | Servidor de desarrollo con HMR |
+| `npm run build` | Build de producción a `dist/` |
+| `npm run build:dev` | Build en modo development |
+| `npm run preview` | Sirve el build localmente |
+| `npm run lint` | ESLint |
+| `npm run test` | Vitest una sola corrida |
+| `npm run test:watch` | Vitest en modo watch |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Estructura
 
-## What technologies are used for this project?
+```
+src/
+├── pages/          # Rutas de la SPA
+├── services/       # Clientes para BigQuery, autocompletado, documentos, pagos
+├── components/     # UI (shadcn + propios)
+├── integrations/   # Cliente Supabase
+└── lib/            # Helpers compartidos
 
-This project is built with:
+supabase/
+├── functions/      # Edge functions (en migración a Cloud Run)
+└── migrations/     # Schema versionado
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Flujo de trabajo
 
-## How can I deploy this project?
+- Trabajo se hace en la rama `staging`.
+- Cambios a `main` se promueven solo vía Pull Request (1 review requerida).
+- `main` está protegida: no se permiten force-push ni borrado.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Migración en curso
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Estamos migrando la app de Lovable + Supabase compartido a Firebase Hosting + Cloud Run + Supabase Pro propio. Hasta que termine la migración, esta sección se irá actualizando con los hitos completados.
