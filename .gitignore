@@ -17,6 +17,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Supabase CLI cache (created by `supabase link`)
+supabase/.temp/
+supabase/.branches/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
