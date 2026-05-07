@@ -38,7 +38,7 @@ steps:
       - --region=us-central1
       - --service-account=gmf-superbid-api@$PROJECT_ID.iam.gserviceaccount.com
       - --allow-unauthenticated
-      - --min-instances=0
+      - --min-instances=1
       - --max-instances=5
       - --memory=512Mi
       - --cpu=1
