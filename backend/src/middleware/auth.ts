@@ -1,13 +1,19 @@
 import { createMiddleware } from "hono/factory";
-import { jwtVerify } from "jose";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { config } from "../config.js";
 
-let cachedSecret: Uint8Array | null = null;
-function getSecret(): Uint8Array {
-  if (!cachedSecret) {
-    cachedSecret = new TextEncoder().encode(config.supabaseJwtSecret);
+// Supabase emits user JWTs signed with ES256 (asymmetric), and exposes the
+// public key at /auth/v1/.well-known/jwks.json. We use that JWKS to verify
+// instead of the legacy HS256 shared secret. createRemoteJWKSet caches the
+// JWKS for 5 min and re-fetches on unknown kid.
+let cachedJWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
+function getJWKS() {
+  if (!cachedJWKS) {
+    cachedJWKS = createRemoteJWKSet(
+      new URL(`${config.supabaseUrl}/auth/v1/.well-known/jwks.json`),
+    );
   }
-  return cachedSecret;
+  return cachedJWKS;
 }
 
 export type AuthUser = {
@@ -26,7 +32,9 @@ export const authMiddleware = createMiddleware<{
   }
 
   try {
-    const { payload } = await jwtVerify(match[1], getSecret());
+    const { payload } = await jwtVerify(match[1], getJWKS(), {
+      issuer: `${config.supabaseUrl}/auth/v1`,
+    });
     if (payload.role === "anon") {
       return c.json({ error: "Authenticated user required" }, 401);
     }
