@@ -4,7 +4,7 @@ import { config } from "./config.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { authMiddleware, type AuthUser } from "./middleware/auth.js";
 import { oidcMiddleware } from "./middleware/oidc.js";
-import { bigqueryRouter } from "./routes/bigquery.js";
+import { bigqueryRouter } from "./routes/bigquery/index.js";
 import { documentsRouter } from "./routes/documents.js";
 import { jobsRouter } from "./routes/jobs.js";
 

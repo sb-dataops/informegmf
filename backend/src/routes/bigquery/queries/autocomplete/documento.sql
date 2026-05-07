@@ -1,0 +1,8 @@
+SELECT DISTINCT CAST(documento AS STRING) AS value, CAST(comprador AS STRING) AS extra
+FROM `${TABLES_relatorio}`
+WHERE ${COMITENTE_FILTER}
+  AND ${ESTADO_ALLOWED_FILTER}
+  AND IFNULL(CAST(documento AS STRING),'') != ''
+  AND UPPER(IFNULL(CAST(documento AS STRING),'')) LIKE '%${qUpper}%'${ctxSQL}
+ORDER BY value
+LIMIT 20
