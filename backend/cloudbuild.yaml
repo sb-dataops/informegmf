@@ -1,0 +1,52 @@
+# Cloud Build pipeline para informegmf backend.
+# Construye la imagen, la pushea a Artifact Registry, y despliega a Cloud Run.
+#
+# Invocacion local (via deploy.sh):
+#   ./deploy.sh
+#
+# Invocacion por CI/CD:
+#   gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE=... .
+
+steps:
+  - id: build
+    name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - --cache-from
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/informegmf/backend:latest'
+      - -t
+      - '${_IMAGE}'
+      - -t
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/informegmf/backend:latest'
+      - .
+
+  - id: push
+    name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - --all-tags
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/informegmf/backend'
+
+  - id: deploy
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - gmf-superbid-api
+      - --image=${_IMAGE}
+      - --region=us-central1
+      - --service-account=gmf-superbid-api@$PROJECT_ID.iam.gserviceaccount.com
+      - --allow-unauthenticated
+      - --min-instances=0
+      - --max-instances=5
+      - --memory=512Mi
+      - --cpu=1
+      - --env-vars-file=env.production.yaml
+      - --set-secrets=SUPABASE_URL=informegmf-supabase-url:latest,SUPABASE_JWT_SECRET=informegmf-supabase-jwt:latest,SUPABASE_SERVICE_ROLE_KEY=informegmf-supabase-secret:latest,RESEND_API_KEY=informegmf-resend:latest
+
+substitutions:
+  _IMAGE: 'us-central1-docker.pkg.dev/$PROJECT_ID/informegmf/backend:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

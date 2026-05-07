@@ -40,18 +40,49 @@ curl http://localhost:8080/health
 
 ## Deploy a Cloud Run
 
-(Pendiente — siguiente fase de la migración)
+Servicio: `gmf-superbid-api` en proyecto `sbc-lovable`, región `us-central1`. Dominio custom: `https://gmf-api.superbidcolombia.com`. Backend Service Account: `gmf-superbid-api@sbc-lovable.iam.gserviceaccount.com` (ADC, sin JSON key).
+
+### Manual (desde local)
 
 ```sh
-gcloud run deploy gmf-superbid-api \
-  --image=us-central1-docker.pkg.dev/gmf-superbid-prod/informegmf/backend:$SHA \
-  --region=us-central1 \
-  --service-account=gmf-superbid-api@gmf-superbid-prod.iam.gserviceaccount.com \
-  --no-allow-unauthenticated \
-  --set-env-vars=ALLOWED_ORIGINS=...,BIGQUERY_PROJECT_ID=sbc-data-int,GCS_BUCKET_NAME=... \
-  --set-secrets=SUPABASE_JWT_SECRET=informegmf-supabase-jwt:latest,SUPABASE_SERVICE_ROLE_KEY=informegmf-supabase-secret:latest,RESEND_API_KEY=informegmf-resend:latest \
-  --project=gmf-superbid-prod
+cd backend
+./deploy.sh                # tag automático <git-sha>-<timestamp>
+./deploy.sh v1.2.3         # tag custom
+PROJECT=otro ./deploy.sh   # override del proyecto
 ```
+
+`deploy.sh` corre `gcloud builds submit --config=cloudbuild.yaml`, que hace:
+1. Build de la imagen con cache de `:latest`
+2. Push a `us-central1-docker.pkg.dev/sbc-lovable/informegmf/backend:<tag>`
+3. Deploy a Cloud Run con SA atada, env vars desde `env.production.yaml` y secretos desde Secret Manager
+
+### Configuración
+
+| Archivo | Qué tiene |
+|---------|-----------|
+| `cloudbuild.yaml` | Pipeline build + push + deploy |
+| `env.production.yaml` | Env vars NO sensibles (proyecto BQ, bucket GCS, CORS, etc.) |
+| `Dockerfile` | Multi-stage Node 20-slim |
+
+Los secretos se inyectan vía `--set-secrets` desde Google Secret Manager:
+- `SUPABASE_URL` ← `informegmf-supabase-url`
+- `SUPABASE_JWT_SECRET` ← `informegmf-supabase-jwt`
+- `SUPABASE_SERVICE_ROLE_KEY` ← `informegmf-supabase-secret`
+- `RESEND_API_KEY` ← `informegmf-resend`
+
+### IAM requerida
+
+El SA `gmf-superbid-api@sbc-lovable.iam.gserviceaccount.com` (runtime) necesita:
+- `roles/bigquery.dataViewer` + `roles/bigquery.jobUser` en `sbc-data-int`
+- `roles/storage.objectAdmin` en bucket `sb-relatorio-vendedor-gmf`
+- `roles/secretmanager.secretAccessor` en cada secreto listado arriba
+- Acceso (Viewer) a los 3 Sheets que respaldan tablas externas BQ:
+  `r_retiros_gmf_2025`, `r_tramitadores_servitram_gmf`, `r_tramitadores_gestramites`
+
+El Cloud Build SA (Compute SA del proyecto) necesita:
+- `roles/artifactregistry.writer` (push de imagen)
+- `roles/run.admin` (deploy)
+- `roles/iam.serviceAccountUser` sobre el runtime SA
 
 ## Convenciones
 
