@@ -21,6 +21,9 @@ dist-ssr
 supabase/.temp/
 supabase/.branches/
 
+# Firebase CLI cache (created by `firebase deploy`)
+.firebase/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -20,6 +20,13 @@ CODE_EXTS = {".ts", ".tsx", ".js", ".jsx"}
 EXEMPT_PATHS = {
     "src/integrations/supabase/types.ts",
     "src/integrations/supabase/client.ts",
+    # shadcn/ui: libreria copy-paste; no editamos su tamano para preservar
+    # la convencion. Si se agregan mas componentes shadcn que excedan 200
+    # lineas, agregarlos aqui explicitamente.
+    "src/components/ui/sidebar.tsx",
+    "src/components/ui/chart.tsx",
+    "src/components/ui/carousel.tsx",
+    "src/components/ui/menubar.tsx",
 }
 EXEMPT_REGEX = (
     r"node_modules/",
