@@ -1,0 +1,53 @@
+name: deploy-backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+# id-token: write es necesario para que el runner mintee un OIDC token
+# que GCP intercambia por credenciales del SA via Workload Identity Federation.
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/604184934021/locations/global/workloadIdentityPools/github/providers/github'
+          service_account: 'github-deployer@sbc-lovable.iam.gserviceaccount.com'
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: sbc-lovable
+
+      - name: Compute image tag
+        id: tag
+        run: echo "tag=${GITHUB_SHA::7}-$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
+
+      - name: Submit Cloud Build (build + push + deploy)
+        run: |
+          gcloud builds submit \
+            --config=backend/cloudbuild.yaml \
+            --substitutions=_IMAGE="us-central1-docker.pkg.dev/sbc-lovable/informegmf/backend:${{ steps.tag.outputs.tag }}" \
+            --project=sbc-lovable \
+            backend/
+
+      - name: Smoke test /health
+        run: |
+          URL="https://gmf-superbid-api-604184934021.us-central1.run.app/health"
+          echo "GET $URL"
+          curl -fsS -w "\nHTTP %{http_code}\n" "$URL"
