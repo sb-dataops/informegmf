@@ -1,0 +1,21 @@
+# Excluido al subir source para Cloud Build.
+# Cloud Build corre `npm ci` adentro del contenedor (Dockerfile), asi que no
+# sirve subir node_modules ni dist desde local.
+
+.git
+.gitignore
+.gcloudignore
+
+# Node
+node_modules
+dist
+*.log
+
+# Env
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
