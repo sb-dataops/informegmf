@@ -56,6 +56,11 @@ jobs:
         run: npm run build
 
       - name: Deploy a Firebase Hosting
+        env:
+          # Las APIs de Firebase estan habilitadas en informegmf (no en sbc-lovable
+          # donde vive el SA). Sin esto, firebase-tools usa sbc-lovable como user
+          # project para billing/quota y falla con SERVICE_DISABLED.
+          GOOGLE_CLOUD_QUOTA_PROJECT: informegmf
         run: npx firebase-tools deploy --only hosting --project=informegmf --non-interactive
 
       - name: Smoke test
