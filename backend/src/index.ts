@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { config } from "./config.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { authMiddleware, type AuthUser } from "./middleware/auth.js";
+import { oidcMiddleware } from "./middleware/oidc.js";
 import { bigqueryRouter } from "./routes/bigquery.js";
 import { documentsRouter } from "./routes/documents.js";
 import { jobsRouter } from "./routes/jobs.js";
@@ -31,8 +32,9 @@ app.route("/fetch-bigquery", bigqueryRouter);
 app.use("/gcs-documents", authMiddleware);
 app.route("/gcs-documents", documentsRouter);
 
-// /jobs/* is intentionally NOT behind authMiddleware. Cloud Run + IAM (roles/run.invoker)
-// will protect these routes when invoked by Cloud Scheduler. For local dev, hit directly.
+// /jobs/* requires an OIDC token issued by Google (Cloud Scheduler signs these).
+// In local dev, JOBS_OIDC_AUDIENCE is unset and the middleware lets requests through.
+app.use("/jobs/*", oidcMiddleware);
 app.route("/jobs", jobsRouter);
 
 serve(
