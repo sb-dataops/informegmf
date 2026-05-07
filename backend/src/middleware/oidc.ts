@@ -36,8 +36,15 @@ export const oidcMiddleware = createMiddleware<{
       issuer: ALLOWED_ISSUERS,
       audience: expectedAudience,
     });
+
+    const email = typeof payload.email === "string" ? payload.email : undefined;
+    const allowedEmail = process.env.JOBS_OIDC_ALLOWED_EMAIL;
+    if (allowedEmail && email !== allowedEmail) {
+      return c.json({ error: "OIDC token email not allowed" }, 403);
+    }
+
     c.set("oidcUser", {
-      email: typeof payload.email === "string" ? payload.email : undefined,
+      email,
       audience: payload.aud as string | string[],
     });
     await next();
