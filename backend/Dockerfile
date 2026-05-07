@@ -10,6 +10,7 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
+RUN cp -r src/routes/bigquery/queries dist/routes/bigquery/queries
 
 FROM node:22-slim AS runtime
 WORKDIR /app
