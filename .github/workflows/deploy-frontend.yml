@@ -1,0 +1,65 @@
+name: deploy-frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/604184934021/locations/global/workloadIdentityPools/github/providers/github'
+          service_account: 'github-deployer@sbc-lovable.iam.gserviceaccount.com'
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: informegmf
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (Vite, modo production)
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: npm run build
+
+      - name: Deploy a Firebase Hosting
+        run: npx firebase-tools deploy --only hosting --project=informegmf --non-interactive
+
+      - name: Smoke test
+        run: |
+          URL="https://informegmf.web.app/"
+          echo "GET $URL"
+          curl -fsS -o /dev/null -w "HTTP %{http_code}\n" "$URL"
