@@ -1,0 +1,24 @@
+---
+title: Informe GMF — Auth flow OKTA SSO (SAML 2.0)
+---
+sequenceDiagram
+    actor U as Usuario GMF
+    participant FE as Frontend<br/>gmf.superbidcolombia.com
+    participant SUPA as Supabase Auth<br/>zbpvpduecodvnkjdrdoc
+    participant OKTA as OKTA IdP<br/>GM Financial
+    participant BE as Backend<br/>gmf-api.superbidcolombia.com
+
+    U->>FE: 1. abre aplicativo
+    FE->>U: 2. botón "Login con OKTA"
+    U->>FE: 3. click
+    FE->>SUPA: 4. SAML AuthnRequest<br/>(domain=gmfinancial.com)
+    SUPA->>OKTA: 5. redirect a SSO URL del IdP
+    OKTA->>U: 6. login + MFA si no hay sesión
+    U->>OKTA: 7. credenciales
+    OKTA->>SUPA: 8. SAML Response → ACS<br/>(NameID=email,<br/>givenName, familyName,<br/>groups: Okta_SuperBid_Admin/Editor/Lector/LectorNoti)
+    SUPA->>SUPA: 9. upsert usuario<br/>+ trigger handle_new_user<br/>aplica role_seeds (email→rol)
+    SUPA->>FE: 10. user JWT (ES256)
+    FE->>BE: 11. requests con<br/>Authorization: Bearer
+    BE->>SUPA: 12. validar JWT via JWKS
+    SUPA-->>BE: 13. claims OK
+    BE->>FE: 14. response

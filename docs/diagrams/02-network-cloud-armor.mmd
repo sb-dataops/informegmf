@@ -1,0 +1,30 @@
+---
+title: Informe GMF — Network flow con Cloud Armor (IP whitelist)
+---
+flowchart LR
+    subgraph internet["Internet"]
+        gmf["Usuarios GMF<br/>139.180.25.100<br/>139.180.27.100<br/>185.221.71.34<br/>206.109.200.120<br/>... (13 total)"]
+        sb["Usuarios Superbid<br/>oficina + VPN<br/><i>(CIDRs por definir)</i>"]
+        scheduler["Cloud Scheduler<br/>(GCP egress)"]
+        else["Cualquier otra IP"]
+    end
+
+    subgraph policy["Cloud Armor security policy"]
+        r1["Rule 1000<br/>allow GMF /32 × 13"]
+        r2["Rule 2000<br/>allow Superbid CIDRs"]
+        r3["Rule 3000<br/>allow GCP scheduler<br/><i>(o usar URL canónica<br/>de Cloud Run para /jobs/*)</i>"]
+        rd["Default<br/>deny 403"]
+    end
+
+    lb["HTTPS LB<br/>Static IP<br/>gmf-api.superbidcolombia.com"]
+    cr["Cloud Run<br/>gmf-superbid-api"]
+
+    gmf -->|match| r1
+    sb -->|match| r2
+    scheduler -->|match| r3
+    else -->|no match| rd
+    r1 --> lb
+    r2 --> lb
+    r3 --> lb
+    rd -.->|"403"| else
+    lb -->|Serverless NEG| cr

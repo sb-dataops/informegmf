@@ -2,58 +2,155 @@
 
 Estado actual del sistema, post-migración a infraestructura propia (mayo 2026).
 
-## Diagrama lógico
+## Diagramas
 
+Los diagramas están en Mermaid (renderizables directamente en GitHub o exportables a PNG con `mermaid-cli` para envío a GMF).
+
+### Vista general (componentes)
+
+```mermaid
+flowchart TB
+    subgraph internet["🌐 Internet"]
+        userGMF["Usuarios GMF<br/>13 IPs USA<br/>(salida 100% USA)"]
+        userSB["Usuarios Superbid<br/>IPs corporativas<br/><i>(por confirmar)</i>"]
+    end
+
+    subgraph fb["Firebase project: informegmf"]
+        fh["Firebase Hosting<br/><b>gmf.superbidcolombia.com</b><br/>SPA Vite/React/TS"]
+    end
+
+    subgraph gcp_lov["GCP project: sbc-lovable"]
+        ca["Cloud Armor<br/>IP whitelist + deny default<br/><i>(planeado)</i>"]
+        lb["HTTPS Load Balancer<br/>+ Static IP global<br/><i>(planeado)</i>"]
+        cr["Cloud Run<br/><b>gmf-superbid-api</b><br/>Hono + Node 22<br/>us-central1"]
+        sm["Secret Manager<br/>informegmf-*"]
+        sched["Cloud Scheduler<br/>deadline-alerts +<br/>auction-complete<br/>daily 9 AM Bogotá"]
+    end
+
+    subgraph supa["Supabase Pro (zbpvpduecodvnkjdrdoc)"]
+        sauth["Auth<br/>Google OAuth +<br/>OKTA SAML <i>(planeado)</i>"]
+        sdb[("Postgres + RLS<br/>+ role_seeds")]
+    end
+
+    subgraph gcp_data["GCP project: sbc-data-int"]
+        bq[("BigQuery<br/>relatorio, retiros,<br/>tramitadores")]
+        gcs[("GCS bucket<br/>sb-relatorio-vendedor-gmf")]
+    end
+
+    subgraph external["Servicios externos"]
+        resend["Resend API<br/>emails transaccionales"]
+        okta["OKTA IdP<br/>GM Financial<br/><i>(planeado)</i>"]
+    end
+
+    userGMF -->|HTTPS| fh
+    userSB -->|HTTPS| fh
+    fh -->|"gmf-api.superbidcolombia.com<br/>+ user JWT"| ca
+    ca --> lb
+    lb -->|Serverless NEG| cr
+
+    fh -.->|login flow| sauth
+    sauth -.->|SAML| okta
+    sauth -->|JWT ES256| fh
+
+    cr -->|validar JWT<br/>via JWKS| sauth
+    cr --> sdb
+    cr -->|ADC| bq
+    cr -->|ADC| gcs
+    cr -->|runtime config| sm
+    cr -->|send| resend
+
+    sched -->|OIDC ID token<br/>aud=gmf-api...| cr
+
+    classDef planned stroke-dasharray:5 5,stroke:#f59e0b,color:#92400e
+    class ca,lb,okta planned
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                          Usuario (browser)                           │
-└────────────────────┬─────────────────────────────────────────────────┘
-                     │ HTTPS
-                     ▼
-        ┌────────────────────────────┐         Custom domain
-        │  Firebase Hosting          │         gmf.superbidcolombia.com
-        │  informegmf.web.app        │◄────────  (cert pendiente al
-        │  (SPA Vite/React/TS)       │           cierre de migración)
-        └────┬───────────────┬───────┘
-             │               │
-             │ Supabase JS   │ apiFetch (user JWT en Authorization)
-             │ (auth + DB)   │
-             ▼               ▼
-   ┌──────────────────┐  ┌──────────────────────────────────────┐
-   │  Supabase Pro    │  │  Cloud Run (us-central1)             │
-   │  (propio)        │  │  gmf-superbid-api                    │
-   │  zbpvpduecodvn-  │  │  https://gmf-api.superbidcolombia.com│
-   │  kjdrdoc         │  │  (Hono + Node 22)                    │
-   │                  │  │                                      │
-   │  • Auth          │  │  Endpoints:                          │
-   │    (Google OAuth)│  │  • GET  /health                      │
-   │  • Postgres + RLS│  │  • GET  /api/whoami                  │
-   │    + role_seeds  │  │  • GET  /fetch-bigquery?action=...   │
-   │  • pg_net,       │  │  • *    /gcs-documents?action=...    │
-   │    pg_cron       │  │  • POST /jobs/* (OIDC only)          │
-   └──────────────────┘  └──────┬─────────────┬─────────────────┘
-                                │             │
-                          ADC   │             │ Resend SDK
-                  (sin JSON key)│             │
-                                ▼             ▼
-                  ┌──────────────────┐  ┌────────────────┐
-                  │ BigQuery         │  │ Resend         │
-                  │ sbc-data-int     │  │ (emails)       │
-                  │                  │  └────────────────┘
-                  │ + GCS bucket     │
-                  │   sb-relatorio-  │
-                  │   vendedor-gmf   │
-                  └──────────────────┘
-                          ▲
-                          │ OIDC token
-                          │ (Cloud Scheduler firma)
-                  ┌───────┴──────────────┐
-                  │ Cloud Scheduler      │
-                  │ • deadline-alerts    │
-                  │   9 AM Bogotá daily  │
-                  │ • auction-complete   │
-                  │   9 AM Bogotá daily  │
-                  └──────────────────────┘
+
+### Network — IP whitelist (Cloud Armor)
+
+Las **13 IPs de GMF** vienen de la respuesta de Edwin Rivera (8 may 2026): salida 100% USA, owners mezclan Vultr/Choopa, GM Financial directo y colocation. Las **IPs de Superbid** quedan por confirmar con IT corporativo.
+
+```mermaid
+flowchart LR
+    subgraph internet["Internet"]
+        gmf["Usuarios GMF<br/>139.180.25.100<br/>139.180.27.100<br/>185.221.71.34<br/>206.109.200.120<br/>... (13 total)"]
+        sb["Usuarios Superbid<br/>oficina + VPN<br/><i>(CIDRs por definir)</i>"]
+        scheduler["Cloud Scheduler<br/>(GCP egress)"]
+        else["Cualquier otra IP"]
+    end
+
+    subgraph policy["Cloud Armor security policy"]
+        r1["Rule 1000<br/>allow GMF /32 × 13"]
+        r2["Rule 2000<br/>allow Superbid CIDRs"]
+        r3["Rule 3000<br/>allow GCP scheduler<br/><i>(o usar URL canónica<br/>de Cloud Run para /jobs/*)</i>"]
+        rd["Default<br/>deny 403"]
+    end
+
+    lb["HTTPS LB<br/>Static IP<br/>gmf-api.superbidcolombia.com"]
+    cr["Cloud Run<br/>gmf-superbid-api"]
+
+    gmf -->|match| r1
+    sb -->|match| r2
+    scheduler -->|match| r3
+    else -->|no match| rd
+    r1 --> lb
+    r2 --> lb
+    r3 --> lb
+    rd -.->|"403"| else
+    lb -->|Serverless NEG| cr
+```
+
+### Auth — OKTA SSO (SAML 2.0, planeado)
+
+Reemplaza/complementa el flujo Google OAuth actual para usuarios `@gmfinancial.com`. El flujo Google OAuth se mantiene para usuarios `@superbid.com.co`.
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario GMF
+    participant FE as Frontend<br/>gmf.superbidcolombia.com
+    participant SUPA as Supabase Auth<br/>zbpvpduecodvnkjdrdoc
+    participant OKTA as OKTA IdP<br/>GM Financial
+    participant BE as Backend<br/>gmf-api.superbidcolombia.com
+
+    U->>FE: 1. abre aplicativo
+    FE->>U: 2. botón "Login con OKTA"
+    U->>FE: 3. click
+    FE->>SUPA: 4. SAML AuthnRequest<br/>(domain=gmfinancial.com)
+    SUPA->>OKTA: 5. redirect a SSO URL del IdP
+    OKTA->>U: 6. login + MFA si no hay sesión
+    U->>OKTA: 7. credenciales
+    OKTA->>SUPA: 8. SAML Response → ACS<br/>(NameID=email,<br/>givenName, familyName,<br/>groups: Okta_SuperBid_Admin/Editor/Lector/LectorNoti)
+    SUPA->>SUPA: 9. upsert usuario<br/>+ trigger handle_new_user<br/>aplica role_seeds (email→rol)
+    SUPA->>FE: 10. user JWT (ES256)
+    FE->>BE: 11. requests con<br/>Authorization: Bearer
+    BE->>SUPA: 12. validar JWT via JWKS
+    SUPA-->>BE: 13. claims OK
+    BE->>FE: 14. response
+```
+
+### Jobs — Cloud Scheduler (OIDC)
+
+Independiente del flujo de usuarios. No requiere whitelist GMF — los jobs se invocan desde GCP.
+
+```mermaid
+sequenceDiagram
+    participant CS as Cloud Scheduler<br/>daily 9 AM Bogotá
+    participant SA as SA gmf-scheduler@<br/>sbc-lovable
+    participant CA as Cloud Armor + LB
+    participant BE as Cloud Run<br/>gmf-superbid-api
+    participant DB as Supabase DB
+    participant BQ as BigQuery
+    participant R as Resend
+
+    Note over CS: deadline-alerts<br/>auction-complete
+    CS->>SA: 1. firmar OIDC ID token<br/>aud=gmf-api.superbidcolombia.com
+    CS->>CA: 2. POST /jobs/<job><br/>Authorization: Bearer
+    Note over CA: allow GCP scheduler<br/>(o bypass via URL<br/>canónica de Cloud Run)
+    CA->>BE: 3. forward
+    BE->>BE: 4. oidcMiddleware<br/>Google JWKS + email match
+    BE->>DB: 5. query pagos/docs
+    BE->>BQ: 6. (si aplica)
+    BE->>R: 7. emails a<br/>lector_con_notificacion
+    BE-->>CS: 8. 200 OK + summary
 ```
 
 ## Identificadores clave
@@ -102,7 +199,7 @@ En `sbc-data-int`:
 | Artifact Registry | `us-central1-docker.pkg.dev/sbc-lovable/informegmf` (Docker) |
 | Cloud Run service | `gmf-superbid-api` en `us-central1`, min-instances=1, max-instances=5, 512 MiB, 1 CPU |
 | Cloud Run domain mapping | `gmf-api.superbidcolombia.com` → `gmf-superbid-api`, cert managed |
-| Firebase Hosting site | `informegmf.web.app` (default) + `gmf.superbidcolombia.com` (custom, cert pendiente) |
+| Firebase Hosting site | `informegmf.web.app` (default) + `gmf.superbidcolombia.com` (custom; cert SAN multi-tenant Firebase/Fastly emitido por Google Trust Services, válido hasta 2026-08-05; verificado 2026-05-10) |
 | Workload Identity Pool | `projects/604184934021/locations/global/workloadIdentityPools/github` con provider `github` y `attribute_condition = assertion.repository == 'sb-dataops/informegmf'` |
 
 ### Cloud Scheduler jobs
@@ -163,11 +260,32 @@ Las 3 tablas EXTERNAL respaldadas por Google Sheets exigen acceso Drive en el SA
 
 ## Pendientes para cumplir requerimientos GM Financial
 
-| Requerimiento | Estado | Bloqueante |
-|---|---|---|
-| **IP whitelist (Cloud Armor)** | ⏳ pendiente CIDRs de GM | Lista de rangos CIDR de oficinas GM, NAT corporativa, VPN |
-| **OKTA SSO** | ⏳ pendiente metadata SAML | Metadata XML del IdP de GM, atributos disponibles, dominio email, lista de usuarios/grupos |
-| **Diagrama de arquitectura final** | ✅ este documento sirve como base | — |
-| **Plan de soporte/backups** | ⏳ por documentar runbook | Decisión de SLAs |
+Estado actualizado al 2026-05-10, post-respuesta de Edwin Rivera (IT Senior Specialist GMF, 8 may 2026 — ver thread completo en `comunicaciones/`).
 
-Drafts de correo a GM en [`comunicaciones/`](./comunicaciones/).
+| Requerimiento | Estado | Bloqueante / Próximo paso |
+|---|---|---|
+| **IP whitelist (Cloud Armor)** | 🟡 GMF entregó 13 IPs (USA, /32) | Falta confirmar IPs de salida de Superbid (oficina + VPN). Sin esto los admins/editores de Superbid no entrarán al aplicativo cuando se aplique deny default. |
+| **OKTA SSO — roles** | ✅ GMF aceptó mapeo: `admin → Okta_SuperBid_Admin`, `editor → Okta_SuperBid_Editor`, `lector → Okta_SuperBid_Lector`, `lector_con_notificacion → Okta_SuperBid_LectorNoti` | — |
+| **OKTA SSO — atributos** | ✅ Confirmados por GMF: `email` (NameID o atributo), `givenName + familyName` (o `full_name`), `groups` | — |
+| **OKTA SSO — metadata IdP** | ❌ pendiente | GMF debe enviar URL pública del metadata XML o el archivo XML exportado de OKTA. Sin esto Supabase Auth no puede configurar el SSO. |
+| **OKTA SSO — usuarios y roles iniciales** | ❌ pendiente | Samuel Pinzón quedó de confirmar con qué usuarios + perfil arrancamos. |
+| **OKTA SSO — cuenta de prueba** | ❌ pendiente | Necesaria para validar el flujo SSO antes de habilitar producción. |
+| **OKTA SSO — confirmaciones a GMF** | ⏳ por enviar | Confirmar a Edwin: URL pública del aplicativo (`https://gmf.superbidcolombia.com`) + Callback (`/auth/v1/sso/saml/metadata`) + Redirect (`/auth/v1/sso/saml/acs`) — los datos coinciden con lo enviado en el primer correo. |
+| **Diagrama de arquitectura** | ✅ este documento (sección "Diagramas" arriba) | Exportar a PNG/PDF y adjuntar al próximo correo a GMF. |
+| **Plan de soporte/backups** | ⏳ por documentar runbook | Decisión de SLAs internos. |
+
+### IPs whitelist GMF entregadas (8 may 2026)
+
+```
+139.180.25.100  /32   139.180.27.100  /32
+139.180.25.120  /32   139.180.27.120  /32
+185.221.71.34   /32
+206.109.200.120 /32   206.109.201.120 /32
+208.65.145.34   /32   208.81.69.34    /32   208.81.70.34   /32
+63.96.91.120    /32   63.96.138.120   /32
+64.117.235.120  /32
+```
+
+Nota: GMF aclaró que su salida a internet es **100% por Estados Unidos**. Owners de los rangos mezclan Vultr/Choopa, GM Financial directo y colocation USA — son los proxies/NAT corporativos de GMF, no IPs colombianas.
+
+Drafts de correo a GM y thread completo del intercambio en [`comunicaciones/`](./comunicaciones/).

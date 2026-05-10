@@ -1,0 +1,57 @@
+---
+title: Informe GMF — Vista general de arquitectura
+---
+flowchart TB
+    subgraph internet["🌐 Internet"]
+        userGMF["Usuarios GMF<br/>13 IPs USA<br/>(salida 100% USA)"]
+        userSB["Usuarios Superbid<br/>IPs corporativas<br/><i>(por confirmar)</i>"]
+    end
+
+    subgraph fb["Firebase project: informegmf"]
+        fh["Firebase Hosting<br/><b>gmf.superbidcolombia.com</b><br/>SPA Vite/React/TS"]
+    end
+
+    subgraph gcp_lov["GCP project: sbc-lovable"]
+        ca["Cloud Armor<br/>IP whitelist + deny default<br/><i>(planeado)</i>"]
+        lb["HTTPS Load Balancer<br/>+ Static IP global<br/><i>(planeado)</i>"]
+        cr["Cloud Run<br/><b>gmf-superbid-api</b><br/>Hono + Node 22<br/>us-central1"]
+        sm["Secret Manager<br/>informegmf-*"]
+        sched["Cloud Scheduler<br/>deadline-alerts +<br/>auction-complete<br/>daily 9 AM Bogotá"]
+    end
+
+    subgraph supa["Supabase Pro (zbpvpduecodvnkjdrdoc)"]
+        sauth["Auth<br/>Google OAuth +<br/>OKTA SAML <i>(planeado)</i>"]
+        sdb[("Postgres + RLS<br/>+ role_seeds")]
+    end
+
+    subgraph gcp_data["GCP project: sbc-data-int"]
+        bq[("BigQuery<br/>relatorio, retiros,<br/>tramitadores")]
+        gcs[("GCS bucket<br/>sb-relatorio-vendedor-gmf")]
+    end
+
+    subgraph external["Servicios externos"]
+        resend["Resend API<br/>emails transaccionales"]
+        okta["OKTA IdP<br/>GM Financial<br/><i>(planeado)</i>"]
+    end
+
+    userGMF -->|HTTPS| fh
+    userSB -->|HTTPS| fh
+    fh -->|"gmf-api.superbidcolombia.com<br/>+ user JWT"| ca
+    ca --> lb
+    lb -->|Serverless NEG| cr
+
+    fh -.->|login flow| sauth
+    sauth -.->|SAML| okta
+    sauth -->|JWT ES256| fh
+
+    cr -->|validar JWT<br/>via JWKS| sauth
+    cr --> sdb
+    cr -->|ADC| bq
+    cr -->|ADC| gcs
+    cr -->|runtime config| sm
+    cr -->|send| resend
+
+    sched -->|OIDC ID token<br/>aud=gmf-api...| cr
+
+    classDef planned stroke-dasharray:5 5,stroke:#f59e0b,color:#92400e
+    class ca,lb,okta planned
