@@ -12,7 +12,7 @@ Los diagramas están en Mermaid (renderizables directamente en GitHub o exportab
 flowchart TB
     subgraph internet["🌐 Internet"]
         userGMF["Usuarios GMF<br/>13 IPs USA<br/>(salida 100% USA)"]
-        userSB["Usuarios Superbid<br/>IPs corporativas<br/><i>(por confirmar)</i>"]
+        userSB["Usuarios Superbid<br/>FortiClient VPN obligatoria<br/>(perfil VPN SUPERBID,<br/>1-N IPs FortiGate por confirmar)"]
     end
 
     subgraph fb["Firebase project: informegmf"]
@@ -67,20 +67,22 @@ flowchart TB
 
 ### Network — IP whitelist (Cloud Armor)
 
-Las **13 IPs de GMF** vienen de la respuesta de Edwin Rivera (8 may 2026): salida 100% USA, owners mezclan Vultr/Choopa, GM Financial directo y colocation. Las **IPs de Superbid** quedan por confirmar con IT corporativo.
+Las **13 IPs de GMF** vienen de la respuesta de Edwin Rivera (8 may 2026): salida 100% USA, owners mezclan Vultr/Choopa, GM Financial directo y colocation.
+
+Del **lado Superbid** se usa **FortiClient VPN corporativo de uso obligatorio** (perfil `VPN SUPERBID`, FortiGate corporativo). Todos los empleados salen a internet por la(s) IP(s) pública(s) del FortiGate, lo que reduce el whitelist a 1-N IPs `/32` en lugar de pedir CIDRs por oficina/casa. La IP exacta queda por confirmar con IT corporativo.
 
 ```mermaid
 flowchart LR
     subgraph internet["Internet"]
         gmf["Usuarios GMF<br/>139.180.25.100<br/>139.180.27.100<br/>185.221.71.34<br/>206.109.200.120<br/>... (13 total)"]
-        sb["Usuarios Superbid<br/>oficina + VPN<br/><i>(CIDRs por definir)</i>"]
+        sb["Usuarios Superbid<br/>via FortiClient VPN<br/>(perfil VPN SUPERBID,<br/>1-N IPs FortiGate)"]
         scheduler["Cloud Scheduler<br/>(GCP egress)"]
-        else["Cualquier otra IP"]
+        else["Cualquier otra IP<br/>(p. ej. residencial sin VPN)"]
     end
 
     subgraph policy["Cloud Armor security policy"]
         r1["Rule 1000<br/>allow GMF /32 × 13"]
-        r2["Rule 2000<br/>allow Superbid CIDRs"]
+        r2["Rule 2000<br/>allow FortiGate Superbid<br/>(IPs /32 — por confirmar IT)"]
         r3["Rule 3000<br/>allow GCP scheduler<br/><i>(o usar URL canónica<br/>de Cloud Run para /jobs/*)</i>"]
         rd["Default<br/>deny 403"]
     end
@@ -264,7 +266,7 @@ Estado actualizado al 2026-05-10, post-respuesta de Edwin Rivera (IT Senior Spec
 
 | Requerimiento | Estado | Bloqueante / Próximo paso |
 |---|---|---|
-| **IP whitelist (Cloud Armor)** | 🟡 GMF entregó 13 IPs (USA, /32) | Falta confirmar IPs de salida de Superbid (oficina + VPN). Sin esto los admins/editores de Superbid no entrarán al aplicativo cuando se aplique deny default. |
+| **IP whitelist (Cloud Armor)** | 🟡 GMF entregó 13 IPs (USA, /32) | Falta confirmar IP(s) del FortiGate corporativo de Superbid (perfil `VPN SUPERBID` en FortiClient — VPN obligatoria para todos los empleados). Sin esto los admins/editores de Superbid no entrarán al aplicativo cuando se aplique deny default. Mensaje a IT en `comunicaciones/superbid-it-ip-egress.md`. |
 | **OKTA SSO — roles** | ✅ GMF aceptó mapeo: `admin → Okta_SuperBid_Admin`, `editor → Okta_SuperBid_Editor`, `lector → Okta_SuperBid_Lector`, `lector_con_notificacion → Okta_SuperBid_LectorNoti` | — |
 | **OKTA SSO — atributos** | ✅ Confirmados por GMF: `email` (NameID o atributo), `givenName + familyName` (o `full_name`), `groups` | — |
 | **OKTA SSO — metadata IdP** | ❌ pendiente | GMF debe enviar URL pública del metadata XML o el archivo XML exportado de OKTA. Sin esto Supabase Auth no puede configurar el SSO. |

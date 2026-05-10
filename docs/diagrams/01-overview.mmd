@@ -4,7 +4,7 @@ title: Informe GMF — Vista general de arquitectura
 flowchart TB
     subgraph internet["🌐 Internet"]
         userGMF["Usuarios GMF<br/>13 IPs USA<br/>(salida 100% USA)"]
-        userSB["Usuarios Superbid<br/>IPs corporativas<br/><i>(por confirmar)</i>"]
+        userSB["Usuarios Superbid<br/>FortiClient VPN obligatoria<br/>(perfil VPN SUPERBID,<br/>1-N IPs FortiGate por confirmar)"]
     end
 
     subgraph fb["Firebase project: informegmf"]

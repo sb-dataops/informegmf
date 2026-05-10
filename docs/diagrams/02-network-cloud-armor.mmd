@@ -4,14 +4,14 @@ title: Informe GMF — Network flow con Cloud Armor (IP whitelist)
 flowchart LR
     subgraph internet["Internet"]
         gmf["Usuarios GMF<br/>139.180.25.100<br/>139.180.27.100<br/>185.221.71.34<br/>206.109.200.120<br/>... (13 total)"]
-        sb["Usuarios Superbid<br/>oficina + VPN<br/><i>(CIDRs por definir)</i>"]
+        sb["Usuarios Superbid<br/>via FortiClient VPN<br/>(perfil VPN SUPERBID,<br/>1-N IPs FortiGate)"]
         scheduler["Cloud Scheduler<br/>(GCP egress)"]
-        else["Cualquier otra IP"]
+        else["Cualquier otra IP<br/>(p. ej. residencial sin VPN)"]
     end
 
     subgraph policy["Cloud Armor security policy"]
         r1["Rule 1000<br/>allow GMF /32 × 13"]
-        r2["Rule 2000<br/>allow Superbid CIDRs"]
+        r2["Rule 2000<br/>allow FortiGate Superbid<br/>(IPs /32 — por confirmar IT)"]
         r3["Rule 3000<br/>allow GCP scheduler<br/><i>(o usar URL canónica<br/>de Cloud Run para /jobs/*)</i>"]
         rd["Default<br/>deny 403"]
     end
