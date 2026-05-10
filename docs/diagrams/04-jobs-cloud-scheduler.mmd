@@ -1,0 +1,22 @@
+---
+title: Informe GMF — Jobs flow (Cloud Scheduler + OIDC)
+---
+sequenceDiagram
+    participant CS as Cloud Scheduler<br/>daily 9 AM Bogotá
+    participant SA as SA gmf-scheduler@<br/>sbc-lovable
+    participant CA as Cloud Armor + LB
+    participant BE as Cloud Run<br/>gmf-superbid-api
+    participant DB as Supabase DB
+    participant BQ as BigQuery
+    participant R as Resend
+
+    Note over CS: deadline-alerts<br/>auction-complete
+    CS->>SA: 1. firmar OIDC ID token<br/>aud=gmf-api.superbidcolombia.com
+    CS->>CA: 2. POST /jobs/<job><br/>Authorization: Bearer
+    Note over CA: allow GCP scheduler<br/>(o bypass via URL<br/>canónica de Cloud Run)
+    CA->>BE: 3. forward
+    BE->>BE: 4. oidcMiddleware<br/>Google JWKS + email match
+    BE->>DB: 5. query pagos/docs
+    BE->>BQ: 6. (si aplica)
+    BE->>R: 7. emails a<br/>lector_con_notificacion
+    BE-->>CS: 8. 200 OK + summary
