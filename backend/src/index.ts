@@ -5,7 +5,7 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { authMiddleware, type AuthUser } from "./middleware/auth.js";
 import { oidcMiddleware } from "./middleware/oidc.js";
 import { bigqueryRouter } from "./routes/bigquery/index.js";
-import { documentsRouter } from "./routes/documents.js";
+import { documentsRouter } from "./routes/documents/index.js";
 import { jobsRouter } from "./routes/jobs/index.js";
 
 const app = new Hono<{ Variables: { user: AuthUser } }>();
