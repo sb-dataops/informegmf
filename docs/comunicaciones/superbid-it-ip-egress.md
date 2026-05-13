@@ -1,5 +1,7 @@
 # Mensaje a Superbid IT — IP de salida VPN Forticlient (Cloud Armor whitelist)
 
+> **✅ Respondido por IT el 2026-05-10**. Ver sección "Respuesta recibida" al final. Este documento queda como histórico — los próximos pasos viven en `docs/arquitectura.md`.
+
 ## Contexto
 
 GM Financial entregó el 8 may 2026 las 13 IPs corporativas USA desde las que sus usuarios accederán al aplicativo Informe GMF. Antes de aplicar el `deny default` en Cloud Armor, necesitamos la IP **pública de salida del VPN Forticlient corporativo de Superbid** para que admins/editores/lectores nuestros (`@superbid.com.co`) sigan pudiendo entrar al aplicativo.
@@ -71,3 +73,30 @@ curl -s https://ifconfig.me
 ```
 
 La IP que devuelve es la que IT debe confirmar como salida del FortiGate. Si reconectás el VPN y la IP cambia → hay rotación / múltiples FortiGates y necesitamos todas las IPs del pool.
+
+## Respuesta recibida (2026-05-10)
+
+IT confirmó:
+
+> En el router fortinet se tiene configurado 2 IP fijas para el balanceo del internet y por caídas de alguno de los 2 operadores
+>
+> - IP operador IFX: **190.60.239.250**
+> - IP operador Claro: **181.48.199.59**
+>
+> Se configuró en DDNS las 2 IP y en el fortinet para que salga por alguna de las 2 cuando hay caídas de internet.
+>
+> Nombre DDNS: **superbid.myddns.me**
+
+### Verificación automática (whois / DNS)
+
+| IP | Owner | Region | AS |
+|---|---|---|---|
+| `190.60.239.250` | IFX Networks Colombia | Medellín, Antioquia | AS18747 IFX Corporation |
+| `181.48.199.59` | Telmex Colombia S.A. (Claro Empresas) | Bogotá-Suba, D.C. | AS14080 Telmex Colombia |
+| `superbid.myddns.me` (verificado 10/5/26) | resuelve a `181.48.199.59` → Claro activo en este momento | — | — |
+
+### Conclusión operativa
+
+- **Ambas IPs van al whitelist Cloud Armor como `/32`** porque el FortiGate puede usar cualquiera dependiendo de qué operador esté activo. Si solo agregamos una, una caída del operador correspondiente dejaría a todo Superbid afuera.
+- No necesitamos seguir al DDNS — basta con los `/32` fijos. El DDNS es para servicios que escuchan hacia adentro (RDP / VPN inbound, etc), no para egress.
+- No hay alternativa de acceso sin VPN (uso obligatorio confirmado).

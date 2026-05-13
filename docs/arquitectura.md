@@ -12,7 +12,7 @@ Los diagramas están en Mermaid (renderizables directamente en GitHub o exportab
 flowchart TB
     subgraph internet["🌐 Internet"]
         userGMF["Usuarios GMF<br/>13 IPs USA<br/>(salida 100% USA)"]
-        userSB["Usuarios Superbid<br/>FortiClient VPN obligatoria<br/>(perfil VPN SUPERBID,<br/>1-N IPs FortiGate por confirmar)"]
+        userSB["Usuarios Superbid<br/>FortiClient VPN obligatoria<br/>(perfil VPN SUPERBID)<br/>IFX 190.60.239.250<br/>Claro 181.48.199.59<br/>(balanceo + failover)"]
     end
 
     subgraph fb["Firebase project: informegmf"]
@@ -69,20 +69,25 @@ flowchart TB
 
 Las **13 IPs de GMF** vienen de la respuesta de Edwin Rivera (8 may 2026): salida 100% USA, owners mezclan Vultr/Choopa, GM Financial directo y colocation.
 
-Del **lado Superbid** se usa **FortiClient VPN corporativo de uso obligatorio** (perfil `VPN SUPERBID`, FortiGate corporativo). Todos los empleados salen a internet por la(s) IP(s) pública(s) del FortiGate, lo que reduce el whitelist a 1-N IPs `/32` en lugar de pedir CIDRs por oficina/casa. La IP exacta queda por confirmar con IT corporativo.
+Del **lado Superbid** se usa **FortiClient VPN corporativo de uso obligatorio** (perfil `VPN SUPERBID`, FortiGate corporativo). IT confirmó (10 may 2026) que el router Fortinet tiene **2 IPs fijas para balanceo + failover entre operadores**:
+
+- **IFX**: `190.60.239.250/32` (IFX Networks Colombia, AS18747, Medellín)
+- **Claro**: `181.48.199.59/32` (Telmex Colombia, AS14080, Bogotá-Suba)
+
+El FortiGate cambia entre ambas dependiendo de cuál esté activa. DDNS `superbid.myddns.me` apunta dinámicamente a la IP en uso. Ambas IPs van al whitelist (`/32` cada una).
 
 ```mermaid
 flowchart LR
     subgraph internet["Internet"]
         gmf["Usuarios GMF<br/>139.180.25.100<br/>139.180.27.100<br/>185.221.71.34<br/>206.109.200.120<br/>... (13 total)"]
-        sb["Usuarios Superbid<br/>via FortiClient VPN<br/>(perfil VPN SUPERBID,<br/>1-N IPs FortiGate)"]
+        sb["Usuarios Superbid<br/>via FortiClient VPN<br/>(perfil VPN SUPERBID)<br/>190.60.239.250 (IFX)<br/>181.48.199.59 (Claro)<br/>DDNS: superbid.myddns.me"]
         scheduler["Cloud Scheduler<br/>(GCP egress)"]
         else["Cualquier otra IP<br/>(p. ej. residencial sin VPN)"]
     end
 
     subgraph policy["Cloud Armor security policy"]
         r1["Rule 1000<br/>allow GMF /32 × 13"]
-        r2["Rule 2000<br/>allow FortiGate Superbid<br/>(IPs /32 — por confirmar IT)"]
+        r2["Rule 2000<br/>allow FortiGate Superbid<br/>190.60.239.250/32 (IFX)<br/>181.48.199.59/32 (Claro)"]
         r3["Rule 3000<br/>allow GCP scheduler<br/><i>(o usar URL canónica<br/>de Cloud Run para /jobs/*)</i>"]
         rd["Default<br/>deny 403"]
     end
@@ -266,7 +271,7 @@ Estado actualizado al 2026-05-10, post-respuesta de Edwin Rivera (IT Senior Spec
 
 | Requerimiento | Estado | Bloqueante / Próximo paso |
 |---|---|---|
-| **IP whitelist (Cloud Armor)** | 🟡 GMF entregó 13 IPs (USA, /32) | Falta confirmar IP(s) del FortiGate corporativo de Superbid (perfil `VPN SUPERBID` en FortiClient — VPN obligatoria para todos los empleados). Sin esto los admins/editores de Superbid no entrarán al aplicativo cuando se aplique deny default. Mensaje a IT en `comunicaciones/superbid-it-ip-egress.md`. |
+| **IP whitelist (Cloud Armor)** | ✅ Ambas partes confirmadas | GMF: 13 IPs USA `/32` (8 may 2026). Superbid: 2 IPs Fortinet con balanceo + failover entre IFX (`190.60.239.250`) y Claro (`181.48.199.59`) confirmadas por IT (10 may 2026). Próximo paso: desplegar Cloud Armor + LB en modo `preview` 24-48h, luego switch a enforce. |
 | **OKTA SSO — roles** | ✅ GMF aceptó mapeo: `admin → Okta_SuperBid_Admin`, `editor → Okta_SuperBid_Editor`, `lector → Okta_SuperBid_Lector`, `lector_con_notificacion → Okta_SuperBid_LectorNoti` | — |
 | **OKTA SSO — atributos** | ✅ Confirmados por GMF: `email` (NameID o atributo), `givenName + familyName` (o `full_name`), `groups` | — |
 | **OKTA SSO — metadata IdP** | ❌ pendiente | GMF debe enviar URL pública del metadata XML o el archivo XML exportado de OKTA. Sin esto Supabase Auth no puede configurar el SSO. |
@@ -289,5 +294,18 @@ Estado actualizado al 2026-05-10, post-respuesta de Edwin Rivera (IT Senior Spec
 ```
 
 Nota: GMF aclaró que su salida a internet es **100% por Estados Unidos**. Owners de los rangos mezclan Vultr/Choopa, GM Financial directo y colocation USA — son los proxies/NAT corporativos de GMF, no IPs colombianas.
+
+### IPs whitelist Superbid entregadas (10 may 2026)
+
+Router Fortinet corporativo con balanceo + failover entre 2 operadores:
+
+```
+190.60.239.250 /32   IFX Networks Colombia  (AS18747, Medellín)
+181.48.199.59  /32   Telmex / Claro CO      (AS14080, Bogotá-Suba)
+```
+
+DDNS `superbid.myddns.me` apunta a la IP en uso en cada momento (verificado 2026-05-10: resuelve a `181.48.199.59`, es decir Claro activo). Cuando el FortiGate cambia de operador (caída de IFX o Claro), el tráfico sale por la otra IP — por eso **ambas deben estar en el whitelist**, no solo la que esté activa hoy.
+
+Todos los empleados de Superbid acceden al aplicativo conectados a **FortiClient VPN, perfil `VPN SUPERBID`** (obligatorio).
 
 Drafts de correo a GM y thread completo del intercambio en [`comunicaciones/`](./comunicaciones/).
