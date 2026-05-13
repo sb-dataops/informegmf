@@ -70,13 +70,41 @@ Próximo run de los jobs: daily 9 AM America/Bogota — usan la URL canónica, *
 
 ## Plan de ejecución por fases
 
-- [x] **Fase 0** — Habilitar Compute + Cert Manager + Network Security APIs.
-- [x] **Fase 1** — Crear todos los recursos GCP (sin tocar DNS).
-- [x] **Fase 2** — Smoke test con `curl --resolve` → 200 OK desde `34.36.21.184`.
-- [x] **Fase 3** — Mover Cloud Scheduler a URL canónica.
-- [ ] **Fase 4** — Cutover DNS: usuario cambió CNAME a A record `34.36.21.184` en Hostinger 2026-05-12; propagación en curso.
-- [ ] **Fase 4b** — Cleanup: borrar Cloud Run domain mapping legacy de `gmf-api.superbidcolombia.com`.
+- [x] **Fase 0** — Habilitar Compute + Cert Manager + Network Security APIs (2026-05-12).
+- [x] **Fase 1** — Crear todos los recursos GCP sin tocar DNS (2026-05-12).
+- [x] **Fase 2** — Smoke test con `curl --resolve` → 200 OK desde `34.36.21.184` (2026-05-12).
+- [x] **Fase 3** — Mover Cloud Scheduler a URL canónica (2026-05-12).
+- [x] **Fase 4** — Cutover DNS: A record `gmf-api → 34.36.21.184` en Hostinger. Propagación tardó ~12-15h por delay interno de Hostinger (SOA serial sigue siendo `2026050701`, pero los NS sirven la respuesta nueva). Smoke test post-cutover via DNS público → HTTP 200, cert TLS válido, `remote_ip=34.36.21.184` (2026-05-13).
+- [x] **Fase 4b** — Cleanup: domain mapping de Cloud Run `gmf-api.superbidcolombia.com` borrado (2026-05-13). Smoke test post-cleanup → HTTP 200 OK.
+- [x] **Fase 4c** — Logging habilitado en backend service (`--enable-logging --logging-sample-rate=1.0`) para que Cloud Armor capture todo el tráfico en los logs (2026-05-13).
 - [ ] **Fase 5** — 24-48h en preview + revisar logs Cloud Armor + switch a enforce.
+
+## Estado post-Fase 4 (2026-05-13)
+
+- Custom domain `https://gmf-api.superbidcolombia.com` resuelve a IP del LB (`34.36.21.184`).
+- Tráfico HTTPS pasa por: cliente → LB → Cloud Armor (preview) → Backend Service → NEG → Cloud Run.
+- Cloud Armor preview: las 4 rules custom (3 allow + 1 simulated deny) **loguean** match pero **no enforce**. Cualquier IP entra; los logs muestran qué hubiera pasado en enforce.
+- Cloud Scheduler invoca `/jobs/*` por URL canónica (`*.run.app`), independiente del LB y de Cloud Armor.
+- Frontend `https://gmf.superbidcolombia.com` sin cambios (sigue por Firebase Hosting).
+
+## Fase 5 — checklist antes de switch a enforce
+
+A correr 24-48h después del cutover (2026-05-14 o 2026-05-15):
+
+1. Revisar Cloud Armor logs en Cloud Logging:
+   ```
+   resource.type="http_load_balancer"
+   AND resource.labels.url_map_name="gmf-superbid-api-url-map"
+   ```
+   Filtros útiles:
+   - `jsonPayload.previewSecurityPolicy.outcome="DENY"` → tráfico que sería bloqueado
+   - `jsonPayload.previewSecurityPolicy.matchedPriority=2147483646` → matches contra la simulated default deny
+2. Confirmar que los matches DENY vienen solo de IPs externas no autorizadas (no de GMF ni de Superbid FortiGate). Si hay matches legítimos faltantes, agregar la IP al whitelist antes del switch.
+3. Switch a enforce: por cada rule, `gcloud compute security-policies rules update <prio> --security-policy=gmf-superbid-api-policy --no-preview --project=sbc-lovable`.
+4. Smoke test post-enforce:
+   - Desde mi IP (Telmex residencial, fuera de whitelist) → debe retornar 403.
+   - Desde `VPN SUPERBID` conectado (debería salir por IFX o Claro) → debe retornar 200.
+   - Pedirle a GMF que prueben desde una de sus 13 IPs → debe retornar 200.
 
 ## Rollback
 
