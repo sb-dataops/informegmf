@@ -77,7 +77,52 @@ Próximo run de los jobs: daily 9 AM America/Bogota — usan la URL canónica, *
 - [x] **Fase 4** — Cutover DNS: A record `gmf-api → 34.36.21.184` en Hostinger. Propagación tardó ~12-15h por delay interno de Hostinger (SOA serial sigue siendo `2026050701`, pero los NS sirven la respuesta nueva). Smoke test post-cutover via DNS público → HTTP 200, cert TLS válido, `remote_ip=34.36.21.184` (2026-05-13).
 - [x] **Fase 4b** — Cleanup: domain mapping de Cloud Run `gmf-api.superbidcolombia.com` borrado (2026-05-13). Smoke test post-cleanup → HTTP 200 OK.
 - [x] **Fase 4c** — Logging habilitado en backend service (`--enable-logging --logging-sample-rate=1.0`) para que Cloud Armor capture todo el tráfico en los logs (2026-05-13).
-- [ ] **Fase 5** — 24-48h en preview + revisar logs Cloud Armor + switch a enforce.
+- [x] **Fase 5** — Switch backend Cloud Armor a enforce (2026-05-13). Mi IP residencial → 403 confirmado. Preview window se acortó porque el comportamiento de las rules ya estaba validado por tráfico real.
+- [x] **Fase 6** — Frontend también detrás de LB + Cloud Armor (2026-05-13). GMF señaló que el frontend público (Firebase Hosting) seguía exponiendo la pantalla de login a cualquier IP. Solución: mover el SPA a un bucket GCS detrás del mismo LB con Edge Security Policy.
+
+## Fase 6 — Frontend detrás de LB + Cloud Armor (2026-05-13)
+
+Recursos creados:
+
+| Tipo | Nombre | Detalle |
+|---|---|---|
+| GCS bucket | `gs://gmf-superbid-frontend` | us-central1, uniform-bucket-level-access, allUsers objectViewer |
+| Backend Bucket | `gmf-superbid-frontend-backend` | apunta al bucket arriba |
+| Cert Manager DNS auth | `gmf-superbidcolombia-dns-auth` | CNAME `_acme-challenge.gmf → bcabed89-...` pegado en Hostinger |
+| Cert Manager cert | `gmf-superbidcolombia-cert` | ACTIVE post-validación DNS |
+| Cert map entry | `gmf-superbidcolombia-cert-entry` | hostname `gmf.superbidcolombia.com` → cert, agregada al `gmf-api-cert-map` existente |
+| Cloud Armor EDGE policy | `gmf-superbid-edge-policy` | Type `CLOUD_ARMOR_EDGE` (backend buckets solo aceptan edge type) |
+
+Edge policy rules (idénticas IP whitelist, enforce directo porque ya validadas en la policy estándar):
+- Rule 1000: allow GMF 10 IPs `/32` (parte 1)
+- Rule 1001: allow GMF 3 IPs `/32` (parte 2)
+- Rule 2000: allow Superbid FortiGate (IFX + Claro)
+- Rule 2147483646: deny-403 `*` (default deny)
+
+URL Map `gmf-superbid-api-url-map` actualizado para multi-host:
+- `defaultService` = `gmf-superbid-api-backend` (backend service Cloud Run) — responde a `gmf-api.superbidcolombia.com`
+- Host rule `gmf.superbidcolombia.com` → path matcher `frontend-matcher` → `gmf-superbid-frontend-backend` (backend bucket)
+
+Build & deploy del frontend:
+- `npm run build` local con env vars de prod (VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY legacy JWT, VITE_API_BASE_URL = `https://gmf-api.superbidcolombia.com`).
+- `gcloud storage cp -r dist/* gs://gmf-superbid-frontend/` — index.html + assets/* uploaded.
+
+Cutover DNS frontend:
+- Borrado `CNAME gmf → informegmf.web.app` (TTL 3600)
+- Creado `A gmf → 34.36.21.184` (TTL 300)
+- Hostinger reflejó el cambio inmediato (SOA serial actualizado `2026052101`, propagación rápida — distinto al primer cutover que tomó 12-15h).
+
+Validación post-cutover:
+- Frontend `https://gmf.superbidcolombia.com/` desde IP residencial Brasil (Telmex / Mundivox) → **HTTP 403** servido por el LB (no por Cloud Run / no por bucket).
+- Backend `https://gmf-api.superbidcolombia.com/health` desde misma IP → **HTTP 403** (mantiene el bloqueo anterior).
+- Browser ve solo `<title>403</title>403 Forbidden` plano, no carga la pantalla de login ni assets.
+
+## Pendientes post-deploy
+
+- [ ] Validación end-to-end con colega conectado al `VPN SUPERBID` (debe poder usar la app completa).
+- [ ] Borrar custom domain `gmf.superbidcolombia.com` de Firebase Hosting (queda huérfano, no daña). Console: https://console.firebase.google.com → Hosting → Custom domains.
+- [ ] Actualizar GHA `deploy-frontend.yml` para que deploy al bucket GCS en lugar de Firebase Hosting. Hoy hicimos build/upload manual. Trabajo de PR aparte.
+- [ ] Coordinar con Edwin/Samuel (GMF) para que prueben desde una de sus 13 IPs USA — validar que para ellos sí carga.
 
 ## Estado post-Fase 4 (2026-05-13)
 
