@@ -117,9 +117,31 @@ Validación post-cutover:
 - Backend `https://gmf-api.superbidcolombia.com/health` desde misma IP → **HTTP 403** (mantiene el bloqueo anterior).
 - Browser ve solo `<title>403</title>403 Forbidden` plano, no carga la pantalla de login ni assets.
 
+## Fix 1 — SPA URL rewrite en URL Map (2026-05-13 post-cutover)
+
+Primera validación con VPN reveló que el LB devolvía el bucket listing XML al pedir `/` (el backend bucket NO respeta la config `--web-main-page-suffix` del bucket; tampoco redirige 404 a `/index.html`).
+
+Solución aplicada al URL Map `gmf-superbid-api-url-map` (path matcher `frontend-matcher`):
+
+```yaml
+routeRules:
+- matchRules: [{prefixMatch: /assets/}]    priority: 1   # JS/CSS chunks directos del bucket
+- matchRules: [{fullPathMatch: /favicon.ico}]    priority: 2
+- matchRules: [{fullPathMatch: /placeholder.svg}] priority: 3
+- matchRules: [{fullPathMatch: /robots.txt}]      priority: 4
+- matchRules: [{pathTemplateMatch: /**}]   priority: 100 # SPA catch-all
+  routeAction:
+    urlRewrite:
+      pathTemplateRewrite: /index.html
+```
+
+Resultado: `gmf.superbidcolombia.com/`, `/auth`, `/admin`, `/vehicle/:id`, etc. → todos sirven `index.html` (el SPA carga y React Router maneja el routing in-app). Solo `/assets/*` y los archivos estáticos conocidos pasan directo sin rewrite.
+
+Backend `gmf-api.superbidcolombia.com` no afectado (usa el `defaultService` del URL Map, no este path matcher).
+
 ## Pendientes post-deploy
 
-- [ ] Validación end-to-end con colega conectado al `VPN SUPERBID` (debe poder usar la app completa).
+- [ ] Validación end-to-end con colega conectado al `VPN SUPERBID` (debe poder usar la app completa después del fix SPA).
 - [ ] Borrar custom domain `gmf.superbidcolombia.com` de Firebase Hosting (queda huérfano, no daña). Console: https://console.firebase.google.com → Hosting → Custom domains.
 - [ ] Actualizar GHA `deploy-frontend.yml` para que deploy al bucket GCS en lugar de Firebase Hosting. Hoy hicimos build/upload manual. Trabajo de PR aparte.
 - [ ] Coordinar con Edwin/Samuel (GMF) para que prueben desde una de sus 13 IPs USA — validar que para ellos sí carga.
