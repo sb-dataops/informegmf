@@ -7,14 +7,11 @@ flowchart TB
         userSB["Usuarios Superbid<br/>FortiClient VPN obligatoria<br/>(perfil VPN SUPERBID)<br/>IFX 190.60.239.250<br/>Claro 181.48.199.59<br/>(balanceo + failover)"]
     end
 
-    subgraph fb["Firebase project: informegmf"]
-        fh["Firebase Hosting<br/><b>gmf.superbidcolombia.com</b><br/>SPA Vite/React/TS"]
-    end
-
     subgraph gcp_lov["GCP project: sbc-lovable"]
-        ca["Cloud Armor<br/>IP whitelist + deny default<br/><i>(planeado)</i>"]
-        lb["HTTPS Load Balancer<br/>+ Static IP global<br/><i>(planeado)</i>"]
-        cr["Cloud Run<br/><b>gmf-superbid-api</b><br/>Hono + Node 22<br/>us-central1"]
+        ca["Cloud Armor<br/>IP whitelist + deny default<br/>+ allow /jobs/*"]
+        lb["HTTPS Load Balancer<br/>+ Static IP 34.36.21.184"]
+        fh["GCS bucket<br/>gmf-superbid-frontend<br/><b>gmf.superbidcolombia.com</b><br/>SPA Vite/React/TS"]
+        cr["Cloud Run<br/><b>gmf-superbid-api</b><br/>Hono + Node 22<br/>ingress: solo LB"]
         sm["Secret Manager<br/>informegmf-*"]
         sched["Cloud Scheduler<br/>deadline-alerts +<br/>auction-complete<br/>daily 9 AM Bogotá"]
     end
@@ -34,13 +31,13 @@ flowchart TB
         okta["OKTA IdP<br/>GM Financial<br/><i>(planeado)</i>"]
     end
 
-    userGMF -->|HTTPS| fh
-    userSB -->|HTTPS| fh
-    fh -->|"gmf-api.superbidcolombia.com<br/>+ user JWT"| ca
+    userGMF -->|HTTPS| ca
+    userSB -->|HTTPS| ca
     ca --> lb
-    lb -->|Serverless NEG| cr
+    lb -->|"gmf.superbidcolombia.com"| fh
+    lb -->|"gmf-api... Serverless NEG"| cr
 
-    fh -.->|login flow| sauth
+    fh -.->|"login (browser → Supabase)"| sauth
     sauth -.->|SAML| okta
     sauth -->|JWT ES256| fh
 
@@ -51,7 +48,7 @@ flowchart TB
     cr -->|runtime config| sm
     cr -->|send| resend
 
-    sched -->|OIDC ID token<br/>aud=gmf-api...| cr
+    sched -->|"OIDC, vía LB /jobs/*"| lb
 
     classDef planned stroke-dasharray:5 5,stroke:#f59e0b,color:#92400e
-    class ca,lb,okta planned
+    class okta planned
