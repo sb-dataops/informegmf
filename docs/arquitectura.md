@@ -173,7 +173,7 @@ sequenceDiagram
 |---|---|---|---|
 | `gmf-superbid-api@sbc-lovable.iam.gserviceaccount.com` | sbc-lovable | Runtime de Cloud Run | `bigquery.dataViewer`+`jobUser` en sbc-data-int, `storage.objectAdmin` en bucket, `secretmanager.secretAccessor` en informegmf-* |
 | `gmf-scheduler@sbc-lovable.iam.gserviceaccount.com` | sbc-lovable | Firma OIDC tokens de Cloud Scheduler | `run.invoker` sobre el servicio |
-| `github-deployer@sbc-lovable.iam.gserviceaccount.com` | sbc-lovable | Deploys vía GitHub Actions (WIF) | `cloudbuild.builds.editor`, `storage.admin`, `iam.serviceAccountUser` (sobre Compute SA), `run.admin` en sbc-lovable; `firebase.admin`, `firebasehosting.admin`, `serviceusage.serviceUsageConsumer` en informegmf |
+| `github-deployer@sbc-lovable.iam.gserviceaccount.com` | sbc-lovable | Deploys vía GitHub Actions (WIF): backend (Cloud Build → Cloud Run) y frontend (build → bucket GCS) | `cloudbuild.builds.editor`, `storage.admin`, `run.viewer` (smoke test), `iam.serviceAccountUser` (sobre Compute SA). Sin grants en `informegmf` (los de Firebase se revocaron cuando el frontend pasó al bucket) |
 | `lovable-bd-query@sbc-data-int.iam.gserviceaccount.com` | sbc-data-int | Legacy (no usar para nuevos servicios) | Tiene acceso a Drive Sheets externas que respaldan tablas BQ; el SA nuevo (`gmf-superbid-api`) también está en la ACL |
 
 ### Secretos en Secret Manager
