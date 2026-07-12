@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { config } from "./config.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { authMiddleware, type AuthUser } from "./middleware/auth.js";
+import { requireAnyRole } from "./middleware/require-role.js";
 import { oidcMiddleware } from "./middleware/oidc.js";
 import { bigqueryRouter } from "./routes/bigquery/index.js";
 import { documentsRouter } from "./routes/documents/index.js";
@@ -26,10 +27,13 @@ app.use("/api/*", authMiddleware);
 
 app.get("/api/whoami", (c) => c.json({ user: c.get("user") }));
 
-app.use("/fetch-bigquery", authMiddleware);
+// Datos y documentos requieren un JWT válido Y un rol de staff asignado (authz).
+// requireAnyRole fija c.set("roles", ...); los sub-chequeos por-acción (mutaciones,
+// admin) se hacen dentro del router de documentos reusando ese valor sin re-consultar.
+app.use("/fetch-bigquery", authMiddleware, requireAnyRole);
 app.route("/fetch-bigquery", bigqueryRouter);
 
-app.use("/gcs-documents", authMiddleware);
+app.use("/gcs-documents", authMiddleware, requireAnyRole);
 app.route("/gcs-documents", documentsRouter);
 
 // /jobs/* requires an OIDC token issued by Google (Cloud Scheduler signs these).

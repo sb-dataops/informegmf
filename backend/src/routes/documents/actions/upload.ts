@@ -63,7 +63,11 @@ export async function uploadDocument(
 
   const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const gcsPath = `documentos/${documentoComprador}/${timestamp}_${safeName}`;
+  // Sanear documento_comprador para el path GCS: sin esto, un '/' o '..' sacaría el
+  // objeto del prefijo esperado (o normalizaría el gcs_url en el cliente). La columna
+  // documento_comprador de la DB conserva el valor original (se usa para filtrar list).
+  const safeDoc = documentoComprador.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const gcsPath = `documentos/${safeDoc}/${timestamp}_${safeName}`;
   const fileBuffer = Buffer.from(await file.arrayBuffer());
 
   try {

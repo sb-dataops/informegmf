@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import { getAdminClient } from "../../../services/supabase.js";
 
 export interface SignedUrlDeps {
   bucketName: string;
@@ -14,6 +15,18 @@ export async function signedUrl(
   const gcsPath = c.req.query("path");
   if (!gcsPath) {
     return c.json({ error: "path requerido" }, 400);
+  }
+
+  // Solo emitir URLs para objetos que existen en la tabla documentos (no arbitrarios).
+  const { data: row, error } = await getAdminClient()
+    .from("documentos")
+    .select("id")
+    .eq("gcs_path", gcsPath)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`DB query error: ${error.message}`);
+  if (!row) {
+    return c.json({ error: "documento no encontrado" }, 404);
   }
 
   const publicUrl = `https://storage.googleapis.com/${bucketName}/${gcsPath}`;
