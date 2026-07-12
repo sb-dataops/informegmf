@@ -72,15 +72,23 @@ export async function handleSearch(c: Context) {
     ]));
 
     if (placasFallback.length > 0) {
-      const placasList = placasFallback.map((placa) => `'${placa}'`).join(", ");
-      const relatorioByPlacasSQL = renderQuery("search/relatorio-by-placas.sql", {
-        TABLES_relatorio: TABLES.relatorio,
-        COMITENTE_FILTER,
-        ESTADO_ALLOWED_FILTER,
-        placasList,
-      });
+      // Sanear cada placa (viene de resultados de BigQuery, no del usuario, pero se
+      // interpola en un nuevo query -> inyección de 2º orden). Las placas son
+      // alfanuméricas; se descarta cualquier otro caracter.
+      const sanitizedPlacas = placasFallback
+        .map((placa) => (placa ?? "").replace(/[^A-Z0-9]/g, ""))
+        .filter((placa) => placa.length > 0);
+      if (sanitizedPlacas.length > 0) {
+        const placasList = sanitizedPlacas.map((placa) => `'${placa}'`).join(", ");
+        const relatorioByPlacasSQL = renderQuery("search/relatorio-by-placas.sql", {
+          TABLES_relatorio: TABLES.relatorio,
+          COMITENTE_FILTER,
+          ESTADO_ALLOWED_FILTER,
+          placasList,
+        });
 
-      relatorio = await safeQuery(relatorioByPlacasSQL);
+        relatorio = await safeQuery(relatorioByPlacasSQL);
+      }
     }
   }
 

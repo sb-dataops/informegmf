@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { Bucket } from "@google-cloud/storage";
 import { getAdminClient } from "../../../services/supabase.js";
 import { parseJsonRecord } from "../../../services/gcs.js";
+import { MAX_UPLOAD_BYTES, BLOCKED_UPLOAD_TYPES } from "../helpers.js";
 
 export interface UploadDeps {
   bucket: Bucket;
@@ -59,6 +60,16 @@ export async function uploadDocument(
       },
       400,
     );
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return c.json(
+      { error: `El archivo supera el máximo de ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB` },
+      400,
+    );
+  }
+  if (file.type && BLOCKED_UPLOAD_TYPES.has(file.type.toLowerCase())) {
+    return c.json({ error: `Tipo de archivo no permitido: ${file.type}` }, 400);
   }
 
   const timestamp = Date.now();

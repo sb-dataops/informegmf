@@ -6,7 +6,6 @@ import { uploadDocument } from "./actions/upload.js";
 import { listDocuments } from "./actions/list.js";
 import { deleteDocument } from "./actions/delete.js";
 import { viewDocument } from "./actions/view.js";
-import { signedUrl } from "./actions/signed-url.js";
 import { EDIT_ROLES, type AppRole } from "../../services/roles.js";
 import type { AuthUser } from "../../middleware/auth.js";
 
@@ -59,12 +58,9 @@ router.all("/", async (c) => {
     if (action === "view") {
       return viewDocument(c, { bucket });
     }
-    if (action === "signed-url") {
-      return signedUrl(c, { bucketName });
-    }
 
     return c.json(
-      { error: "action requerido: upload, list, delete, view, signed-url" },
+      { error: "action requerido: upload, list, delete, view" },
       400,
     );
   } catch (error: unknown) {
