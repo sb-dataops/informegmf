@@ -11,27 +11,45 @@ export async function deleteDocument(
   deps: DeleteDeps,
 ): Promise<Response> {
   const { bucket } = deps;
-  const { id, gcs_path } = await c.req.json();
+  const { id } = await c.req.json();
 
-  if (!id && !gcs_path) {
-    return c.json({ error: "id o gcs_path requerido" }, 400);
-  }
-
-  if (gcs_path) {
-    try {
-      await bucket.file(gcs_path).delete();
-    } catch {
-      // matches original behavior: it does not check the response status
-    }
+  // Se exige `id` y el gcs_path se DERIVA de la DB. Nunca se confía en un gcs_path
+  // enviado por el cliente: sin esto, {gcs_path:"cualquier/objeto"} borraría objetos
+  // arbitrarios del bucket. Un objeto se comparte entre varias filas (una por placa),
+  // así que borramos el objeto una vez y todas las filas que apuntan a ese path.
+  if (!id) {
+    return c.json({ error: "id requerido" }, 400);
   }
 
   const supabase = getAdminClient();
-  const deleteQuery = gcs_path
-    ? supabase.from("documentos").delete().eq("gcs_path", gcs_path)
-    : supabase.from("documentos").delete().eq("id", id);
 
-  const { error } = await deleteQuery;
-  if (error) throw new Error(`DB delete error: ${error.message}`);
+  const { data: row, error: selError } = await supabase
+    .from("documentos")
+    .select("gcs_path")
+    .eq("id", id)
+    .maybeSingle();
+  if (selError) throw new Error(`DB query error: ${selError.message}`);
+  if (!row) {
+    return c.json({ error: "documento no encontrado" }, 404);
+  }
+
+  const canonicalPath = (row as { gcs_path: string | null }).gcs_path;
+
+  if (canonicalPath) {
+    try {
+      await bucket.file(canonicalPath).delete();
+    } catch {
+      // el objeto ya no existe en el bucket: seguimos con el borrado en DB
+    }
+    const { error } = await supabase
+      .from("documentos")
+      .delete()
+      .eq("gcs_path", canonicalPath);
+    if (error) throw new Error(`DB delete error: ${error.message}`);
+  } else {
+    const { error } = await supabase.from("documentos").delete().eq("id", id);
+    if (error) throw new Error(`DB delete error: ${error.message}`);
+  }
 
   return c.json({ success: true });
 }

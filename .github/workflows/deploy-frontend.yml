@@ -11,8 +11,6 @@ on:
       - 'package-lock.json'
       - 'vite.config.ts'
       - 'tailwind.config.ts'
-      - 'firebase.json'
-      - '.firebaserc'
       - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch:
 
@@ -43,7 +41,7 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: informegmf
+          project_id: sbc-lovable
 
       - name: Install dependencies
         run: npm ci
@@ -55,16 +53,31 @@ jobs:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
         run: npm run build
 
-      - name: Deploy a Firebase Hosting
-        env:
-          # Las APIs de Firebase estan habilitadas en informegmf (no en sbc-lovable
-          # donde vive el SA). Sin esto, firebase-tools usa sbc-lovable como user
-          # project para billing/quota y falla con SERVICE_DISABLED.
-          GOOGLE_CLOUD_QUOTA_PROJECT: informegmf
-        run: npx firebase-tools deploy --only hosting --project=informegmf --non-interactive
-
-      - name: Smoke test
+      # El frontend en vivo se sirve del bucket GCS gs://gmf-superbid-frontend detrás
+      # del Load Balancer + Cloud Armor (Fase 6 / Tanda 2). Firebase Hosting quedó
+      # obsoleto. Sin Cloud CDN, los objetos subidos quedan disponibles de inmediato.
+      - name: Deploy al bucket GCS (detrás del LB)
         run: |
-          URL="https://informegmf.web.app/"
-          echo "GET $URL"
-          curl -fsS -o /dev/null -w "HTTP %{http_code}\n" "$URL"
+          set -euo pipefail
+          BUCKET=gs://gmf-superbid-frontend
+          # Sube todo el build preservando estructura (index.html, assets/, favicon, etc.).
+          gcloud storage cp --recursive dist/* "$BUCKET/"
+          # Cache headers: index.html y archivos raíz NO se cachean (para que el usuario
+          # reciba los hashes de assets nuevos); los assets tienen hash en el nombre → cache
+          # inmutable de 1 año.
+          gcloud storage objects update "$BUCKET/index.html" --cache-control="no-cache, max-age=0"
+          gcloud storage objects update --recursive "$BUCKET/assets" \
+            --cache-control="public, max-age=31536000, immutable"
+          for f in favicon.ico placeholder.svg robots.txt; do
+            if [ -f "dist/$f" ]; then
+              gcloud storage objects update "$BUCKET/$f" --cache-control="no-cache, max-age=0"
+            fi
+          done
+
+      - name: Smoke test (objeto subido)
+        run: |
+          # El sitio en vivo (gmf.superbidcolombia.com) está detrás de Cloud Armor; el
+          # runner de CI no está en el whitelist, así que un HTTP hit daría 403. Verificamos
+          # que el index.html quedó subido consultando su metadata (control plane).
+          gcloud storage objects describe gs://gmf-superbid-frontend/index.html \
+            --format='value(name, size, updated, cache_control)'

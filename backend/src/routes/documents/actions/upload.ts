@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { Bucket } from "@google-cloud/storage";
 import { getAdminClient } from "../../../services/supabase.js";
 import { parseJsonRecord } from "../../../services/gcs.js";
+import { MAX_UPLOAD_BYTES, BLOCKED_UPLOAD_TYPES } from "../helpers.js";
 
 export interface UploadDeps {
   bucket: Bucket;
@@ -61,9 +62,23 @@ export async function uploadDocument(
     );
   }
 
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return c.json(
+      { error: `El archivo supera el máximo de ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB` },
+      400,
+    );
+  }
+  if (file.type && BLOCKED_UPLOAD_TYPES.has(file.type.toLowerCase())) {
+    return c.json({ error: `Tipo de archivo no permitido: ${file.type}` }, 400);
+  }
+
   const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const gcsPath = `documentos/${documentoComprador}/${timestamp}_${safeName}`;
+  // Sanear documento_comprador para el path GCS: sin esto, un '/' o '..' sacaría el
+  // objeto del prefijo esperado (o normalizaría el gcs_url en el cliente). La columna
+  // documento_comprador de la DB conserva el valor original (se usa para filtrar list).
+  const safeDoc = documentoComprador.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const gcsPath = `documentos/${safeDoc}/${timestamp}_${safeName}`;
   const fileBuffer = Buffer.from(await file.arrayBuffer());
 
   try {

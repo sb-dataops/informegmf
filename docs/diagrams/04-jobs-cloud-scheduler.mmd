@@ -12,8 +12,8 @@ sequenceDiagram
 
     Note over CS: deadline-alerts<br/>auction-complete
     CS->>SA: 1. firmar OIDC ID token<br/>aud=gmf-api.superbidcolombia.com
-    CS->>CA: 2. POST /jobs/<job><br/>Authorization: Bearer
-    Note over CA: allow GCP scheduler<br/>(o bypass via URL<br/>canónica de Cloud Run)
+    CS->>CA: 2. POST /jobs/<job> (vía LB)<br/>Authorization: Bearer
+    Note over CA: allow /jobs/* por path<br/>(Cloud Run ingress = solo LB)
     CA->>BE: 3. forward
     BE->>BE: 4. oidcMiddleware<br/>Google JWKS + email match
     BE->>DB: 5. query pagos/docs

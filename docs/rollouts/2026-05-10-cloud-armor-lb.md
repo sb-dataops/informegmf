@@ -117,9 +117,31 @@ Validación post-cutover:
 - Backend `https://gmf-api.superbidcolombia.com/health` desde misma IP → **HTTP 403** (mantiene el bloqueo anterior).
 - Browser ve solo `<title>403</title>403 Forbidden` plano, no carga la pantalla de login ni assets.
 
+## Fix 1 — SPA URL rewrite en URL Map (2026-05-13 post-cutover)
+
+Primera validación con VPN reveló que el LB devolvía el bucket listing XML al pedir `/` (el backend bucket NO respeta la config `--web-main-page-suffix` del bucket; tampoco redirige 404 a `/index.html`).
+
+Solución aplicada al URL Map `gmf-superbid-api-url-map` (path matcher `frontend-matcher`):
+
+```yaml
+routeRules:
+- matchRules: [{prefixMatch: /assets/}]    priority: 1   # JS/CSS chunks directos del bucket
+- matchRules: [{fullPathMatch: /favicon.ico}]    priority: 2
+- matchRules: [{fullPathMatch: /placeholder.svg}] priority: 3
+- matchRules: [{fullPathMatch: /robots.txt}]      priority: 4
+- matchRules: [{pathTemplateMatch: /**}]   priority: 100 # SPA catch-all
+  routeAction:
+    urlRewrite:
+      pathTemplateRewrite: /index.html
+```
+
+Resultado: `gmf.superbidcolombia.com/`, `/auth`, `/admin`, `/vehicle/:id`, etc. → todos sirven `index.html` (el SPA carga y React Router maneja el routing in-app). Solo `/assets/*` y los archivos estáticos conocidos pasan directo sin rewrite.
+
+Backend `gmf-api.superbidcolombia.com` no afectado (usa el `defaultService` del URL Map, no este path matcher).
+
 ## Pendientes post-deploy
 
-- [ ] Validación end-to-end con colega conectado al `VPN SUPERBID` (debe poder usar la app completa).
+- [ ] Validación end-to-end con colega conectado al `VPN SUPERBID` (debe poder usar la app completa después del fix SPA).
 - [ ] Borrar custom domain `gmf.superbidcolombia.com` de Firebase Hosting (queda huérfano, no daña). Console: https://console.firebase.google.com → Hosting → Custom domains.
 - [ ] Actualizar GHA `deploy-frontend.yml` para que deploy al bucket GCS en lugar de Firebase Hosting. Hoy hicimos build/upload manual. Trabajo de PR aparte.
 - [ ] Coordinar con Edwin/Samuel (GMF) para que prueben desde una de sus 13 IPs USA — validar que para ellos sí carga.
@@ -158,3 +180,41 @@ Cada paso es reversible:
 - DNS → revertir A record al CNAME original de Cloud Run
 - Cloud Scheduler → revertir target a `gmf-api.superbidcolombia.com`
 - Cloud Armor → mantener en `preview` (no bloquea) o detach del backend service
+
+---
+
+## Tanda 2 — cierre del bypass de ingress (2026-07-11)
+
+**Problema (code-review 2026-05-13, hallazgo #4):** el IP whitelist era **evitable**. Cloud Run tenía `ingress=all` + `allUsers` con `run.invoker`, así que la URL canónica `https://gmf-superbid-api-fzzeqxigma-uc.a.run.app/*` respondía 200 desde cualquier IP, saltándose el LB y Cloud Armor. Causa raíz: la Fase 3 movió Cloud Scheduler a la URL canónica, lo que obligaba a dejar el ingress abierto.
+
+**Solución (Opción A):** restringir el ingress a solo-LB y re-enrutar el scheduler por el LB, permitiendo `/jobs/*` en Cloud Armor (esas rutas ya están protegidas por OIDC a nivel de app).
+
+Fases ejecutadas y verificadas:
+
+- **Fase 0 (código):** `oidcMiddleware` ahora **falla-cerrado** en producción — sin `JOBS_OIDC_AUDIENCE` devuelve 503 en vez de dejar pasar (antes fallaba-abierto; hallazgo #6). Y el smoke test de `deploy-backend.yml` dejó de pegarle a `*.run.app/health` (que ahora está bloqueado): verifica la revisión Ready por control-plane (hallazgo #26). *(Deploya al mergear el PR.)*
+- **Fase 1 (Cloud Armor, `gmf-superbid-api-policy`):**
+  - Regla `500` `allow` con expresión `request.path.matches('^/jobs/.*')` → Cloud Scheduler llega a `/jobs/*` desde cualquier IP; el `oidcMiddleware` (Google JWKS + audience + email del SA) es el control real.
+  - Default rule `2147483647` cambiada de `allow` → `deny-403` (endurecimiento, hallazgo #8). La `2147483646 deny` queda como deny redundante.
+- **Fase 2 (Cloud Scheduler):** ambos jobs repuntados de `*.run.app/jobs/*` → `https://gmf-api.superbidcolombia.com/jobs/*`. La audience OIDC no cambió (`https://gmf-api.superbidcolombia.com`).
+- **Fase 3 (Cloud Run):** `--ingress=internal-and-cloud-load-balancing`. `allUsers`/`run.invoker` se **mantiene** a propósito: es lo que permite que el LB (Serverless NEG) invoque; el control de red es el ingress, no el IAM.
+
+Verificación (desde IP residencial no-whitelisted):
+- `*.run.app/health` (ambos hostnames): antes **200** → ahora **404**. **Bypass cerrado.**
+- LB `/jobs/deadline-alerts` sin token → **401** "Missing OIDC Bearer token" (Cloud Armor deja pasar `/jobs`; la app pide token).
+- LB `/health` y `/fetch-bigquery` desde IP no-whitelisted → **403** (whitelist intacto).
+- LB `/jobs/*` con token OIDC de gmf-scheduler pero **audience incorrecta** → **401 "Invalid OIDC token"** (no "Missing"): prueba que el LB **reenvía el header Authorization** y la app lo valida. Un token con audience correcta (lo que manda Cloud Scheduler) → 200. **E2E verificado sin ejecutar los jobs.**
+
+Rollback de Tanda 2:
+- Ingress → `gcloud run services update gmf-superbid-api --region=us-central1 --ingress=all`
+- Scheduler → repuntar a `*.run.app/jobs/*`
+- Cloud Armor → borrar regla `500`, revertir `2147483647` a `allow`
+
+Pendiente: confirmar el run real de los schedulers (próximas 9 AM Bogotá) revisando logs del LB / Cloud Run.
+
+### Limitación conocida — el SPA del frontend sigue siendo públicamente descargable (hallazgo #22)
+
+El backend bucket `gmf-superbid-frontend` **debe** ser `allUsers:objectViewer` para que el LB lo sirva (así funcionan los backend buckets de Cloud Storage). Consecuencia: `https://storage.googleapis.com/gmf-superbid-frontend/index.html` responde 200 desde cualquier IP, **saltándose** la Edge Policy de Cloud Armor que protege `gmf.superbidcolombia.com`. Verificado 2026-07-12.
+
+Impacto: **bajo**. El contenido es un SPA público (HTML/JS + la anon key de Supabase, que es pública por diseño); no expone datos. El acceso a datos sigue exigiendo (a) sesión válida y (b) IP whitelisted (el API tiene `ingress=solo-LB`). El residual es que alguien fuera del whitelist puede ver que el aplicativo existe y cargar la pantalla de login — exactamente lo que GMF señaló en la Fase 6, pero por la URL directa del bucket.
+
+Fix real (si GMF exige gate total del frontend): servir el SPA desde un **Cloud Run** (servidor estático) con `ingress=internal-and-cloud-load-balancing` detrás del mismo LB, en vez de un backend bucket. Elimina la URL pública del bucket. Es un cambio de arquitectura moderado, no un ajuste de config — pendiente de decisión.

@@ -6,9 +6,16 @@ import { uploadDocument } from "./actions/upload.js";
 import { listDocuments } from "./actions/list.js";
 import { deleteDocument } from "./actions/delete.js";
 import { viewDocument } from "./actions/view.js";
-import { signedUrl } from "./actions/signed-url.js";
+import { EDIT_ROLES, type AppRole } from "../../services/roles.js";
+import type { AuthUser } from "../../middleware/auth.js";
 
-const router = new Hono();
+// requireAnyRole (montado en index.ts) ya garantizó un rol de staff y fijó c.get("roles").
+const router = new Hono<{ Variables: { user: AuthUser; roles: AppRole[] } }>();
+
+// Acciones que MUTAN datos: requieren editor o admin (coincide con `canEdit` del frontend).
+const MUTATION_ACTIONS = new Set(["upload", "delete"]);
+// Acciones solo-admin (diagnóstico que expone SA/bucket/internos).
+const ADMIN_ACTIONS = new Set(["diagnose-permissions"]);
 
 router.all("/", async (c) => {
   try {
@@ -23,6 +30,18 @@ router.all("/", async (c) => {
     });
 
     const action = await parseAction(c);
+
+    // Autorización por-acción (reusa roles ya resueltos por requireAnyRole).
+    const roles = c.get("roles") ?? [];
+    if (ADMIN_ACTIONS.has(action) && !roles.includes("admin")) {
+      return c.json({ error: "No autorizado: requiere rol admin" }, 403);
+    }
+    if (
+      MUTATION_ACTIONS.has(action) &&
+      !roles.some((r) => EDIT_ROLES.includes(r))
+    ) {
+      return c.json({ error: "No autorizado: requiere rol editor o admin" }, 403);
+    }
 
     if (action === "diagnose-permissions") {
       return diagnosePermissions(c, { bucket, bucketName, serviceAccountEmail });
@@ -39,12 +58,9 @@ router.all("/", async (c) => {
     if (action === "view") {
       return viewDocument(c, { bucket });
     }
-    if (action === "signed-url") {
-      return signedUrl(c, { bucketName });
-    }
 
     return c.json(
-      { error: "action requerido: upload, list, delete, view, signed-url" },
+      { error: "action requerido: upload, list, delete, view" },
       400,
     );
   } catch (error: unknown) {

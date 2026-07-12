@@ -15,14 +15,11 @@ flowchart TB
         userSB["Usuarios Superbid<br/>FortiClient VPN obligatoria<br/>(perfil VPN SUPERBID)<br/>IFX 190.60.239.250<br/>Claro 181.48.199.59<br/>(balanceo + failover)"]
     end
 
-    subgraph fb["Firebase project: informegmf"]
-        fh["Firebase Hosting<br/><b>gmf.superbidcolombia.com</b><br/>SPA Vite/React/TS"]
-    end
-
     subgraph gcp_lov["GCP project: sbc-lovable"]
-        ca["Cloud Armor<br/>IP whitelist + deny default<br/><i>(planeado)</i>"]
-        lb["HTTPS Load Balancer<br/>+ Static IP global<br/><i>(planeado)</i>"]
-        cr["Cloud Run<br/><b>gmf-superbid-api</b><br/>Hono + Node 22<br/>us-central1"]
+        ca["Cloud Armor<br/>IP whitelist + deny default<br/>+ allow /jobs/*"]
+        lb["HTTPS Load Balancer<br/>+ Static IP 34.36.21.184"]
+        fh["GCS bucket<br/>gmf-superbid-frontend<br/><b>gmf.superbidcolombia.com</b><br/>SPA Vite/React/TS"]
+        cr["Cloud Run<br/><b>gmf-superbid-api</b><br/>Hono + Node 22<br/>ingress: solo LB"]
         sm["Secret Manager<br/>informegmf-*"]
         sched["Cloud Scheduler<br/>deadline-alerts +<br/>auction-complete<br/>daily 9 AM Bogotá"]
     end
@@ -42,13 +39,13 @@ flowchart TB
         okta["OKTA IdP<br/>GM Financial<br/><i>(planeado)</i>"]
     end
 
-    userGMF -->|HTTPS| fh
-    userSB -->|HTTPS| fh
-    fh -->|"gmf-api.superbidcolombia.com<br/>+ user JWT"| ca
+    userGMF -->|HTTPS| ca
+    userSB -->|HTTPS| ca
     ca --> lb
-    lb -->|Serverless NEG| cr
+    lb -->|"gmf.superbidcolombia.com"| fh
+    lb -->|"gmf-api... Serverless NEG"| cr
 
-    fh -.->|login flow| sauth
+    fh -.->|"login (browser → Supabase)"| sauth
     sauth -.->|SAML| okta
     sauth -->|JWT ES256| fh
 
@@ -59,10 +56,10 @@ flowchart TB
     cr -->|runtime config| sm
     cr -->|send| resend
 
-    sched -->|OIDC ID token<br/>aud=gmf-api...| cr
+    sched -->|"OIDC, vía LB /jobs/*"| lb
 
     classDef planned stroke-dasharray:5 5,stroke:#f59e0b,color:#92400e
-    class ca,lb,okta planned
+    class okta planned
 ```
 
 ### Network — IP whitelist (Cloud Armor)
@@ -88,7 +85,7 @@ flowchart LR
     subgraph policy["Cloud Armor security policy"]
         r1["Rule 1000<br/>allow GMF /32 × 13"]
         r2["Rule 2000<br/>allow FortiGate Superbid<br/>190.60.239.250/32 (IFX)<br/>181.48.199.59/32 (Claro)"]
-        r3["Rule 3000<br/>allow GCP scheduler<br/><i>(o usar URL canónica<br/>de Cloud Run para /jobs/*)</i>"]
+        r3["Rule 500<br/>allow /jobs/*<br/>(OIDC lo gatea)"]
         rd["Default<br/>deny 403"]
     end
 
@@ -150,8 +147,8 @@ sequenceDiagram
 
     Note over CS: deadline-alerts<br/>auction-complete
     CS->>SA: 1. firmar OIDC ID token<br/>aud=gmf-api.superbidcolombia.com
-    CS->>CA: 2. POST /jobs/<job><br/>Authorization: Bearer
-    Note over CA: allow GCP scheduler<br/>(o bypass via URL<br/>canónica de Cloud Run)
+    CS->>CA: 2. POST /jobs/<job> (vía LB)<br/>Authorization: Bearer
+    Note over CA: allow /jobs/* por path<br/>(Cloud Run ingress = solo LB)
     CA->>BE: 3. forward
     BE->>BE: 4. oidcMiddleware<br/>Google JWKS + email match
     BE->>DB: 5. query pagos/docs
@@ -204,9 +201,9 @@ En `sbc-data-int`:
 | Recurso | Detalle |
 |---|---|
 | Artifact Registry | `us-central1-docker.pkg.dev/sbc-lovable/informegmf` (Docker) |
-| Cloud Run service | `gmf-superbid-api` en `us-central1`, min-instances=1, max-instances=5, 512 MiB, 1 CPU |
-| Cloud Run domain mapping | `gmf-api.superbidcolombia.com` → `gmf-superbid-api`, cert managed |
-| Firebase Hosting site | `informegmf.web.app` (default) + `gmf.superbidcolombia.com` (custom; cert SAN multi-tenant Firebase/Fastly emitido por Google Trust Services, válido hasta 2026-08-05; verificado 2026-05-10) |
+| Cloud Run service | `gmf-superbid-api` en `us-central1`, min-instances=1, max-instances=5, 512 MiB, 1 CPU. **Ingress = `internal-and-cloud-load-balancing`** (solo alcanzable por el LB; el domain mapping directo fue borrado en Fase 4b) |
+| Frontend hosting | Bucket GCS `gs://gmf-superbid-frontend` servido por el mismo LB (backend bucket `gmf-superbid-frontend-backend`), host `gmf.superbidcolombia.com`. Firebase Hosting quedó obsoleto (Fase 6) |
+| Load Balancer + Cloud Armor | HTTPS LB global, IP estática `34.36.21.184`, cert Certificate Manager. Policy estándar `gmf-superbid-api-policy` (backend API) + Edge policy `gmf-superbid-edge-policy` (frontend bucket): IP whitelist GMF+Superbid, `/jobs/*` allow por path, default deny-403 |
 | Workload Identity Pool | `projects/604184934021/locations/global/workloadIdentityPools/github` con provider `github` y `attribute_condition = assertion.repository == 'sb-dataops/informegmf'` |
 
 ### Cloud Scheduler jobs
@@ -218,20 +215,22 @@ En `sbc-data-int`:
 
 ## Modelo de auth
 
-| Path | Mecanismo | Validador |
+Dos capas: **red** (Cloud Armor IP whitelist + ingress solo-LB) y **aplicación** (JWT / rol / OIDC). Como Cloud Run tiene `ingress=internal-and-cloud-load-balancing`, la URL canónica `*.run.app` NO es alcanzable directamente — todo pasa por el LB.
+
+| Path | Red (Cloud Armor) | App |
 |---|---|---|
-| `GET /health` | público | — |
-| `GET /api/*` | user JWT de Supabase (ES256) | `authMiddleware` valida vía Supabase JWKS (`https://<ref>.supabase.co/auth/v1/.well-known/jwks.json`); rechaza role=anon |
-| `GET\|POST /fetch-bigquery` | idem | idem |
-| `GET\|POST /gcs-documents` | idem | idem |
-| `POST /jobs/*` | OIDC ID token de Google | `oidcMiddleware` valida vs Google JWKS, comprueba audience y email del SA (Cloud Scheduler emite los tokens con email = `gmf-scheduler@...`) |
+| `GET /health` | solo IP whitelist (vía LB) | público a nivel app |
+| `GET\|POST /fetch-bigquery` | solo IP whitelist | user JWT Supabase (ES256, JWKS) **+ rol de staff** (`requireAnyRole`) |
+| `GET\|POST /gcs-documents` | solo IP whitelist | user JWT + rol; mutaciones (upload/delete) requieren editor/admin; `diagnose` admin |
+| `GET /api/*` | solo IP whitelist | user JWT Supabase (rechaza role=anon) |
+| `POST /jobs/*` | **allow desde cualquier IP** (regla Cloud Armor por path) | OIDC ID token de Google: `oidcMiddleware` valida Google JWKS + audience (`JOBS_OIDC_AUDIENCE`, falla-cerrado en prod) + email del SA `gmf-scheduler@...` |
+
+`authMiddleware` valida el JWT vía Supabase JWKS (`https://<ref>.supabase.co/auth/v1/.well-known/jwks.json`). `requireAnyRole` consulta `public.user_roles` (los roles no viajan en el JWT).
 
 CORS lista (configurada en `backend/env.production.yaml`):
 
 ```
 http://localhost:8080
-https://informegmf.web.app
-https://informegmf.firebaseapp.com
 https://gmf.superbidcolombia.com
 ```
 

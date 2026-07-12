@@ -12,7 +12,7 @@ flowchart LR
     subgraph policy["Cloud Armor security policy"]
         r1["Rule 1000<br/>allow GMF /32 × 13"]
         r2["Rule 2000<br/>allow FortiGate Superbid<br/>190.60.239.250/32 (IFX)<br/>181.48.199.59/32 (Claro)"]
-        r3["Rule 3000<br/>allow GCP scheduler<br/><i>(o usar URL canónica<br/>de Cloud Run para /jobs/*)</i>"]
+        r3["Rule 500<br/>allow /jobs/*<br/>(OIDC lo gatea)"]
         rd["Default<br/>deny 403"]
     end
 

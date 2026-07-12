@@ -89,6 +89,7 @@ export async function auctionCompleteHandler(c: Context): Promise<Response> {
         totalLotes: sub.total,
       });
 
+      let sentForSubasta = 0;
       for (const r of validRecipients) {
         try {
           await sendEmail({
@@ -97,6 +98,7 @@ export async function auctionCompleteHandler(c: Context): Promise<Response> {
             html,
           });
           emailsSent++;
+          sentForSubasta++;
         } catch (e) {
           errors.push(
             `${sub.subasta} -> ${r.email}: ${e instanceof Error ? e.message : String(e)}`,
@@ -104,11 +106,22 @@ export async function auctionCompleteHandler(c: Context): Promise<Response> {
         }
       }
 
-      // Marca como notificada incluso si fallaron envíos parciales (evitar reintentos masivos)
-      await supabase.from("subasta_notificada").insert({
-        subasta: sub.subasta,
-        total_placas: sub.total,
-      });
+      // Solo marcar notificada si al menos un envío tuvo éxito (o no hay destinatarios).
+      // Si fallaron TODOS los envíos, NO se marca -> el próximo run reintenta (antes se
+      // marcaba siempre, dejando a los usuarios sin notificación permanentemente).
+      // El insert va en try/catch para que un fallo (p. ej. carrera) no aborte el resto.
+      if (sentForSubasta > 0 || validRecipients.length === 0) {
+        try {
+          await supabase.from("subasta_notificada").insert({
+            subasta: sub.subasta,
+            total_placas: sub.total,
+          });
+        } catch (e) {
+          errors.push(
+            `subasta_notificada ${sub.subasta}: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+      }
     }
 
     return c.json({
