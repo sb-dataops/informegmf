@@ -46,8 +46,14 @@ jobs:
             --project=sbc-lovable \
             backend/
 
-      - name: Smoke test /health
+      - name: Smoke test (revisión Ready)
         run: |
-          URL="https://gmf-superbid-api-604184934021.us-central1.run.app/health"
-          echo "GET $URL"
-          curl -fsS -w "\nHTTP %{http_code}\n" "$URL"
+          # El servicio tiene ingress restringido (solo Load Balancer); no se puede
+          # hacer un HTTP hit directo a *.run.app. Verificamos vía control plane que la
+          # revisión recién creada quedó como la última Ready (deploy exitoso).
+          DESC() { gcloud run services describe gmf-superbid-api \
+            --region=us-central1 --project=sbc-lovable --format="value($1)"; }
+          CREATED="$(DESC status.latestCreatedRevisionName)"
+          READY="$(DESC status.latestReadyRevisionName)"
+          echo "latestCreated=$CREATED  latestReady=$READY"
+          test -n "$READY" && test "$CREATED" = "$READY"

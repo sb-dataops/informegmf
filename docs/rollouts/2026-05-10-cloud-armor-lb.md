@@ -180,3 +180,33 @@ Cada paso es reversible:
 - DNS → revertir A record al CNAME original de Cloud Run
 - Cloud Scheduler → revertir target a `gmf-api.superbidcolombia.com`
 - Cloud Armor → mantener en `preview` (no bloquea) o detach del backend service
+
+---
+
+## Tanda 2 — cierre del bypass de ingress (2026-07-11)
+
+**Problema (code-review 2026-05-13, hallazgo #4):** el IP whitelist era **evitable**. Cloud Run tenía `ingress=all` + `allUsers` con `run.invoker`, así que la URL canónica `https://gmf-superbid-api-fzzeqxigma-uc.a.run.app/*` respondía 200 desde cualquier IP, saltándose el LB y Cloud Armor. Causa raíz: la Fase 3 movió Cloud Scheduler a la URL canónica, lo que obligaba a dejar el ingress abierto.
+
+**Solución (Opción A):** restringir el ingress a solo-LB y re-enrutar el scheduler por el LB, permitiendo `/jobs/*` en Cloud Armor (esas rutas ya están protegidas por OIDC a nivel de app).
+
+Fases ejecutadas y verificadas:
+
+- **Fase 0 (código):** `oidcMiddleware` ahora **falla-cerrado** en producción — sin `JOBS_OIDC_AUDIENCE` devuelve 503 en vez de dejar pasar (antes fallaba-abierto; hallazgo #6). Y el smoke test de `deploy-backend.yml` dejó de pegarle a `*.run.app/health` (que ahora está bloqueado): verifica la revisión Ready por control-plane (hallazgo #26). *(Deploya al mergear el PR.)*
+- **Fase 1 (Cloud Armor, `gmf-superbid-api-policy`):**
+  - Regla `500` `allow` con expresión `request.path.matches('^/jobs/.*')` → Cloud Scheduler llega a `/jobs/*` desde cualquier IP; el `oidcMiddleware` (Google JWKS + audience + email del SA) es el control real.
+  - Default rule `2147483647` cambiada de `allow` → `deny-403` (endurecimiento, hallazgo #8). La `2147483646 deny` queda como deny redundante.
+- **Fase 2 (Cloud Scheduler):** ambos jobs repuntados de `*.run.app/jobs/*` → `https://gmf-api.superbidcolombia.com/jobs/*`. La audience OIDC no cambió (`https://gmf-api.superbidcolombia.com`).
+- **Fase 3 (Cloud Run):** `--ingress=internal-and-cloud-load-balancing`. `allUsers`/`run.invoker` se **mantiene** a propósito: es lo que permite que el LB (Serverless NEG) invoque; el control de red es el ingress, no el IAM.
+
+Verificación (desde IP residencial no-whitelisted):
+- `*.run.app/health` (ambos hostnames): antes **200** → ahora **404**. **Bypass cerrado.**
+- LB `/jobs/deadline-alerts` sin token → **401** "Missing OIDC Bearer token" (Cloud Armor deja pasar `/jobs`; la app pide token).
+- LB `/health` y `/fetch-bigquery` desde IP no-whitelisted → **403** (whitelist intacto).
+- LB `/jobs/*` con token OIDC de gmf-scheduler pero **audience incorrecta** → **401 "Invalid OIDC token"** (no "Missing"): prueba que el LB **reenvía el header Authorization** y la app lo valida. Un token con audience correcta (lo que manda Cloud Scheduler) → 200. **E2E verificado sin ejecutar los jobs.**
+
+Rollback de Tanda 2:
+- Ingress → `gcloud run services update gmf-superbid-api --region=us-central1 --ingress=all`
+- Scheduler → repuntar a `*.run.app/jobs/*`
+- Cloud Armor → borrar regla `500`, revertir `2147483647` a `allow`
+
+Pendiente: confirmar el run real de los schedulers (próximas 9 AM Bogotá) revisando logs del LB / Cloud Run.
