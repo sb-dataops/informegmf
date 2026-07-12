@@ -210,3 +210,11 @@ Rollback de Tanda 2:
 - Cloud Armor → borrar regla `500`, revertir `2147483647` a `allow`
 
 Pendiente: confirmar el run real de los schedulers (próximas 9 AM Bogotá) revisando logs del LB / Cloud Run.
+
+### Limitación conocida — el SPA del frontend sigue siendo públicamente descargable (hallazgo #22)
+
+El backend bucket `gmf-superbid-frontend` **debe** ser `allUsers:objectViewer` para que el LB lo sirva (así funcionan los backend buckets de Cloud Storage). Consecuencia: `https://storage.googleapis.com/gmf-superbid-frontend/index.html` responde 200 desde cualquier IP, **saltándose** la Edge Policy de Cloud Armor que protege `gmf.superbidcolombia.com`. Verificado 2026-07-12.
+
+Impacto: **bajo**. El contenido es un SPA público (HTML/JS + la anon key de Supabase, que es pública por diseño); no expone datos. El acceso a datos sigue exigiendo (a) sesión válida y (b) IP whitelisted (el API tiene `ingress=solo-LB`). El residual es que alguien fuera del whitelist puede ver que el aplicativo existe y cargar la pantalla de login — exactamente lo que GMF señaló en la Fase 6, pero por la URL directa del bucket.
+
+Fix real (si GMF exige gate total del frontend): servir el SPA desde un **Cloud Run** (servidor estático) con `ingress=internal-and-cloud-load-balancing` detrás del mismo LB, en vez de un backend bucket. Elimina la URL pública del bucket. Es un cambio de arquitectura moderado, no un ajuste de config — pendiente de decisión.
